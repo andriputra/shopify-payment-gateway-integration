@@ -3,7 +3,7 @@ import { z } from "zod";
 import { StoreConfigRepository } from "../storage/store-config-repo";
 import { SupportedProvider } from "../types";
 
-const providerEnum = z.enum(["xendit", "midtrans", "custom"] as const);
+const providerEnum = z.enum(["xendit", "midtrans", "sandbox", "custom"] as const);
 
 const saveConfigSchema = z.object({
   shop: z.string().min(3),

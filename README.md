@@ -8,7 +8,7 @@ Starter backend + frontend sederhana untuk integrasi payment gateway di Shopify 
 4. Provider kirim webhook status pembayaran
 5. Bridge kembalikan URL redirect ke halaman sukses Shopify
 
-Saat ini provider bawaan: `xendit` dan `midtrans`. Arsitekturnya pluggable sehingga provider lain bisa ditambahkan cepat.
+Saat ini provider bawaan: `xendit`, `midtrans`, dan `sandbox` (tanpa akun provider). Arsitekturnya pluggable sehingga provider lain bisa ditambahkan cepat.
 
 ## UI Konfigurasi
 
@@ -22,6 +22,14 @@ Halaman ini menyediakan form untuk:
 - Input API key / API secret
 - Input redirect URL setelah pembayaran sukses
 - Input webhook URL
+
+### Demo Presentasi (tanpa akun gateway)
+
+1. Pilih provider `sandbox` di UI.
+2. Simpan konfigurasi merchant.
+3. Klik tombol **Create Test Checkout**.
+4. Tab simulator akan terbuka, klik **Pay Success** atau **Pay Failed**.
+5. Hasil status pembayaran akan tampil dan jika sukses akan redirect ke URL sukses.
 
 ## Tech Stack
 
@@ -86,6 +94,12 @@ APP_SHARED_SECRET=replace_with_random_secret
   "returnUrl": "https://contoh-shop.myshopify.com/orders/1001"
 }
 ```
+
+Jika `provider = "sandbox"`, response `paymentUrl` akan mengarah ke halaman simulasi:
+
+`/sandbox/pay?shop=...&orderId=...`
+
+Di halaman itu ada tombol **Pay Success** dan **Pay Failed** untuk mengetes webhook + redirect URL.
 
 Response:
 

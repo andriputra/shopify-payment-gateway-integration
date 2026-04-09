@@ -5,7 +5,7 @@ import { SupportedProvider } from "../types";
 
 const createCheckoutSchema = z.object({
   shop: z.string().min(3),
-  provider: z.enum(["xendit", "midtrans", "custom"] as const),
+  provider: z.enum(["xendit", "midtrans", "sandbox", "custom"] as const),
   amount: z.number().positive(),
   currency: z.string().length(3),
   orderId: z.string().min(1),

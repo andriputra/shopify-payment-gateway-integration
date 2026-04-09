@@ -35,14 +35,28 @@ export class StoreConfigRepository {
   }
 
   private readAll(): StoreConfigMap {
-    const content = fs.readFileSync(this.filePath, "utf8");
-    if (!content.trim()) {
-      return {};
+    this.ensureFile();
+    try {
+      const content = fs.readFileSync(this.filePath, "utf8");
+      if (!content.trim()) {
+        return {};
+      }
+      return JSON.parse(content) as StoreConfigMap;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        this.ensureFile();
+        return {};
+      }
+      throw error;
     }
-    return JSON.parse(content) as StoreConfigMap;
   }
 
   private writeAll(data: StoreConfigMap): void {
+    this.ensureFile();
     fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2));
   }
 }

@@ -41,6 +41,7 @@
                 >
                   <option value="xendit">Xendit</option>
                   <option value="midtrans">Midtrans</option>
+                  <option value="sandbox">Sandbox (No Account)</option>
                   <option value="custom">Custom</option>
                 </select>
               </label>
@@ -122,6 +123,41 @@
       </div>
 
       <section class="mt-6 rounded-2xl bg-slate-950 p-6 shadow-sm ring-1 ring-slate-800">
+        <h2 class="mb-3 text-lg font-semibold text-white">Sandbox Demo Checkout</h2>
+        <div class="mb-5 grid gap-3 md:grid-cols-4">
+          <input
+            id="checkoutOrderId"
+            type="text"
+            placeholder="ORDER-DEMO-001"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+          />
+          <input
+            id="checkoutAmount"
+            type="number"
+            min="1"
+            value="125000"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+          />
+          <input
+            id="checkoutCurrency"
+            type="text"
+            value="IDR"
+            maxlength="3"
+            class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-blue-400"
+          />
+          <button
+            id="createCheckoutBtn"
+            type="button"
+            class="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          >
+            Create Test Checkout
+          </button>
+        </div>
+
+        <p id="checkoutHint" class="mb-4 text-xs text-slate-400">
+          Tips: pilih provider <strong>sandbox</strong>, simpan konfigurasi dulu, lalu klik tombol di atas.
+        </p>
+
         <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>
         <pre id="result" class="overflow-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-200">{}</pre>
       </section>

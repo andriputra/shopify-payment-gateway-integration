@@ -2,6 +2,8 @@ const form = document.getElementById("configForm");
 const resultEl = document.getElementById("result");
 const loadBtn = document.getElementById("loadConfigBtn");
 const lookupShopInput = document.getElementById("lookupShop");
+const createCheckoutBtn = document.getElementById("createCheckoutBtn");
+const checkoutHintEl = document.getElementById("checkoutHint");
 
 function showResult(data) {
   resultEl.textContent = JSON.stringify(data, null, 2);
@@ -50,5 +52,51 @@ async function loadConfig() {
   }
 }
 
+async function createDemoCheckout() {
+  const shop = document.getElementById("shop").value.trim();
+  const provider = document.getElementById("provider").value;
+  const orderId = document.getElementById("checkoutOrderId").value.trim() || `ORDER-${Date.now()}`;
+  const amountRaw = Number(document.getElementById("checkoutAmount").value);
+  const currency = document.getElementById("checkoutCurrency").value.trim().toUpperCase() || "IDR";
+  const amount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 125000;
+
+  if (!shop) {
+    showResult({ ok: false, message: "Isi Shop Domain dulu sebelum create checkout." });
+    return;
+  }
+
+  if (provider !== "sandbox") {
+    showResult({
+      ok: false,
+      message: "Untuk presentasi tanpa akun gateway, pilih provider sandbox dulu."
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/payments/checkout/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shop,
+        provider,
+        amount,
+        currency,
+        orderId
+      })
+    });
+    const data = await response.json();
+    showResult(data);
+
+    if (data.ok && data.paymentUrl) {
+      checkoutHintEl.textContent = "Checkout berhasil dibuat. Membuka simulator pembayaran di tab baru...";
+      window.open(data.paymentUrl, "_blank", "noopener,noreferrer");
+    }
+  } catch (error) {
+    showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
+  }
+}
+
 form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
+createCheckoutBtn.addEventListener("click", createDemoCheckout);
