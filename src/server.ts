@@ -4,16 +4,29 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { configRoutes } from "./routes/config";
 import { paymentRoutes } from "./routes/payments";
+import { shopifyAuthRoutes } from "./routes/shopify-auth";
+import { shopifyPaymentSessionRoutes } from "./routes/shopify-payment-session";
+import { shopifyWebhookRoutes } from "./routes/shopify-webhooks";
 import { webhookRoutes } from "./routes/webhooks";
 import { PaymentService } from "./services/payment-service";
+import { ShopifyAuthService } from "./services/shopify-auth-service";
+import { ShopifyTokenRepository } from "./storage/shopify-token-repo";
 import { StoreConfigRepository } from "./storage/store-config-repo";
 
 const app = express();
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf);
+    }
+  })
+);
 app.use(express.static(path.resolve(process.cwd(), "public")));
 
 const storeRepo = new StoreConfigRepository();
 const paymentService = new PaymentService(storeRepo);
+const shopifyTokenRepo = new ShopifyTokenRepository();
+const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo);
 
 app.get("/", (_req, res) => {
   res.sendFile(path.resolve(process.cwd(), "public/index.html"));
@@ -108,7 +121,10 @@ app.get("/sandbox/pay", (req, res) => {
 
 app.use("/api/config", configRoutes(storeRepo));
 app.use("/api/payments", paymentRoutes(paymentService));
+app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));
+app.use("/api", shopifyPaymentSessionRoutes());
 app.use("/webhooks", webhookRoutes(paymentService));
+app.use("/webhooks", shopifyWebhookRoutes(shopifyAuthService));
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof ZodError) {

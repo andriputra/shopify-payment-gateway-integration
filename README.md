@@ -18,10 +18,11 @@ Setelah server jalan, buka:
 
 Halaman ini menyediakan form untuk:
 - Input shop domain
-- Pilih provider (Xendit/Midtrans/Custom)
+- Pilih provider (Xendit/Midtrans/Sandbox/Custom)
 - Input API key / API secret
 - Input redirect URL setelah pembayaran sukses
 - Input webhook URL
+- Trigger OAuth install Shopify
 
 ### Demo Presentasi (tanpa akun gateway)
 
@@ -54,7 +55,27 @@ HOST=http://localhost:3000
 SHOPIFY_API_KEY=your_shopify_api_key
 SHOPIFY_API_SECRET=your_shopify_api_secret
 APP_SHARED_SECRET=replace_with_random_secret
+SHOPIFY_SCOPES=read_orders,write_payment_sessions
+SHOPIFY_REDIRECT_PATH=/auth/shopify/callback
 ```
+
+## Shopify Integration Baseline
+
+Project ini sekarang sudah punya fondasi integrasi Shopify:
+
+- OAuth install: `GET /auth/shopify?shop=<shop-domain>`
+- OAuth callback: `GET /auth/shopify/callback`
+- Cek status install/token: `GET /auth/shopify/status/:shop`
+- Payment session style endpoint (sandbox redirect):
+  - `POST /api/shopify/payment-sessions`
+  - `POST /api/shopify/payment-sessions/:id/resolve`
+  - `POST /api/shopify/payment-sessions/:id/reject`
+- Shopify webhook HMAC verification:
+  - `POST /webhooks/shopify/orders-paid`
+
+Token OAuth disimpan lokal di:
+
+- `data/shopify-tokens.json`
 
 ## API Endpoints
 

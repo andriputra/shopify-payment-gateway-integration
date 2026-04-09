@@ -2,3 +2,4 @@ node_modules/
 dist/
 .env
 data/store-configs.json
+data/shopify-tokens.json

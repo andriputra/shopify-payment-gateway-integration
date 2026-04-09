@@ -4,6 +4,8 @@ const loadBtn = document.getElementById("loadConfigBtn");
 const lookupShopInput = document.getElementById("lookupShop");
 const createCheckoutBtn = document.getElementById("createCheckoutBtn");
 const checkoutHintEl = document.getElementById("checkoutHint");
+const connectShopifyBtn = document.getElementById("connectShopifyBtn");
+const oauthShopInput = document.getElementById("oauthShop");
 
 function showResult(data) {
   resultEl.textContent = JSON.stringify(data, null, 2);
@@ -97,6 +99,17 @@ async function createDemoCheckout() {
   }
 }
 
+function connectShopify() {
+  const shop =
+    oauthShopInput.value.trim() || document.getElementById("shop").value.trim() || lookupShopInput.value.trim();
+  if (!shop) {
+    showResult({ ok: false, message: "Isi shop domain dulu untuk OAuth install Shopify." });
+    return;
+  }
+  window.location.href = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
+}
+
 form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
+connectShopifyBtn.addEventListener("click", connectShopify);
