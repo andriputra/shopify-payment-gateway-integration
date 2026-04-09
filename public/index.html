@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopify Payment Gateway Config</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="min-h-screen bg-slate-100 text-slate-800">
+    <main class="mx-auto max-w-5xl px-4 py-8">
+      <header class="mb-8">
+        <h1 class="text-3xl font-bold tracking-tight text-slate-900">Shopify Payment Gateway Integration</h1>
+        <p class="mt-2 text-slate-600">Input credential payment gateway untuk tiap toko Shopify.</p>
+      </header>
+
+      <div class="grid gap-6 lg:grid-cols-3">
+        <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
+          <h2 class="mb-4 text-xl font-semibold text-slate-900">Konfigurasi Merchant</h2>
+
+          <form id="configForm" class="grid gap-4">
+            <label class="grid gap-1 text-sm font-medium text-slate-700">
+              Shop Domain
+              <input
+                id="shop"
+                name="shop"
+                type="text"
+                placeholder="contoh-shop.myshopify.com"
+                required
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Provider
+                <select
+                  id="provider"
+                  name="provider"
+                  required
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="xendit">Xendit</option>
+                  <option value="midtrans">Midtrans</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                API Key
+                <input
+                  id="apiKey"
+                  name="apiKey"
+                  type="text"
+                  placeholder="api_key_provider"
+                  required
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
+
+            <label class="grid gap-1 text-sm font-medium text-slate-700">
+              API Secret (optional)
+              <input
+                id="apiSecret"
+                name="apiSecret"
+                type="text"
+                placeholder="api_secret_provider"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+
+            <label class="grid gap-1 text-sm font-medium text-slate-700">
+              Redirect URL setelah pembayaran sukses
+              <input
+                id="redirectUrlAfterPaid"
+                name="redirectUrlAfterPaid"
+                type="url"
+                placeholder="https://shop.myshopify.com/thank-you"
+                required
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+
+            <label class="grid gap-1 text-sm font-medium text-slate-700">
+              Webhook URL (optional)
+              <input
+                id="webhookUrlAfterPaid"
+                name="webhookUrlAfterPaid"
+                type="url"
+                placeholder="https://domain-anda.com/webhooks/payment/xendit/shop.myshopify.com"
+                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+
+            <button
+              type="submit"
+              class="mt-2 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            >
+              Simpan Konfigurasi
+            </button>
+          </form>
+        </section>
+
+        <aside class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+          <h2 class="mb-4 text-lg font-semibold text-slate-900">Load Konfigurasi</h2>
+          <div class="grid gap-3">
+            <input
+              id="lookupShop"
+              type="text"
+              placeholder="shop.myshopify.com"
+              class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+            <button
+              id="loadConfigBtn"
+              type="button"
+              class="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300"
+            >
+              Load
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      <section class="mt-6 rounded-2xl bg-slate-950 p-6 shadow-sm ring-1 ring-slate-800">
+        <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>
+        <pre id="result" class="overflow-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-200">{}</pre>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
