@@ -30,6 +30,7 @@ export class ShopifyAuthService {
       state
     });
     return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
+    // https://{shop}.myshopify.com/admin/oauth/authorize
   }
 
   async handleOAuthCallback(payload: OAuthCallbackPayload) {
