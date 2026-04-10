@@ -3,10 +3,6 @@
   "buildCommand": "npm run build",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }],
   "functions": {
-    "api/index.js": {
-      "memory": 1024,
-      "maxDuration": 30,
-      "includeFiles": ["dist/**", "public/**"]
-    }
+    "api/*.js": {}
   }
 }
