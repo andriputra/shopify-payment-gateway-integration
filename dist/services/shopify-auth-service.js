@@ -14,14 +14,24 @@ class ShopifyAuthService {
     validateShop(shop) {
         return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
     }
-    buildInstallUrl(shop) {
+    startOAuth(shop) {
         const state = node_crypto_1.default.randomBytes(16).toString("hex");
         stateStore.set(shop, state);
-        const redirectUri = `${env_1.env.host}${env_1.env.shopifyRedirectPath}`;
+        return this.buildInstallUrl(shop, state);
+    }
+    buildInstallUrl(shop, state) {
+        const scopes = env_1.env.shopifyScopes
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .join(",");
+        const redirectPath = env_1.env.shopifyRedirectPath.startsWith("/")
+            ? env_1.env.shopifyRedirectPath
+            : `/${env_1.env.shopifyRedirectPath}`;
         const params = new URLSearchParams({
             client_id: env_1.env.shopifyApiKey,
-            scope: env_1.env.shopifyScopes,
-            redirect_uri: redirectUri,
+            scope: scopes,
+            redirect_uri: `${env_1.env.host.replace(/\/$/, "")}${redirectPath}`,
             state
         });
         return `https://${shop}/admin/oauth/authorize?${params.toString()}`;

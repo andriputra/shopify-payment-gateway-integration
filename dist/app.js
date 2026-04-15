@@ -16,6 +16,8 @@ const shopify_webhooks_1 = require("./routes/shopify-webhooks");
 const webhooks_1 = require("./routes/webhooks");
 const payment_service_1 = require("./services/payment-service");
 const shopify_auth_service_1 = require("./services/shopify-auth-service");
+const shopify_payment_resolve_service_1 = require("./services/shopify-payment-resolve-service");
+const payment_session_context_repo_1 = require("./storage/payment-session-context-repo");
 const shopify_token_repo_1 = require("./storage/shopify-token-repo");
 const store_config_repo_1 = require("./storage/store-config-repo");
 function createApp() {
@@ -31,6 +33,8 @@ function createApp() {
     const paymentService = new payment_service_1.PaymentService(storeRepo);
     const shopifyTokenRepo = new shopify_token_repo_1.ShopifyTokenRepository(node_path_1.default.join(env_1.env.dataDir, "shopify-tokens.json"));
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
+    const sessionContextRepo = new payment_session_context_repo_1.PaymentSessionContextRepository(node_path_1.default.join(env_1.env.dataDir, "payment-session-contexts.json"));
+    const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
     app.get("/", (_req, res) => {
         res.sendFile(node_path_1.default.join(publicDir, "index.html"));
     });
@@ -120,8 +124,15 @@ function createApp() {
     app.use("/api/config", (0, config_1.configRoutes)(storeRepo));
     app.use("/api/payments", (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
-    app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)());
-    app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService));
+    app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
+        paymentService,
+        storeRepo,
+        sessionContextRepo
+    }));
+    app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService, {
+        sessionContextRepo,
+        paymentResolve: shopifyPaymentResolveService
+    }));
     app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService));
     app.use((error, _req, res, _next) => {
         if (error instanceof zod_1.ZodError) {

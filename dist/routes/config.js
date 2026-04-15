@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.configRoutes = configRoutes;
 const express_1 = require("express");
 const zod_1 = require("zod");
-const providerEnum = zod_1.z.enum(["xendit", "midtrans", "sandbox", "custom"]);
+const providerEnum = zod_1.z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"]);
 const saveConfigSchema = zod_1.z.object({
     shop: zod_1.z.string().min(3),
     provider: providerEnum,

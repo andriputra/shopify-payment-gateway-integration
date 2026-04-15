@@ -3,10 +3,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProvider = getProvider;
 const midtrans_1 = require("./midtrans");
 const sandbox_1 = require("./sandbox");
+const swipe_1 = require("./swipe");
 const xendit_1 = require("./xendit");
 const providers = new Map([
     [xendit_1.xenditProvider.id, xendit_1.xenditProvider],
     [midtrans_1.midtransProvider.id, midtrans_1.midtransProvider],
+    [swipe_1.swipeProvider.id, swipe_1.swipeProvider],
     [sandbox_1.sandboxProvider.id, sandbox_1.sandboxProvider]
 ]);
 function getProvider(providerId) {

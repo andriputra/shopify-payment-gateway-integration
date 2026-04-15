@@ -1,47 +1,97 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shopifyPaymentSessionRoutes = shopifyPaymentSessionRoutes;
+const node_crypto_1 = __importDefault(require("node:crypto"));
 const express_1 = require("express");
 const zod_1 = require("zod");
-const env_1 = require("../config/env");
 const createSessionSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
+    gid: zod_1.z.string().optional(),
     shop: zod_1.z.string().min(3),
-    amount: zod_1.z.number().positive(),
-    currency: zod_1.z.string().length(3),
-    orderId: zod_1.z.string().min(1)
+    amount: zod_1.z.coerce.number().positive(),
+    currency: zod_1.z.string().min(3).max(3).transform((c) => c.toUpperCase()),
+    orderId: zod_1.z.string().min(1).optional(),
+    customer: zod_1.z
+        .object({
+        email: zod_1.z.string().email().optional()
+    })
+        .optional()
 });
-function shopifyPaymentSessionRoutes() {
+function normalizeShop(domain) {
+    let s = domain.trim().toLowerCase();
+    if (s && !s.endsWith(".myshopify.com")) {
+        s = `${s}.myshopify.com`;
+    }
+    return s;
+}
+function shopifyPaymentSessionRoutes(deps) {
     const router = (0, express_1.Router)();
-    router.post("/shopify/payment-sessions", (req, res) => {
-        const input = createSessionSchema.parse(req.body);
-        const sessionId = input.id ?? `ps_${Date.now()}`;
-        const params = new URLSearchParams({
-            shop: input.shop,
-            orderId: input.orderId,
-            amount: String(input.amount),
-            currency: input.currency,
-            sessionId
-        });
-        return res.status(201).json({
-            id: sessionId,
-            status: "pending",
-            next_action: {
-                redirect_url: `${env_1.env.host}/sandbox/pay?${params.toString()}`
+    const { paymentService, storeRepo, sessionContextRepo } = deps;
+    router.post("/shopify/payment-sessions", async (req, res, next) => {
+        try {
+            const raw = createSessionSchema.parse(req.body);
+            const shop = normalizeShop(raw.shop);
+            const store = storeRepo.get(shop);
+            if (!store) {
+                return res.status(400).json({
+                    ok: false,
+                    message: `Belum ada konfigurasi untuk ${shop}. Simpan konfigurasi merchant (provider + credential) di halaman admin app.`
+                });
             }
-        });
+            const paymentSessionGid = String(raw.id ?? raw.gid ?? "").trim();
+            const orderRef = raw.orderId?.trim() ||
+                (paymentSessionGid
+                    ? `ps_${node_crypto_1.default.createHash("sha256").update(paymentSessionGid).digest("hex").slice(0, 24)}`
+                    : `ps_${Date.now()}`);
+            if (paymentSessionGid) {
+                sessionContextRepo.save(orderRef, {
+                    shop,
+                    paymentSessionId: paymentSessionGid,
+                    createdAt: new Date().toISOString()
+                });
+            }
+            const result = await paymentService.createCheckout({
+                shop,
+                provider: store.provider,
+                amount: raw.amount,
+                currency: raw.currency,
+                orderId: orderRef,
+                customerEmail: raw.customer?.email,
+                returnUrl: store.redirectUrlAfterPaid
+            });
+            const sessionId = raw.id ?? `ps_${Date.now()}`;
+            return res.status(201).json({
+                payment_session: {
+                    id: sessionId,
+                    state: "pending",
+                    next_action: {
+                        redirect_url: result.paymentUrl
+                    }
+                }
+            });
+        }
+        catch (error) {
+            next(error);
+        }
     });
     router.post("/shopify/payment-sessions/:id/resolve", (req, res) => {
         return res.json({
-            id: req.params.id,
-            status: "resolved",
+            payment_session: {
+                id: req.params.id,
+                state: "resolved"
+            },
             detail: req.body ?? {}
         });
     });
     router.post("/shopify/payment-sessions/:id/reject", (req, res) => {
         return res.json({
-            id: req.params.id,
-            status: "rejected",
+            payment_session: {
+                id: req.params.id,
+                state: "rejected"
+            },
             detail: req.body ?? {}
         });
     });
