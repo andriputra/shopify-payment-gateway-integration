@@ -28,6 +28,9 @@ export const env = {
   shopifyApiKey: must("SHOPIFY_API_KEY"),
   shopifyApiSecret: must("SHOPIFY_API_SECRET"),
   appSharedSecret: must("APP_SHARED_SECRET"),
-  shopifyScopes: process.env.SHOPIFY_SCOPES ?? "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory",
-  shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/shopify/callback"
+  shopifyScopes:
+    process.env.SHOPIFY_SCOPES ??
+    "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,write_payment_sessions",
+  shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/shopify/callback",
+  shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01"
 };

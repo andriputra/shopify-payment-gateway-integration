@@ -1,4 +1,4 @@
-export type SupportedProvider = "xendit" | "midtrans" | "sandbox" | "custom";
+export type SupportedProvider = "xendit" | "midtrans" | "swipe" | "sandbox" | "custom";
 
 export type ProviderCredential = {
   apiKey: string;

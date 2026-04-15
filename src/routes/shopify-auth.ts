@@ -18,13 +18,32 @@ function normalizeQuery(query: Record<string, unknown>): Record<string, string> 
 export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: ShopifyTokenRepository): Router {
   const router = Router();
 
+  // router.get("/shopify", (req, res) => {
+  //   const shop = String(req.query.shop ?? "");
+  //   if (!service.validateShop(shop)) {
+  //     return res.status(400).json({ ok: false, message: "Invalid shop domain" });
+  //   }
+
+  //   const installUrl = service.buildInstallUrl(shop);
+  //   return res.redirect(installUrl);
+  // });
   router.get("/shopify", (req, res) => {
-    const shop = String(req.query.shop ?? "");
+    let shop = String(req.query.shop ?? "").trim().toLowerCase();
+
+    // 🔥 AUTO FIX kalau user cuma masukin subdomain
+    if (shop && !shop.endsWith(".myshopify.com")) {
+      shop = `${shop}.myshopify.com`;
+    }
+
     if (!service.validateShop(shop)) {
       return res.status(400).json({ ok: false, message: "Invalid shop domain" });
     }
 
-    const installUrl = service.buildInstallUrl(shop);
+    const installUrl = service.startOAuth(shop);
+
+    console.log("FIXED SHOP:", shop);
+    console.log("INSTALL URL:", installUrl);
+
     return res.redirect(installUrl);
   });
 

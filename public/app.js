@@ -14,15 +14,32 @@ function showResult(data) {
 async function saveConfig(event) {
   event.preventDefault();
 
+  const provider = document.getElementById("provider").value;
+  const credentials = {
+    apiKey: document.getElementById("apiKey").value.trim(),
+    apiSecret: document.getElementById("apiSecret").value.trim() || undefined
+  };
+
+  if (provider === "swipe") {
+    const swipeBase = document.getElementById("swipeApiBaseUrl").value.trim();
+    const swipePath = document.getElementById("swipeCreatePath").value.trim();
+    if (swipeBase || swipePath) {
+      credentials.extra = {};
+      if (swipeBase) {
+        credentials.extra.apiBaseUrl = swipeBase.replace(/\/$/, "");
+      }
+      if (swipePath) {
+        credentials.extra.createPath = swipePath.startsWith("/") ? swipePath : `/${swipePath}`;
+      }
+    }
+  }
+
   const payload = {
     shop: document.getElementById("shop").value.trim(),
-    provider: document.getElementById("provider").value,
+    provider,
     redirectUrlAfterPaid: document.getElementById("redirectUrlAfterPaid").value.trim(),
     webhookUrlAfterPaid: document.getElementById("webhookUrlAfterPaid").value.trim() || undefined,
-    credentials: {
-      apiKey: document.getElementById("apiKey").value.trim(),
-      apiSecret: document.getElementById("apiSecret").value.trim() || undefined
-    }
+    credentials
   };
 
   try {
@@ -67,14 +84,6 @@ async function createDemoCheckout() {
     return;
   }
 
-  if (provider !== "sandbox") {
-    showResult({
-      ok: false,
-      message: "Untuk presentasi tanpa akun gateway, pilih provider sandbox dulu."
-    });
-    return;
-  }
-
   try {
     const response = await fetch("/api/payments/checkout/create", {
       method: "POST",
@@ -91,8 +100,10 @@ async function createDemoCheckout() {
     showResult(data);
 
     if (data.ok && data.paymentUrl) {
-      checkoutHintEl.textContent = "Checkout berhasil dibuat. Membuka simulator pembayaran di tab baru...";
+      checkoutHintEl.textContent = "Checkout dibuat. Membuka halaman pembayaran di tab baru…";
       window.open(data.paymentUrl, "_blank", "noopener,noreferrer");
+    } else if (data.ok) {
+      checkoutHintEl.textContent = "Permintaan pembayaran berhasil (tanpa URL redirect).";
     }
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
@@ -113,3 +124,17 @@ form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
 connectShopifyBtn.addEventListener("click", connectShopify);
+
+
+const providerSelect = document.getElementById("provider");
+const customFields = document.getElementById("customFields");
+const swipeFields = document.getElementById("swipeFields");
+
+function syncProviderPanels() {
+  const provider = providerSelect.value;
+  customFields.classList.toggle("hidden", provider !== "custom");
+  swipeFields.classList.toggle("hidden", provider !== "swipe");
+}
+
+providerSelect.addEventListener("change", syncProviderPanels);
+syncProviderPanels();

@@ -1,50 +1,110 @@
+import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
-import { env } from "../config/env";
+import { PaymentService } from "../services/payment-service";
+import { PaymentSessionContextRepository } from "../storage/payment-session-context-repo";
+import { StoreConfigRepository } from "../storage/store-config-repo";
+import { SupportedProvider } from "../types";
 
 const createSessionSchema = z.object({
   id: z.string().optional(),
+  gid: z.string().optional(),
   shop: z.string().min(3),
-  amount: z.number().positive(),
-  currency: z.string().length(3),
-  orderId: z.string().min(1)
+  amount: z.coerce.number().positive(),
+  currency: z.string().min(3).max(3).transform((c) => c.toUpperCase()),
+  orderId: z.string().min(1).optional(),
+  customer: z
+    .object({
+      email: z.string().email().optional()
+    })
+    .optional()
 });
 
-export function shopifyPaymentSessionRoutes(): Router {
+function normalizeShop(domain: string): string {
+  let s = domain.trim().toLowerCase();
+  if (s && !s.endsWith(".myshopify.com")) {
+    s = `${s}.myshopify.com`;
+  }
+  return s;
+}
+
+export function shopifyPaymentSessionRoutes(deps: {
+  paymentService: PaymentService;
+  storeRepo: StoreConfigRepository;
+  sessionContextRepo: PaymentSessionContextRepository;
+}): Router {
   const router = Router();
+  const { paymentService, storeRepo, sessionContextRepo } = deps;
 
-  router.post("/shopify/payment-sessions", (req, res) => {
-    const input = createSessionSchema.parse(req.body);
-    const sessionId = input.id ?? `ps_${Date.now()}`;
-    const params = new URLSearchParams({
-      shop: input.shop,
-      orderId: input.orderId,
-      amount: String(input.amount),
-      currency: input.currency,
-      sessionId
-    });
-
-    return res.status(201).json({
-      id: sessionId,
-      status: "pending",
-      next_action: {
-        redirect_url: `${env.host}/sandbox/pay?${params.toString()}`
+  router.post("/shopify/payment-sessions", async (req, res, next) => {
+    try {
+      const raw = createSessionSchema.parse(req.body);
+      const shop = normalizeShop(raw.shop);
+      const store = storeRepo.get(shop);
+      if (!store) {
+        return res.status(400).json({
+          ok: false,
+          message: `Belum ada konfigurasi untuk ${shop}. Simpan konfigurasi merchant (provider + credential) di halaman admin app.`
+        });
       }
-    });
+
+      const paymentSessionGid = String(raw.id ?? raw.gid ?? "").trim();
+      const orderRef =
+        raw.orderId?.trim() ||
+        (paymentSessionGid
+          ? `ps_${crypto.createHash("sha256").update(paymentSessionGid).digest("hex").slice(0, 24)}`
+          : `ps_${Date.now()}`);
+
+      if (paymentSessionGid) {
+        sessionContextRepo.save(orderRef, {
+          shop,
+          paymentSessionId: paymentSessionGid,
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      const result = await paymentService.createCheckout({
+        shop,
+        provider: store.provider as SupportedProvider,
+        amount: raw.amount,
+        currency: raw.currency,
+        orderId: orderRef,
+        customerEmail: raw.customer?.email,
+        returnUrl: store.redirectUrlAfterPaid
+      });
+
+      const sessionId = raw.id ?? `ps_${Date.now()}`;
+
+      return res.status(201).json({
+        payment_session: {
+          id: sessionId,
+          state: "pending",
+          next_action: {
+            redirect_url: result.paymentUrl
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   router.post("/shopify/payment-sessions/:id/resolve", (req, res) => {
     return res.json({
-      id: req.params.id,
-      status: "resolved",
+      payment_session: {
+        id: req.params.id,
+        state: "resolved"
+      },
       detail: req.body ?? {}
     });
   });
 
   router.post("/shopify/payment-sessions/:id/reject", (req, res) => {
     return res.json({
-      id: req.params.id,
-      status: "rejected",
+      payment_session: {
+        id: req.params.id,
+        state: "rejected"
+      },
       detail: req.body ?? {}
     });
   });

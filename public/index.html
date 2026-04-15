@@ -51,6 +51,7 @@
                 >
                   <option value="xendit">Xendit</option>
                   <option value="midtrans">Midtrans</option>
+                  <option value="swipe">Swipe (swipe.co.id)</option>
                   <option value="sandbox">Sandbox (No Account)</option>
                   <option value="custom">Custom</option>
                 </select>
@@ -66,6 +67,61 @@
                   required
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
+              </label>
+            </div>
+
+            <div id="swipeFields" class="hidden grid gap-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+              <p class="text-xs text-amber-900">
+                Isi dari dokumen / Postman Swipe. Header <code class="rounded bg-amber-100 px-1">Authorization</code> memakai
+                Merchant ID (simpan di API Key). Path &amp; body request bisa disesuaikan di server jika API Anda berbeda.
+              </p>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Swipe API Base URL (credentials.extra.apiBaseUrl)
+                <input
+                  id="swipeApiBaseUrl"
+                  type="url"
+                  placeholder="https://api… (tanpa slash akhir)"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Swipe create path (credentials.extra.createPath)
+                <input
+                  id="swipeCreatePath"
+                  type="text"
+                  placeholder="/v1/payments"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+            </div>
+
+            <div id="customFields" class="hidden grid gap-4">
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Base URL API
+                <input id="baseUrl" type="text" placeholder="https://api.payment.com" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+              </label>
+            
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Endpoint Charge
+                <input id="chargeEndpoint" type="text" placeholder="/v1/charge" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+              </label>
+            
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                HTTP Method
+                <select id="httpMethod" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                </select>
+              </label>
+            
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Signature Key
+                <input id="signatureKey" type="text" placeholder="secret_signature" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+              </label>
+            
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Custom Headers (JSON)
+                <textarea id="customHeaders" placeholder='{"Authorization":"Bearer xxx"}' class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"></textarea>
               </label>
             </div>
 

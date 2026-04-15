@@ -19,18 +19,29 @@ export class ShopifyAuthService {
     return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
   }
 
-  buildInstallUrl(shop: string): string {
+  startOAuth(shop: string): string {
     const state = crypto.randomBytes(16).toString("hex");
     stateStore.set(shop, state);
-    const redirectUri = `${env.host}${env.shopifyRedirectPath}`;
+    return this.buildInstallUrl(shop, state);
+  }
+
+  buildInstallUrl(shop: string, state: string) {
+    const scopes = env.shopifyScopes
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(",");
+    const redirectPath = env.shopifyRedirectPath.startsWith("/")
+      ? env.shopifyRedirectPath
+      : `/${env.shopifyRedirectPath}`;
     const params = new URLSearchParams({
       client_id: env.shopifyApiKey,
-      scope: env.shopifyScopes,
-      redirect_uri: redirectUri,
+      scope: scopes,
+      redirect_uri: `${env.host.replace(/\/$/, "")}${redirectPath}`,
       state
     });
+
     return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
-    // https://{shop}.myshopify.com/admin/oauth/authorize
   }
 
   async handleOAuthCallback(payload: OAuthCallbackPayload) {

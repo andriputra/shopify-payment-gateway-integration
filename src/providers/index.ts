@@ -1,11 +1,13 @@
 import { PaymentProvider } from "./base";
 import { midtransProvider } from "./midtrans";
 import { sandboxProvider } from "./sandbox";
+import { swipeProvider } from "./swipe";
 import { xenditProvider } from "./xendit";
 
 const providers = new Map<string, PaymentProvider>([
   [xenditProvider.id, xenditProvider],
   [midtransProvider.id, midtransProvider],
+  [swipeProvider.id, swipeProvider],
   [sandboxProvider.id, sandboxProvider]
 ]);
 

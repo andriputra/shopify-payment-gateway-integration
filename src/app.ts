@@ -10,6 +10,8 @@ import { shopifyWebhookRoutes } from "./routes/shopify-webhooks";
 import { webhookRoutes } from "./routes/webhooks";
 import { PaymentService } from "./services/payment-service";
 import { ShopifyAuthService } from "./services/shopify-auth-service";
+import { ShopifyPaymentResolveService } from "./services/shopify-payment-resolve-service";
+import { PaymentSessionContextRepository } from "./storage/payment-session-context-repo";
 import { ShopifyTokenRepository } from "./storage/shopify-token-repo";
 import { StoreConfigRepository } from "./storage/store-config-repo";
 
@@ -30,6 +32,10 @@ export function createApp(): express.Application {
   const paymentService = new PaymentService(storeRepo);
   const shopifyTokenRepo = new ShopifyTokenRepository(path.join(env.dataDir, "shopify-tokens.json"));
   const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo);
+  const sessionContextRepo = new PaymentSessionContextRepository(
+    path.join(env.dataDir, "payment-session-contexts.json")
+  );
+  const shopifyPaymentResolveService = new ShopifyPaymentResolveService(shopifyTokenRepo);
 
   app.get("/", (_req, res) => {
     res.sendFile(path.join(publicDir, "index.html"));
@@ -125,8 +131,21 @@ export function createApp(): express.Application {
   app.use("/api/config", configRoutes(storeRepo));
   app.use("/api/payments", paymentRoutes(paymentService));
   app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));
-  app.use("/api", shopifyPaymentSessionRoutes());
-  app.use("/webhooks", webhookRoutes(paymentService));
+  app.use(
+    "/api",
+    shopifyPaymentSessionRoutes({
+      paymentService,
+      storeRepo,
+      sessionContextRepo
+    })
+  );
+  app.use(
+    "/webhooks",
+    webhookRoutes(paymentService, {
+      sessionContextRepo,
+      paymentResolve: shopifyPaymentResolveService
+    })
+  );
   app.use("/webhooks", shopifyWebhookRoutes(shopifyAuthService));
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
