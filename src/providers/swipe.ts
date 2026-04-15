@@ -22,6 +22,49 @@ function swipeCreatePath(store: StoreConfig): string {
   return path.startsWith("/") ? path : `/${path}`;
 }
 
+function swipeEndpointUrl(store: StoreConfig): string {
+  const base = swipeBaseUrl(store);
+  const rawPath = swipeCreatePath(store).trim();
+  const normalized = rawPath.startsWith("/http://") || rawPath.startsWith("/https://")
+    ? rawPath.slice(1)
+    : rawPath;
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return normalized;
+  }
+  return `${base}${normalized}`;
+}
+
+function requiredSwipeExtra(store: StoreConfig, key: string, label: string): string {
+  const value = store.credentials.extra?.[key]?.trim();
+  if (!value) {
+    throw new Error(`Swipe: isi credentials.extra.${key} (${label}).`);
+  }
+  return value;
+}
+
+function numberFromExtra(store: StoreConfig, key: string): number {
+  const value = store.credentials.extra?.[key];
+  if (!value || !value.trim()) {
+    return 0;
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num)) {
+    throw new Error(`Swipe: credentials.extra.${key} harus angka.`);
+  }
+  return num;
+}
+
+function maskSecret(value: string): string {
+  if (!value) {
+    return "";
+  }
+  if (value.length <= 8) {
+    return `${value.slice(0, 2)}***${value.slice(-2)}`;
+  }
+  return `${value.slice(0, 4)}***${value.slice(-4)}`;
+}
+
 function pickPaymentUrl(body: Record<string, unknown>): string {
   const candidates = [
     body.payment_url,
@@ -59,26 +102,39 @@ export const swipeProvider: PaymentProvider = {
   id: "swipe",
   async createCheckout(store: StoreConfig, input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
     const merchantId = ensureApiKey(store.credentials);
-    const base = swipeBaseUrl(store);
-    const path = swipeCreatePath(store);
+    const endpointUrl = swipeEndpointUrl(store);
     const defaultNotifyUrl = `${env.host.replace(/\/$/, "")}/webhooks/payment/swipe/${encodeURIComponent(store.shop)}`;
     const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
+    const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
+    const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
+    const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
+    const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
+    const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
+    const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
+    const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
 
     const requestBody: Record<string, unknown> = {
+      pos_request_type: posRequestType,
+      request_id: `ReqId-${input.orderId}`,
+      client_id: clientId,
+      device_user: deviceUser,
+      payment_method: paymentMethod,
+      invoice_number: input.orderId,
       amount: input.amount,
-      currency: input.currency,
-      order_id: input.orderId,
-      merchant_reference: input.orderId,
-      customer_email: input.customerEmail,
-      return_url: input.returnUrl ?? store.redirectUrlAfterPaid,
       callback_url: notifyUrl,
-      notify_url: notifyUrl
+      additional_param: {
+        fee_agent_amount: feeAgentAmount,
+        fee_distributor_amount: feeDistributorAmount,
+        fee_promotor_amount: feePromotorAmount
+      }
     };
 
-    const response = await fetch(`${base}${path}`, {
+    const response = await fetch(endpointUrl, {
       method: "POST",
       headers: {
         Authorization: merchantId,
+        ApiKey: merchantId,
+        "X-API-Key": merchantId,
         "Content-Type": "application/json",
         ...(store.credentials.apiSecret ? { "X-API-Secret": store.credentials.apiSecret } : {})
       },
@@ -87,7 +143,32 @@ export const swipeProvider: PaymentProvider = {
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "Unknown error");
-      throw new Error(`Swipe API error: ${response.status} — ${errText}`);
+      const debugInfo = {
+        endpointUrl,
+        request: {
+          request_id: requestBody.request_id,
+          invoice_number: requestBody.invoice_number,
+          amount: requestBody.amount,
+          callback_url: requestBody.callback_url,
+          client_id: clientId,
+          device_user: deviceUser,
+          payment_method: paymentMethod
+        },
+        headers: {
+          Authorization: maskSecret(merchantId),
+          ApiKey: maskSecret(merchantId),
+          "X-API-Key": maskSecret(merchantId),
+          "X-API-Secret": store.credentials.apiSecret ? maskSecret(store.credentials.apiSecret) : undefined
+        }
+      };
+      console.error("Swipe create payment failed", {
+        status: response.status,
+        error: errText,
+        debugInfo
+      });
+      throw new Error(
+        `Swipe API error: ${response.status} — ${errText} | debug=${JSON.stringify(debugInfo)}`
+      );
     }
 
     const body = (await response.json()) as Record<string, unknown>;

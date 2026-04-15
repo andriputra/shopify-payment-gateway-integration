@@ -22,14 +22,52 @@ async function saveConfig(event) {
 
   if (provider === "swipe") {
     const swipeBase = document.getElementById("swipeApiBaseUrl").value.trim();
+    const swipeClientId = document.getElementById("swipeClientId").value.trim();
+    const swipeDeviceUser = document.getElementById("swipeDeviceUser").value.trim();
+    const swipePosRequestType = document.getElementById("swipePosRequestType").value.trim();
+    const swipePaymentMethod = document.getElementById("swipePaymentMethod").value.trim();
     const swipePath = document.getElementById("swipeCreatePath").value.trim();
-    if (swipeBase || swipePath) {
+    const swipeFeeAgentAmount = document.getElementById("swipeFeeAgentAmount").value.trim();
+    const swipeFeeDistributorAmount = document.getElementById("swipeFeeDistributorAmount").value.trim();
+    const swipeFeePromotorAmount = document.getElementById("swipeFeePromotorAmount").value.trim();
+    if (
+      swipeBase ||
+      swipePath ||
+      swipeClientId ||
+      swipeDeviceUser ||
+      swipePosRequestType ||
+      swipePaymentMethod ||
+      swipeFeeAgentAmount ||
+      swipeFeeDistributorAmount ||
+      swipeFeePromotorAmount
+    ) {
       credentials.extra = {};
       if (swipeBase) {
         credentials.extra.apiBaseUrl = swipeBase.replace(/\/$/, "");
       }
       if (swipePath) {
         credentials.extra.createPath = swipePath.startsWith("/") ? swipePath : `/${swipePath}`;
+      }
+      if (swipeClientId) {
+        credentials.extra.clientId = swipeClientId;
+      }
+      if (swipeDeviceUser) {
+        credentials.extra.deviceUser = swipeDeviceUser;
+      }
+      if (swipePosRequestType) {
+        credentials.extra.posRequestType = swipePosRequestType;
+      }
+      if (swipePaymentMethod) {
+        credentials.extra.paymentMethod = swipePaymentMethod;
+      }
+      if (swipeFeeAgentAmount) {
+        credentials.extra.feeAgentAmount = swipeFeeAgentAmount;
+      }
+      if (swipeFeeDistributorAmount) {
+        credentials.extra.feeDistributorAmount = swipeFeeDistributorAmount;
+      }
+      if (swipeFeePromotorAmount) {
+        credentials.extra.feePromotorAmount = swipeFeePromotorAmount;
       }
     }
   }

@@ -76,6 +76,44 @@
                 Merchant ID (simpan di API Key). Path &amp; body request bisa disesuaikan di server jika API Anda berbeda.
               </p>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Client ID
+                <input
+                  id="swipeClientId"
+                  type="text"
+                  placeholder="client-id-dari-swipe"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Name Device User 
+                <input
+                  id="swipeDeviceUser"
+                  type="text"
+                  placeholder="merchanttest02"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="grid gap-1 text-sm font-medium text-slate-700">
+                  Pos Request Type
+                  <input
+                    id="swipePosRequestType"
+                    type="text"
+                    value="Postman"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label class="grid gap-1 text-sm font-medium text-slate-700">
+                  Payment Method
+                  <input
+                    id="swipePaymentMethod"
+                    type="text"
+                    value="CDCP"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </div>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
                 Swipe API Base URL (credentials.extra.apiBaseUrl)
                 <input
                   id="swipeApiBaseUrl"
@@ -93,6 +131,35 @@
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
+              <div class="grid gap-4 md:grid-cols-3">
+                <label class="grid gap-1 text-sm font-medium text-slate-700">
+                  Fee Agent
+                  <input
+                    id="swipeFeeAgentAmount"
+                    type="number"
+                    value="0"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label class="grid gap-1 text-sm font-medium text-slate-700">
+                  Fee Distributor
+                  <input
+                    id="swipeFeeDistributorAmount"
+                    type="number"
+                    value="0"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+                <label class="grid gap-1 text-sm font-medium text-slate-700">
+                  Fee Promotor
+                  <input
+                    id="swipeFeePromotorAmount"
+                    type="number"
+                    value="0"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  />
+                </label>
+              </div>
             </div>
 
             <div id="customFields" class="hidden grid gap-4">
