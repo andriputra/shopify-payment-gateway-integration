@@ -1,0 +1,25 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "4b44444c3159ddcb6e2629899e4a1dbf"
+name = "ID O2O Multi Payment Gateway"
+application_url = "https://dynapp.store"
+embedded = true
+
+[webhooks]
+api_version = "2026-04"
+
+[[webhooks.subscriptions]]
+compliance_topics = [
+  "customers/data_request",
+  "customers/redact",
+  "shop/redact"
+]
+uri = "/webhooks"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_checkouts,read_checkouts,write_inventory,read_inventory,read_orders,write_orders,read_products,write_products"
+optional_scopes = [ ]
+
+[auth]
+redirect_urls = [ "https://dynapp.store/auth/callback" ]
