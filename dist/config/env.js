@@ -42,5 +42,6 @@ exports.env = {
     mysqlUser: process.env.MYSQL_USER,
     mysqlPassword: process.env.MYSQL_PASSWORD,
     mysqlDatabase: process.env.MYSQL_DATABASE,
-    mysqlConnectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT ?? 10)
+    mysqlConnectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT ?? 10),
+    mysqlConnectTimeoutMs: Number(process.env.MYSQL_CONNECT_TIMEOUT_MS ?? 5000)
 };

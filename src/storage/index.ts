@@ -3,19 +3,70 @@ import { env } from "../config/env";
 import { ComplianceRequestRepository } from "./compliance-request-repo";
 import { PaymentSessionContextRepository } from "./payment-session-context-repo";
 import { ShopifyTokenRepository } from "./shopify-token-repo";
-import { StorageBundle } from "./contracts";
+import { StorageBundle, SystemStatus } from "./contracts";
 import { createMysqlStorage } from "./mysql-storage";
 import { StoreConfigRepository } from "./store-config-repo";
 
 let storage: StorageBundle | undefined;
 
+function buildShopifyUrls(host: string) {
+  const base = host.replace(/\/$/, "");
+  return {
+    customersDataRequest: `${base}/webhooks/shopify/customers/data_request`,
+    customersRedact: `${base}/webhooks/shopify/customers/redact`,
+    shopRedact: `${base}/webhooks/shopify/shop/redact`
+  };
+}
+
 function createJsonStorage(): StorageBundle {
+  const storeRepo = new StoreConfigRepository(path.join(env.dataDir, "store-configs.json"));
+  const tokenRepo = new ShopifyTokenRepository(path.join(env.dataDir, "shopify-tokens.json"));
+  const sessionContextRepo = new PaymentSessionContextRepository(path.join(env.dataDir, "payment-session-contexts.json"));
+  const complianceRequestRepo = new ComplianceRequestRepository(path.join(env.dataDir, "compliance-requests.json"));
+
   return {
     initialize: async () => undefined,
-    storeRepo: new StoreConfigRepository(path.join(env.dataDir, "store-configs.json")),
-    tokenRepo: new ShopifyTokenRepository(path.join(env.dataDir, "shopify-tokens.json")),
-    sessionContextRepo: new PaymentSessionContextRepository(path.join(env.dataDir, "payment-session-contexts.json")),
-    complianceRequestRepo: new ComplianceRequestRepository(path.join(env.dataDir, "compliance-requests.json"))
+    systemStatus: async (): Promise<SystemStatus> => {
+      const [storeConfigs, shopifyTokens, paymentSessionContexts, complianceRequests] = await Promise.all([
+        storeRepo.list(),
+        tokenRepo.list(),
+        sessionContextRepo.list(),
+        complianceRequestRepo.list()
+      ]);
+
+      const last = complianceRequests[0];
+
+      return {
+        ok: true,
+        driver: "json",
+        time: new Date().toISOString(),
+        uptimeSec: Math.floor(process.uptime()),
+        host: env.host,
+        shopify: {
+          appUiPath: env.shopifyAppUiPath,
+          redirectPath: env.shopifyRedirectPath,
+          complianceWebhooks: buildShopifyUrls(env.host)
+        },
+        counts: {
+          storeConfigs: storeConfigs.length,
+          shopifyTokens: shopifyTokens.length,
+          paymentSessionContexts: paymentSessionContexts.length,
+          complianceRequests: complianceRequests.length
+        },
+        lastCompliance: last
+          ? {
+              id: last.id,
+              topic: last.topic,
+              shop: last.shop,
+              triggeredAt: last.triggeredAt
+            }
+          : undefined
+      };
+    },
+    storeRepo,
+    tokenRepo,
+    sessionContextRepo,
+    complianceRequestRepo
   };
 }
 

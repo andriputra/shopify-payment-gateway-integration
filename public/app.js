@@ -7,6 +7,63 @@ const checkoutHintEl = document.getElementById("checkoutHint");
 const connectShopifyBtn = document.getElementById("connectShopifyBtn");
 const oauthShopInput = document.getElementById("oauthShop");
 const installStatusBanner = document.getElementById("installStatusBanner");
+const viewConfig = document.getElementById("viewConfig");
+const viewSystem = document.getElementById("viewSystem");
+const viewCompliance = document.getElementById("viewCompliance");
+const viewGoLive = document.getElementById("viewGoLive");
+
+const tabConfig = document.getElementById("tabConfig");
+const tabSystem = document.getElementById("tabSystem");
+const tabCompliance = document.getElementById("tabCompliance");
+const tabGoLive = document.getElementById("tabGoLive");
+
+const refreshSystemBtn = document.getElementById("refreshSystemBtn");
+const refreshComplianceBtn = document.getElementById("refreshComplianceBtn");
+const refreshGoLiveBtn = document.getElementById("refreshGoLiveBtn");
+
+const systemStorage = document.getElementById("systemStorage");
+const systemMysql = document.getElementById("systemMysql");
+const systemCounts = document.getElementById("systemCounts");
+const systemRuntime = document.getElementById("systemRuntime");
+const systemLastCompliance = document.getElementById("systemLastCompliance");
+
+const complianceShopFilter = document.getElementById("complianceShopFilter");
+const complianceTopicFilter = document.getElementById("complianceTopicFilter");
+const complianceLimit = document.getElementById("complianceLimit");
+const complianceTableBody = document.getElementById("complianceTableBody");
+
+const goLiveAppUrl = document.getElementById("goLiveAppUrl");
+const goLiveRedirectUrl = document.getElementById("goLiveRedirectUrl");
+const goLiveWebhookDataRequest = document.getElementById("goLiveWebhookDataRequest");
+const goLiveWebhookCustomersRedact = document.getElementById("goLiveWebhookCustomersRedact");
+const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact");
+
+const hasAdvancedTabs =
+  viewConfig &&
+  viewSystem &&
+  viewCompliance &&
+  viewGoLive &&
+  tabConfig &&
+  tabSystem &&
+  tabCompliance &&
+  tabGoLive &&
+  refreshSystemBtn &&
+  refreshComplianceBtn &&
+  refreshGoLiveBtn &&
+  systemStorage &&
+  systemMysql &&
+  systemCounts &&
+  systemRuntime &&
+  systemLastCompliance &&
+  complianceShopFilter &&
+  complianceTopicFilter &&
+  complianceLimit &&
+  complianceTableBody &&
+  goLiveAppUrl &&
+  goLiveRedirectUrl &&
+  goLiveWebhookDataRequest &&
+  goLiveWebhookCustomersRedact &&
+  goLiveWebhookShopRedact;
 
 function showResult(data) {
   resultEl.textContent = JSON.stringify(data, null, 2);
@@ -26,6 +83,159 @@ function setBanner(type, message) {
 
   installStatusBanner.className = palette;
   installStatusBanner.textContent = message;
+}
+
+function setActiveTab(active) {
+  if (!hasAdvancedTabs) {
+    return;
+  }
+
+  const tabs = [
+    { id: "config", btn: tabConfig, view: viewConfig },
+    { id: "system", btn: tabSystem, view: viewSystem },
+    { id: "compliance", btn: tabCompliance, view: viewCompliance },
+    { id: "golive", btn: tabGoLive, view: viewGoLive }
+  ];
+
+  for (const tab of tabs) {
+    tab.view.classList.toggle("hidden", tab.id !== active);
+    tab.btn.className =
+      tab.id === active
+        ? "rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+        : "rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200";
+  }
+}
+
+async function fetchSystemStatus() {
+  const response = await fetch("/api/system/status");
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "System status request failed");
+  }
+  return data.status;
+}
+
+function renderSystemStatus(status) {
+  systemStorage.textContent = `${String(status.driver || "").toUpperCase()} (ok=${Boolean(status.ok)})`;
+  if (status.driver === "mysql") {
+    const mysql = status.mysql || {};
+    const extra = mysql.ok ? `ok, ${mysql.latencyMs || 0}ms` : `error: ${mysql.error || "unknown"}`;
+    systemMysql.textContent = `MySQL: ${extra}`;
+  } else {
+    systemMysql.textContent = "MySQL: n/a";
+  }
+
+  const counts = status.counts || {};
+  systemCounts.innerHTML = `
+    <div>store_configs: <span class="font-semibold">${counts.storeConfigs ?? "-"}</span></div>
+    <div>shopify_tokens: <span class="font-semibold">${counts.shopifyTokens ?? "-"}</span></div>
+    <div>payment_session_contexts: <span class="font-semibold">${counts.paymentSessionContexts ?? "-"}</span></div>
+    <div>compliance_requests: <span class="font-semibold">${counts.complianceRequests ?? "-"}</span></div>
+  `;
+
+  const shopify = status.shopify || {};
+  systemRuntime.innerHTML = `
+    <div>host: <span class="font-semibold">${status.host || "-"}</span></div>
+    <div>time: <span class="font-semibold">${status.time || "-"}</span></div>
+    <div>uptime: <span class="font-semibold">${status.uptimeSec || 0}s</span></div>
+    <div>shopify: <span class="font-semibold">${shopify.appUiPath || "-"}</span> / <span class="font-semibold">${shopify.redirectPath || "-"}</span></div>
+  `;
+
+  const last = status.lastCompliance;
+  systemLastCompliance.textContent = last
+    ? `${last.triggeredAt} | ${last.topic} | ${last.shop}`
+    : "No compliance events yet.";
+}
+
+function renderGoLive(status) {
+  /** @type {Record<string, string>} */
+  const origin = status.host || window.location.origin;
+  const base = String(origin).replace(/\/$/, "");
+  const shopify = status.shopify || {};
+  const hooks = shopify.complianceWebhooks || {};
+
+  goLiveAppUrl.textContent = `${base}${shopify.appUiPath || "/app"}`;
+  goLiveRedirectUrl.textContent = `${base}${shopify.redirectPath || "/auth/callback"}`;
+  goLiveWebhookDataRequest.textContent = hooks.customersDataRequest || "-";
+  goLiveWebhookCustomersRedact.textContent = hooks.customersRedact || "-";
+  goLiveWebhookShopRedact.textContent = hooks.shopRedact || "-";
+}
+
+function copyTextFromElId(id) {
+  const el = document.getElementById(id);
+  const text = el ? (el.textContent || "").trim() : "";
+  if (!text) return;
+  navigator.clipboard.writeText(text).catch(() => {});
+}
+
+async function fetchComplianceList() {
+  if (!hasAdvancedTabs) {
+    return [];
+  }
+
+  const params = new URLSearchParams();
+  const shop = complianceShopFilter.value.trim();
+  const topic = complianceTopicFilter.value.trim();
+  const limit = String(Number(complianceLimit.value || 50));
+
+  if (shop) params.set("shop", shop);
+  if (topic) params.set("topic", topic);
+  params.set("limit", limit);
+
+  const response = await fetch(`/api/compliance/requests?${params.toString()}`);
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "Compliance list request failed");
+  }
+  return data.records || [];
+}
+
+async function fetchComplianceDetail(id) {
+  const response = await fetch(`/api/compliance/requests/${encodeURIComponent(id)}`);
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "Compliance detail request failed");
+  }
+  return data.record;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderComplianceTable(records) {
+  if (!hasAdvancedTabs) {
+    return;
+  }
+
+  if (!records.length) {
+    complianceTableBody.innerHTML = '<tr><td class="px-4 py-3 text-slate-500" colspan="4">No data.</td></tr>';
+    return;
+  }
+
+  complianceTableBody.innerHTML = records
+    .map((r) => {
+      const safeId = escapeHtml(r.id || "");
+      const safeTopic = escapeHtml(r.topic || "");
+      const safeShop = escapeHtml(r.shop || "");
+      const safeTriggeredAt = escapeHtml(r.triggeredAt || "");
+      return `
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-3 text-slate-700">${safeTriggeredAt}</td>
+          <td class="px-4 py-3 text-slate-700">${safeTopic}</td>
+          <td class="px-4 py-3 text-slate-700">${safeShop}</td>
+          <td class="px-4 py-3">
+            <button data-compliance-id="${safeId}" class="font-mono text-xs font-semibold text-blue-700 hover:text-blue-800">${safeId}</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 async function saveConfig(event) {
@@ -218,6 +428,102 @@ loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
 connectShopifyBtn.addEventListener("click", connectShopify);
 hydrateInstallState();
+
+if (hasAdvancedTabs) {
+  tabConfig.addEventListener("click", () => setActiveTab("config"));
+
+  tabSystem.addEventListener("click", async () => {
+    setActiveTab("system");
+    try {
+      const status = await fetchSystemStatus();
+      renderSystemStatus(status);
+      renderGoLive(status);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "System status failed" });
+    }
+  });
+
+  tabCompliance.addEventListener("click", async () => {
+    setActiveTab("compliance");
+    try {
+      const records = await fetchComplianceList();
+      renderComplianceTable(records);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance logs failed" });
+    }
+  });
+
+  tabGoLive.addEventListener("click", async () => {
+    setActiveTab("golive");
+    try {
+      const status = await fetchSystemStatus();
+      renderSystemStatus(status);
+      renderGoLive(status);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
+    }
+  });
+
+  refreshSystemBtn.addEventListener("click", async () => {
+    try {
+      const status = await fetchSystemStatus();
+      renderSystemStatus(status);
+      renderGoLive(status);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "System refresh failed" });
+    }
+  });
+
+  refreshComplianceBtn.addEventListener("click", async () => {
+    try {
+      const records = await fetchComplianceList();
+      renderComplianceTable(records);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance refresh failed" });
+    }
+  });
+
+  refreshGoLiveBtn.addEventListener("click", async () => {
+    try {
+      const status = await fetchSystemStatus();
+      renderGoLive(status);
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
+    }
+  });
+
+  complianceTableBody.addEventListener("click", async (event) => {
+    const btn = event.target && event.target.closest ? event.target.closest("[data-compliance-id]") : null;
+    if (!btn) return;
+    const id = btn.getAttribute("data-compliance-id");
+    if (!id) return;
+    try {
+      const record = await fetchComplianceDetail(id);
+      showResult({ ok: true, record });
+    } catch (error) {
+      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance detail failed" });
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    const btn = event.target && event.target.closest ? event.target.closest("[data-copy-target]") : null;
+    if (!btn) return;
+    const targetId = btn.getAttribute("data-copy-target");
+    if (!targetId) return;
+    copyTextFromElId(targetId);
+  });
+
+  const initialTab = (new URLSearchParams(window.location.search).get("tab") || "config").toLowerCase();
+  if (initialTab === "system") {
+    tabSystem.click();
+  } else if (initialTab === "compliance") {
+    tabCompliance.click();
+  } else if (initialTab === "golive") {
+    tabGoLive.click();
+  } else {
+    setActiveTab("config");
+  }
+}
 
 
 const providerSelect = document.getElementById("provider");

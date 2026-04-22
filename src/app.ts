@@ -8,6 +8,7 @@ import { paymentRoutes } from "./routes/payments";
 import { shopifyAuthRoutes } from "./routes/shopify-auth";
 import { shopifyPaymentSessionRoutes } from "./routes/shopify-payment-session";
 import { shopifyWebhookRoutes } from "./routes/shopify-webhooks";
+import { systemRoutes } from "./routes/system";
 import { webhookRoutes } from "./routes/webhooks";
 import { ShopifyComplianceService } from "./services/shopify-compliance-service";
 import { PaymentService } from "./services/payment-service";
@@ -139,6 +140,7 @@ export function createApp(): express.Application {
   });
 
   app.use("/api/config", configRoutes(storeRepo));
+  app.use("/api/system", systemRoutes(storage));
   app.use("/api/compliance", complianceRoutes(shopifyComplianceService));
   app.use("/api/payments", paymentRoutes(paymentService));
   app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));

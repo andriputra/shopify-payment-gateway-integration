@@ -10,6 +10,7 @@ import {
   ShopifyTokenRecord,
   ShopifyTokenStore,
   StorageBundle,
+  SystemStatus,
   StoreConfigStore
 } from "./contracts";
 
@@ -257,7 +258,8 @@ function createPoolFromEnv(): Pool {
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
       database: url.pathname.replace(/^\/+/, ""),
-      connectionLimit: env.mysqlConnectionLimit
+      connectionLimit: env.mysqlConnectionLimit,
+      connectTimeout: env.mysqlConnectTimeoutMs
     });
   }
 
@@ -271,12 +273,22 @@ function createPoolFromEnv(): Pool {
     user: env.mysqlUser,
     password: env.mysqlPassword,
     database: env.mysqlDatabase,
-    connectionLimit: env.mysqlConnectionLimit
+    connectionLimit: env.mysqlConnectionLimit,
+    connectTimeout: env.mysqlConnectTimeoutMs
   });
 }
 
 export function createMysqlStorage(): StorageBundle {
   const pool = createPoolFromEnv();
+
+  function buildShopifyUrls(host: string) {
+    const base = host.replace(/\/$/, "");
+    return {
+      customersDataRequest: `${base}/webhooks/shopify/customers/data_request`,
+      customersRedact: `${base}/webhooks/shopify/customers/redact`,
+      shopRedact: `${base}/webhooks/shopify/shop/redact`
+    };
+  }
 
   return {
     initialize: async () => {
@@ -327,6 +339,64 @@ export function createMysqlStorage(): StorageBundle {
           INDEX idx_compliance_topic (topic)
         )
       `);
+    },
+    systemStatus: async (): Promise<SystemStatus> => {
+      const startedAt = Date.now();
+      const mysqlInfo: SystemStatus["mysql"] = { ok: true };
+
+      try {
+        await pool.query("SELECT 1");
+        mysqlInfo.latencyMs = Date.now() - startedAt;
+      } catch (error) {
+        mysqlInfo.ok = false;
+        mysqlInfo.error = error instanceof Error ? error.message : "MySQL ping failed";
+      }
+
+      const [[storeCountRow]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM store_configs"
+      );
+      const [[tokenCountRow]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM shopify_tokens"
+      );
+      const [[sessionCountRow]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM payment_session_contexts"
+      );
+      const [[complianceCountRow]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM compliance_requests"
+      );
+
+      const [lastRows] = await pool.query<RowDataPacket[]>(
+        "SELECT id, topic, shop, triggered_at FROM compliance_requests ORDER BY triggered_at DESC LIMIT 1"
+      );
+      const last = lastRows[0];
+
+      return {
+        ok: mysqlInfo.ok,
+        driver: "mysql",
+        time: new Date().toISOString(),
+        uptimeSec: Math.floor(process.uptime()),
+        host: env.host,
+        shopify: {
+          appUiPath: env.shopifyAppUiPath,
+          redirectPath: env.shopifyRedirectPath,
+          complianceWebhooks: buildShopifyUrls(env.host)
+        },
+        mysql: mysqlInfo,
+        counts: {
+          storeConfigs: Number(storeCountRow?.c ?? 0),
+          shopifyTokens: Number(tokenCountRow?.c ?? 0),
+          paymentSessionContexts: Number(sessionCountRow?.c ?? 0),
+          complianceRequests: Number(complianceCountRow?.c ?? 0)
+        },
+        lastCompliance: last
+          ? {
+              id: String(last.id),
+              topic: String(last.topic),
+              shop: String(last.shop),
+              triggeredAt: String(last.triggered_at)
+            }
+          : undefined
+      };
     },
     storeRepo: new MysqlStoreConfigRepository(pool),
     tokenRepo: new MysqlShopifyTokenRepository(pool),

@@ -55,8 +55,43 @@ export interface ComplianceRequestStore {
 
 export type StorageBundle = {
   initialize: () => Promise<void>;
+  systemStatus: () => Promise<SystemStatus>;
   storeRepo: StoreConfigStore;
   tokenRepo: ShopifyTokenStore;
   sessionContextRepo: PaymentSessionContextStore;
   complianceRequestRepo: ComplianceRequestStore;
+};
+
+export type SystemStatus = {
+  ok: boolean;
+  driver: string;
+  time: string;
+  uptimeSec: number;
+  host: string;
+  shopify: {
+    appUiPath: string;
+    redirectPath: string;
+    complianceWebhooks: {
+      customersDataRequest: string;
+      customersRedact: string;
+      shopRedact: string;
+    };
+  };
+  mysql?: {
+    ok: boolean;
+    latencyMs?: number;
+    error?: string;
+  };
+  counts: {
+    storeConfigs: number;
+    shopifyTokens: number;
+    paymentSessionContexts: number;
+    complianceRequests: number;
+  };
+  lastCompliance?: {
+    id: string;
+    topic: string;
+    shop: string;
+    triggeredAt: string;
+  };
 };

@@ -13,6 +13,7 @@ const payments_1 = require("./routes/payments");
 const shopify_auth_1 = require("./routes/shopify-auth");
 const shopify_payment_session_1 = require("./routes/shopify-payment-session");
 const shopify_webhooks_1 = require("./routes/shopify-webhooks");
+const system_1 = require("./routes/system");
 const webhooks_1 = require("./routes/webhooks");
 const shopify_compliance_service_1 = require("./services/shopify-compliance-service");
 const payment_service_1 = require("./services/payment-service");
@@ -127,6 +128,7 @@ function createApp() {
         res.type("html").send(html);
     });
     app.use("/api/config", (0, config_1.configRoutes)(storeRepo));
+    app.use("/api/system", (0, system_1.systemRoutes)(storage));
     app.use("/api/compliance", (0, compliance_1.complianceRoutes)(shopifyComplianceService));
     app.use("/api/payments", (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
