@@ -1,0 +1,21 @@
+[
+  {
+    "id": "5540fdcf-6b3e-4a89-904e-81fc32a6e6fc",
+    "topic": "shop/redact",
+    "shop": "test-shop.myshopify.com",
+    "shopId": "1",
+    "triggeredAt": "2026-04-22T07:36:54.610Z",
+    "payload": {
+      "shop_domain": "test-shop.myshopify.com",
+      "shop_id": 1
+    },
+    "outcome": {
+      "shop": "test-shop.myshopify.com",
+      "shopId": 1,
+      "deletedStoreConfigs": 0,
+      "deletedTokens": 0,
+      "deletedPaymentSessions": 0,
+      "action": "Local shop records were removed where available."
+    }
+  }
+]

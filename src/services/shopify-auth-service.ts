@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { env } from "../config/env";
-import { ShopifyTokenRepository } from "../storage/shopify-token-repo";
+import { ShopifyTokenStore } from "../storage/contracts";
 
 const stateStore = new Map<string, string>();
 
@@ -13,7 +13,7 @@ type OAuthCallbackPayload = {
 };
 
 export class ShopifyAuthService {
-  constructor(private readonly tokenRepo: ShopifyTokenRepository) {}
+  constructor(private readonly tokenRepo: ShopifyTokenStore) {}
 
   validateShop(shop: string): boolean {
     return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
@@ -42,6 +42,27 @@ export class ShopifyAuthService {
     });
 
     return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
+  }
+
+  buildAppRedirectUrl(params: { shop?: string; host?: string; installed: boolean; error?: string }): string {
+    const appPath = env.shopifyAppUiPath.startsWith("/") ? env.shopifyAppUiPath : `/${env.shopifyAppUiPath}`;
+    const search = new URLSearchParams({
+      installed: params.installed ? "1" : "0"
+    });
+
+    if (params.shop) {
+      search.set("shop", params.shop);
+    }
+
+    if (params.host) {
+      search.set("host", params.host);
+    }
+
+    if (params.error) {
+      search.set("error", params.error);
+    }
+
+    return `${appPath}?${search.toString()}`;
   }
 
   async handleOAuthCallback(payload: OAuthCallbackPayload) {
@@ -73,7 +94,7 @@ export class ShopifyAuthService {
 
     const tokenData = (await tokenResponse.json()) as { access_token: string; scope?: string };
 
-    const saved = this.tokenRepo.upsert({
+    const saved = await this.tokenRepo.upsert({
       shop: payload.shop,
       accessToken: tokenData.access_token,
       scope: tokenData.scope,

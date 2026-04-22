@@ -11,21 +11,21 @@ function webhookRoutes(service, deps) {
             const { provider, shop } = req.params;
             const decodedShop = decodeURIComponent(shop);
             const body = (req.body ?? {});
-            const result = service.handleWebhook(decodedShop, provider, body);
+            const result = await service.handleWebhook(decodedShop, provider, body);
             let shopifyPaymentSession = {
                 attempted: false
             };
             if (result.paid && sessionContextRepo && paymentResolve) {
                 const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
                 if (orderRef) {
-                    const ctx = sessionContextRepo.get(orderRef);
+                    const ctx = await sessionContextRepo.get(orderRef);
                     if (ctx && ctx.shop === decodedShop) {
                         shopifyPaymentSession.attempted = true;
                         const resolved = await paymentResolve.resolvePaymentSession(ctx.shop, ctx.paymentSessionId);
                         shopifyPaymentSession.ok = resolved.ok;
                         shopifyPaymentSession.message = resolved.message;
                         if (resolved.ok) {
-                            sessionContextRepo.delete(orderRef);
+                            await sessionContextRepo.delete(orderRef);
                         }
                     }
                 }

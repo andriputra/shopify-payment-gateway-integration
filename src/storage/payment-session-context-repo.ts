@@ -1,15 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-
-export type PaymentSessionContext = {
-  shop: string;
-  paymentSessionId: string;
-  createdAt: string;
-};
+import { PaymentSessionContext, PaymentSessionContextStore } from "./contracts";
 
 type ContextMap = Record<string, PaymentSessionContext>;
 
-export class PaymentSessionContextRepository {
+export class PaymentSessionContextRepository implements PaymentSessionContextStore {
   private readonly filePath: string;
 
   constructor(filePath = path.resolve(process.cwd(), "data/payment-session-contexts.json")) {
@@ -17,17 +12,24 @@ export class PaymentSessionContextRepository {
     this.ensureFile();
   }
 
-  save(orderReference: string, ctx: PaymentSessionContext): void {
+  async save(orderReference: string, ctx: PaymentSessionContext): Promise<void> {
     const data = this.readAll();
     data[orderReference] = ctx;
     this.writeAll(data);
   }
 
-  get(orderReference: string): PaymentSessionContext | undefined {
+  async get(orderReference: string): Promise<PaymentSessionContext | undefined> {
     return this.readAll()[orderReference];
   }
 
-  delete(orderReference: string): void {
+  async list(): Promise<Array<{ orderReference: string; context: PaymentSessionContext }>> {
+    return Object.entries(this.readAll()).map(([orderReference, context]) => ({
+      orderReference,
+      context
+    }));
+  }
+
+  async delete(orderReference: string): Promise<void> {
     const data = this.readAll();
     delete data[orderReference];
     this.writeAll(data);

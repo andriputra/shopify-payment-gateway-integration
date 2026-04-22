@@ -11,15 +11,27 @@ class StoreConfigRepository {
         this.filePath = filePath;
         this.ensureFile();
     }
-    get(shop) {
+    async get(shop) {
         const data = this.readAll();
         return data[shop];
     }
-    upsert(config) {
+    async list() {
+        return Object.values(this.readAll());
+    }
+    async upsert(config) {
         const data = this.readAll();
         data[config.shop] = config;
         this.writeAll(data);
         return config;
+    }
+    async delete(shop) {
+        const data = this.readAll();
+        if (!(shop in data)) {
+            return false;
+        }
+        delete data[shop];
+        this.writeAll(data);
+        return true;
     }
     ensureFile() {
         const dir = node_path_1.default.dirname(this.filePath);

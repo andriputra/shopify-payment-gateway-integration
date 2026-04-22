@@ -18,9 +18,11 @@
   </head>
   <body class="min-h-screen bg-slate-100 text-slate-800">
     <main class="mx-auto max-w-5xl px-4 py-8">
+      <section id="installStatusBanner" class="mb-6 hidden rounded-2xl border px-5 py-4 shadow-sm"></section>
+
       <header class="mb-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">Shopify Payment Gateway Integration</h1>
-        <p class="mt-2 text-slate-600">Input credential payment gateway untuk tiap toko Shopify.</p>
+        <p class="mt-2 text-slate-600">Input credential payment gateway untuk tiap toko Shopify dan selesaikan install app langsung ke dashboard.</p>
       </header>
 
       <div class="grid gap-6 lg:grid-cols-3">
@@ -237,6 +239,9 @@
 
         <aside class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 class="mb-4 text-lg font-semibold text-slate-900">Shopify App Install</h2>
+          <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            Redirect app sesudah OAuth akan masuk ke <code class="rounded bg-white px-1 py-0.5 text-slate-800">/app</code>.
+          </div>
           <div class="mb-6 grid gap-3">
             <input
               id="oauthShop"

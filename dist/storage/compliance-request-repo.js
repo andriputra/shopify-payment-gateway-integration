@@ -3,32 +3,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PaymentSessionContextRepository = void 0;
+exports.ComplianceRequestRepository = void 0;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
-class PaymentSessionContextRepository {
-    constructor(filePath = node_path_1.default.resolve(process.cwd(), "data/payment-session-contexts.json")) {
+class ComplianceRequestRepository {
+    constructor(filePath = node_path_1.default.resolve(process.cwd(), "data/compliance-requests.json")) {
         this.filePath = filePath;
         this.ensureFile();
     }
-    async save(orderReference, ctx) {
+    async append(record) {
         const data = this.readAll();
-        data[orderReference] = ctx;
+        data.unshift(record);
         this.writeAll(data);
-    }
-    async get(orderReference) {
-        return this.readAll()[orderReference];
+        return record;
     }
     async list() {
-        return Object.entries(this.readAll()).map(([orderReference, context]) => ({
-            orderReference,
-            context
-        }));
+        return this.readAll();
     }
-    async delete(orderReference) {
-        const data = this.readAll();
-        delete data[orderReference];
-        this.writeAll(data);
+    async get(id) {
+        return this.readAll().find((record) => record.id === id);
     }
     ensureFile() {
         const dir = node_path_1.default.dirname(this.filePath);
@@ -36,14 +29,14 @@ class PaymentSessionContextRepository {
             node_fs_1.default.mkdirSync(dir, { recursive: true });
         }
         if (!node_fs_1.default.existsSync(this.filePath)) {
-            node_fs_1.default.writeFileSync(this.filePath, "{}");
+            node_fs_1.default.writeFileSync(this.filePath, "[]");
         }
     }
     readAll() {
         this.ensureFile();
         const content = node_fs_1.default.readFileSync(this.filePath, "utf8");
         if (!content.trim()) {
-            return {};
+            return [];
         }
         return JSON.parse(content);
     }
@@ -52,4 +45,4 @@ class PaymentSessionContextRepository {
         node_fs_1.default.writeFileSync(this.filePath, JSON.stringify(data, null, 2));
     }
 }
-exports.PaymentSessionContextRepository = PaymentSessionContextRepository;
+exports.ComplianceRequestRepository = ComplianceRequestRepository;

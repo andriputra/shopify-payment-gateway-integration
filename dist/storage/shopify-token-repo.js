@@ -11,15 +11,27 @@ class ShopifyTokenRepository {
         this.filePath = filePath;
         this.ensureFile();
     }
-    get(shop) {
+    async get(shop) {
         const data = this.readAll();
         return data[shop];
     }
-    upsert(record) {
+    async list() {
+        return Object.values(this.readAll());
+    }
+    async upsert(record) {
         const data = this.readAll();
         data[record.shop] = record;
         this.writeAll(data);
         return record;
+    }
+    async delete(shop) {
+        const data = this.readAll();
+        if (!(shop in data)) {
+            return false;
+        }
+        delete data[shop];
+        this.writeAll(data);
+        return true;
     }
     ensureFile() {
         const dir = node_path_1.default.dirname(this.filePath);

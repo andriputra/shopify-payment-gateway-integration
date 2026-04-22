@@ -1,5 +1,5 @@
 import { env } from "../config/env";
-import { ShopifyTokenRepository } from "../storage/shopify-token-repo";
+import { ShopifyTokenStore } from "../storage/contracts";
 
 type GraphqlEnvelope<T> = {
   data?: T;
@@ -29,13 +29,13 @@ mutation PaymentSessionResolve($id: ID!) {
 `;
 
 export class ShopifyPaymentResolveService {
-  constructor(private readonly tokenRepo: ShopifyTokenRepository) {}
+  constructor(private readonly tokenRepo: ShopifyTokenStore) {}
 
   async resolvePaymentSession(
     shop: string,
     paymentSessionGid: string
   ): Promise<{ ok: boolean; message?: string; userErrors?: { field?: string[]; message: string }[] }> {
-    const token = this.tokenRepo.get(shop);
+    const token = await this.tokenRepo.get(shop);
     if (!token) {
       return {
         ok: false,

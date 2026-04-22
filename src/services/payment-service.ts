@@ -1,12 +1,12 @@
 import { getProvider } from "../providers";
-import { StoreConfigRepository } from "../storage/store-config-repo";
+import { StoreConfigStore } from "../storage/contracts";
 import { CreateCheckoutInput, CreateCheckoutResult } from "../types";
 
 export class PaymentService {
-  constructor(private readonly storeRepo: StoreConfigRepository) {}
+  constructor(private readonly storeRepo: StoreConfigStore) {}
 
   async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
-    const store = this.storeRepo.get(input.shop);
+    const store = await this.storeRepo.get(input.shop);
     if (!store) {
       throw new Error(`Store config not found for shop: ${input.shop}`);
     }
@@ -15,8 +15,8 @@ export class PaymentService {
     return provider.createCheckout(store, input);
   }
 
-  handleWebhook(shop: string, providerId: string, payload: Record<string, unknown>) {
-    const store = this.storeRepo.get(shop);
+  async handleWebhook(shop: string, providerId: string, payload: Record<string, unknown>) {
+    const store = await this.storeRepo.get(shop);
     if (!store) {
       throw new Error(`Store config not found for shop: ${shop}`);
     }

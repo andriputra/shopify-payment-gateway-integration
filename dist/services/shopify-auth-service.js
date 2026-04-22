@@ -36,6 +36,22 @@ class ShopifyAuthService {
         });
         return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
     }
+    buildAppRedirectUrl(params) {
+        const appPath = env_1.env.shopifyAppUiPath.startsWith("/") ? env_1.env.shopifyAppUiPath : `/${env_1.env.shopifyAppUiPath}`;
+        const search = new URLSearchParams({
+            installed: params.installed ? "1" : "0"
+        });
+        if (params.shop) {
+            search.set("shop", params.shop);
+        }
+        if (params.host) {
+            search.set("host", params.host);
+        }
+        if (params.error) {
+            search.set("error", params.error);
+        }
+        return `${appPath}?${search.toString()}`;
+    }
     async handleOAuthCallback(payload) {
         const expectedState = stateStore.get(payload.shop);
         if (!expectedState || expectedState !== payload.state) {
@@ -60,7 +76,7 @@ class ShopifyAuthService {
             throw new Error(`OAuth token exchange failed: ${text}`);
         }
         const tokenData = (await tokenResponse.json());
-        const saved = this.tokenRepo.upsert({
+        const saved = await this.tokenRepo.upsert({
             shop: payload.shop,
             accessToken: tokenData.access_token,
             scope: tokenData.scope,

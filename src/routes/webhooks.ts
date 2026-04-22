@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { PaymentService } from "../services/payment-service";
 import { ShopifyPaymentResolveService } from "../services/shopify-payment-resolve-service";
-import { PaymentSessionContextRepository } from "../storage/payment-session-context-repo";
+import { PaymentSessionContextStore } from "../storage/contracts";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
 
 export type WebhookRoutesDeps = {
-  sessionContextRepo?: PaymentSessionContextRepository;
+  sessionContextRepo?: PaymentSessionContextStore;
   paymentResolve?: ShopifyPaymentResolveService;
 };
 
@@ -18,7 +18,7 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
       const { provider, shop } = req.params;
       const decodedShop = decodeURIComponent(shop);
       const body = (req.body ?? {}) as Record<string, unknown>;
-      const result = service.handleWebhook(decodedShop, provider, body);
+      const result = await service.handleWebhook(decodedShop, provider, body);
 
       let shopifyPaymentSession: { attempted: boolean; ok?: boolean; message?: string } = {
         attempted: false
@@ -27,14 +27,14 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
       if (result.paid && sessionContextRepo && paymentResolve) {
         const orderRef = webhookOrderReference(provider, body);
         if (orderRef) {
-          const ctx = sessionContextRepo.get(orderRef);
+          const ctx = await sessionContextRepo.get(orderRef);
           if (ctx && ctx.shop === decodedShop) {
             shopifyPaymentSession.attempted = true;
             const resolved = await paymentResolve.resolvePaymentSession(ctx.shop, ctx.paymentSessionId);
             shopifyPaymentSession.ok = resolved.ok;
             shopifyPaymentSession.message = resolved.message;
             if (resolved.ok) {
-              sessionContextRepo.delete(orderRef);
+              await sessionContextRepo.delete(orderRef);
             }
           }
         }

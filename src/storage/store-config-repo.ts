@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { StoreConfig } from "../types";
+import { StoreConfigStore } from "./contracts";
 
 type StoreConfigMap = Record<string, StoreConfig>;
 
-export class StoreConfigRepository {
+export class StoreConfigRepository implements StoreConfigStore {
   private readonly filePath: string;
 
   constructor(filePath = path.resolve(process.cwd(), "data/store-configs.json")) {
@@ -12,16 +13,30 @@ export class StoreConfigRepository {
     this.ensureFile();
   }
 
-  get(shop: string): StoreConfig | undefined {
+  async get(shop: string): Promise<StoreConfig | undefined> {
     const data = this.readAll();
     return data[shop];
   }
 
-  upsert(config: StoreConfig): StoreConfig {
+  async list(): Promise<StoreConfig[]> {
+    return Object.values(this.readAll());
+  }
+
+  async upsert(config: StoreConfig): Promise<StoreConfig> {
     const data = this.readAll();
     data[config.shop] = config;
     this.writeAll(data);
     return config;
+  }
+
+  async delete(shop: string): Promise<boolean> {
+    const data = this.readAll();
+    if (!(shop in data)) {
+      return false;
+    }
+    delete data[shop];
+    this.writeAll(data);
+    return true;
   }
 
   private ensureFile(): void {

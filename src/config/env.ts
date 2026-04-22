@@ -25,12 +25,21 @@ export const env = {
   port: Number(process.env.PORT ?? 3000),
   host: resolveHost(),
   dataDir: process.env.DATA_DIR ?? path.join(process.cwd(), "data"),
+  storageDriver: (process.env.STORAGE_DRIVER ?? "json").toLowerCase(),
   shopifyApiKey: must("SHOPIFY_API_KEY"),
   shopifyApiSecret: must("SHOPIFY_API_SECRET"),
   appSharedSecret: must("APP_SHARED_SECRET"),
   shopifyScopes:
     process.env.SHOPIFY_SCOPES ??
     "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,write_payment_sessions",
-  shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/shopify/callback",
-  shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01"
+  shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/callback",
+  shopifyAppUiPath: process.env.SHOPIFY_APP_UI_PATH ?? "/app",
+  shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01",
+  mysqlUrl: process.env.MYSQL_URL ?? process.env.DATABASE_URL,
+  mysqlHost: process.env.MYSQL_HOST,
+  mysqlPort: Number(process.env.MYSQL_PORT ?? 3306),
+  mysqlUser: process.env.MYSQL_USER,
+  mysqlPassword: process.env.MYSQL_PASSWORD,
+  mysqlDatabase: process.env.MYSQL_DATABASE,
+  mysqlConnectionLimit: Number(process.env.MYSQL_CONNECTION_LIMIT ?? 10)
 };

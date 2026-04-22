@@ -7,19 +7,18 @@ exports.createApp = createApp;
 const express_1 = __importDefault(require("express"));
 const node_path_1 = __importDefault(require("node:path"));
 const zod_1 = require("zod");
-const env_1 = require("./config/env");
+const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
 const payments_1 = require("./routes/payments");
 const shopify_auth_1 = require("./routes/shopify-auth");
 const shopify_payment_session_1 = require("./routes/shopify-payment-session");
 const shopify_webhooks_1 = require("./routes/shopify-webhooks");
 const webhooks_1 = require("./routes/webhooks");
+const shopify_compliance_service_1 = require("./services/shopify-compliance-service");
 const payment_service_1 = require("./services/payment-service");
 const shopify_auth_service_1 = require("./services/shopify-auth-service");
 const shopify_payment_resolve_service_1 = require("./services/shopify-payment-resolve-service");
-const payment_session_context_repo_1 = require("./storage/payment-session-context-repo");
-const shopify_token_repo_1 = require("./storage/shopify-token-repo");
-const store_config_repo_1 = require("./storage/store-config-repo");
+const storage_1 = require("./storage");
 function createApp() {
     const app = (0, express_1.default)();
     app.use(express_1.default.json({
@@ -29,13 +28,19 @@ function createApp() {
     }));
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
-    const storeRepo = new store_config_repo_1.StoreConfigRepository(node_path_1.default.join(env_1.env.dataDir, "store-configs.json"));
+    const storage = (0, storage_1.getStorage)();
+    const storeRepo = storage.storeRepo;
     const paymentService = new payment_service_1.PaymentService(storeRepo);
-    const shopifyTokenRepo = new shopify_token_repo_1.ShopifyTokenRepository(node_path_1.default.join(env_1.env.dataDir, "shopify-tokens.json"));
+    const shopifyTokenRepo = storage.tokenRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
-    const sessionContextRepo = new payment_session_context_repo_1.PaymentSessionContextRepository(node_path_1.default.join(env_1.env.dataDir, "payment-session-contexts.json"));
+    const sessionContextRepo = storage.sessionContextRepo;
+    const complianceRequestRepo = storage.complianceRequestRepo;
+    const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
     app.get("/", (_req, res) => {
+        res.sendFile(node_path_1.default.join(publicDir, "index.html"));
+    });
+    app.get("/app", (_req, res) => {
         res.sendFile(node_path_1.default.join(publicDir, "index.html"));
     });
     app.get("/sandbox/pay", (req, res) => {
@@ -122,6 +127,7 @@ function createApp() {
         res.type("html").send(html);
     });
     app.use("/api/config", (0, config_1.configRoutes)(storeRepo));
+    app.use("/api/compliance", (0, compliance_1.complianceRoutes)(shopifyComplianceService));
     app.use("/api/payments", (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
     app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
@@ -133,7 +139,7 @@ function createApp() {
         sessionContextRepo,
         paymentResolve: shopifyPaymentResolveService
     }));
-    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService));
+    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService));
     app.use((error, _req, res, _next) => {
         if (error instanceof zod_1.ZodError) {
             return res.status(400).json({

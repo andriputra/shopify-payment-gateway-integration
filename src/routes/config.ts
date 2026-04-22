@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { StoreConfigRepository } from "../storage/store-config-repo";
+import { StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
 
 const providerEnum = z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const);
@@ -17,25 +17,33 @@ const saveConfigSchema = z.object({
   })
 });
 
-export function configRoutes(storeRepo: StoreConfigRepository): Router {
+export function configRoutes(storeRepo: StoreConfigStore): Router {
   const router = Router();
 
-  router.post("/", (req, res) => {
-    const body = saveConfigSchema.parse(req.body);
-    const config = storeRepo.upsert({
-      ...body,
-      provider: body.provider as SupportedProvider,
-      updatedAt: new Date().toISOString()
-    });
-    res.json({ ok: true, config });
+  router.post("/", async (req, res, next) => {
+    try {
+      const body = saveConfigSchema.parse(req.body);
+      const config = await storeRepo.upsert({
+        ...body,
+        provider: body.provider as SupportedProvider,
+        updatedAt: new Date().toISOString()
+      });
+      res.json({ ok: true, config });
+    } catch (error) {
+      next(error);
+    }
   });
 
-  router.get("/:shop", (req, res) => {
-    const config = storeRepo.get(req.params.shop);
-    if (!config) {
-      return res.status(404).json({ ok: false, message: "Store config not found" });
+  router.get("/:shop", async (req, res, next) => {
+    try {
+      const config = await storeRepo.get(req.params.shop);
+      if (!config) {
+        return res.status(404).json({ ok: false, message: "Store config not found" });
+      }
+      return res.json({ ok: true, config });
+    } catch (error) {
+      next(error);
     }
-    return res.json({ ok: true, config });
   });
 
   return router;

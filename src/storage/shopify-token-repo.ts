@@ -1,16 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-
-export type ShopifyTokenRecord = {
-  shop: string;
-  accessToken: string;
-  scope?: string;
-  installedAt: string;
-};
+import { ShopifyTokenRecord, ShopifyTokenStore } from "./contracts";
 
 type TokenMap = Record<string, ShopifyTokenRecord>;
 
-export class ShopifyTokenRepository {
+export class ShopifyTokenRepository implements ShopifyTokenStore {
   private readonly filePath: string;
 
   constructor(filePath = path.resolve(process.cwd(), "data/shopify-tokens.json")) {
@@ -18,16 +12,30 @@ export class ShopifyTokenRepository {
     this.ensureFile();
   }
 
-  get(shop: string): ShopifyTokenRecord | undefined {
+  async get(shop: string): Promise<ShopifyTokenRecord | undefined> {
     const data = this.readAll();
     return data[shop];
   }
 
-  upsert(record: ShopifyTokenRecord): ShopifyTokenRecord {
+  async list(): Promise<ShopifyTokenRecord[]> {
+    return Object.values(this.readAll());
+  }
+
+  async upsert(record: ShopifyTokenRecord): Promise<ShopifyTokenRecord> {
     const data = this.readAll();
     data[record.shop] = record;
     this.writeAll(data);
     return record;
+  }
+
+  async delete(shop: string): Promise<boolean> {
+    const data = this.readAll();
+    if (!(shop in data)) {
+      return false;
+    }
+    delete data[shop];
+    this.writeAll(data);
+    return true;
   }
 
   private ensureFile(): void {

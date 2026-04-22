@@ -21,7 +21,7 @@ class ShopifyPaymentResolveService {
         this.tokenRepo = tokenRepo;
     }
     async resolvePaymentSession(shop, paymentSessionGid) {
-        const token = this.tokenRepo.get(shop);
+        const token = await this.tokenRepo.get(shop);
         if (!token) {
             return {
                 ok: false,

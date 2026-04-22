@@ -34,7 +34,7 @@ function shopifyPaymentSessionRoutes(deps) {
         try {
             const raw = createSessionSchema.parse(req.body);
             const shop = normalizeShop(raw.shop);
-            const store = storeRepo.get(shop);
+            const store = await storeRepo.get(shop);
             if (!store) {
                 return res.status(400).json({
                     ok: false,
@@ -47,7 +47,7 @@ function shopifyPaymentSessionRoutes(deps) {
                     ? `ps_${node_crypto_1.default.createHash("sha256").update(paymentSessionGid).digest("hex").slice(0, 24)}`
                     : `ps_${Date.now()}`);
             if (paymentSessionGid) {
-                sessionContextRepo.save(orderRef, {
+                await sessionContextRepo.save(orderRef, {
                     shop,
                     paymentSessionId: paymentSessionGid,
                     createdAt: new Date().toISOString()

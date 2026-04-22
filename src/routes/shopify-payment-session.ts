@@ -2,8 +2,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { PaymentService } from "../services/payment-service";
-import { PaymentSessionContextRepository } from "../storage/payment-session-context-repo";
-import { StoreConfigRepository } from "../storage/store-config-repo";
+import { PaymentSessionContextStore, StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
 
 const createSessionSchema = z.object({
@@ -30,8 +29,8 @@ function normalizeShop(domain: string): string {
 
 export function shopifyPaymentSessionRoutes(deps: {
   paymentService: PaymentService;
-  storeRepo: StoreConfigRepository;
-  sessionContextRepo: PaymentSessionContextRepository;
+  storeRepo: StoreConfigStore;
+  sessionContextRepo: PaymentSessionContextStore;
 }): Router {
   const router = Router();
   const { paymentService, storeRepo, sessionContextRepo } = deps;
@@ -40,7 +39,7 @@ export function shopifyPaymentSessionRoutes(deps: {
     try {
       const raw = createSessionSchema.parse(req.body);
       const shop = normalizeShop(raw.shop);
-      const store = storeRepo.get(shop);
+      const store = await storeRepo.get(shop);
       if (!store) {
         return res.status(400).json({
           ok: false,
@@ -56,7 +55,7 @@ export function shopifyPaymentSessionRoutes(deps: {
           : `ps_${Date.now()}`);
 
       if (paymentSessionGid) {
-        sessionContextRepo.save(orderRef, {
+        await sessionContextRepo.save(orderRef, {
           shop,
           paymentSessionId: paymentSessionGid,
           createdAt: new Date().toISOString()

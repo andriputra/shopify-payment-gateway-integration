@@ -6,9 +6,26 @@ const createCheckoutBtn = document.getElementById("createCheckoutBtn");
 const checkoutHintEl = document.getElementById("checkoutHint");
 const connectShopifyBtn = document.getElementById("connectShopifyBtn");
 const oauthShopInput = document.getElementById("oauthShop");
+const installStatusBanner = document.getElementById("installStatusBanner");
 
 function showResult(data) {
   resultEl.textContent = JSON.stringify(data, null, 2);
+}
+
+function setBanner(type, message) {
+  if (!message) {
+    installStatusBanner.className = "mb-6 hidden rounded-2xl border px-5 py-4 shadow-sm";
+    installStatusBanner.textContent = "";
+    return;
+  }
+
+  const palette =
+    type === "success"
+      ? "mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-900 shadow-sm"
+      : "mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-900 shadow-sm";
+
+  installStatusBanner.className = palette;
+  installStatusBanner.textContent = message;
 }
 
 async function saveConfig(event) {
@@ -158,10 +175,49 @@ function connectShopify() {
   window.location.href = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
 }
 
+async function hydrateInstallState() {
+  const params = new URLSearchParams(window.location.search);
+  const shop = params.get("shop") || "";
+  const installed = params.get("installed");
+  const error = params.get("error");
+
+  if (shop) {
+    document.getElementById("shop").value = shop;
+    oauthShopInput.value = shop;
+    lookupShopInput.value = shop;
+  }
+
+  if (error) {
+    setBanner("error", `Install Shopify gagal untuk ${shop || "shop ini"}: ${error}`);
+    showResult({ ok: false, shop, message: error });
+    return;
+  }
+
+  if (installed !== "1" || !shop) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/auth/shopify/status/${encodeURIComponent(shop)}`);
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.message || "Install status check failed");
+    }
+
+    setBanner("success", `Shopify app berhasil terinstall dan terautentikasi untuk ${shop}.`);
+    showResult(data);
+  } catch (installError) {
+    const message = installError instanceof Error ? installError.message : "Install status check failed";
+    setBanner("error", `Install selesai, tapi status install belum bisa dibaca: ${message}`);
+    showResult({ ok: false, shop, message });
+  }
+}
+
 form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
 connectShopifyBtn.addEventListener("click", connectShopify);
+hydrateInstallState();
 
 
 const providerSelect = document.getElementById("provider");
