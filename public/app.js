@@ -1,4 +1,6 @@
+import createApp from "@shopify/app-bridge";
 import { getSessionToken } from "@shopify/app-bridge/utilities";
+
 const form = document.getElementById("configForm");
 const resultEl = document.getElementById("result");
 const loadBtn = document.getElementById("loadConfigBtn");
@@ -38,6 +40,10 @@ const goLiveRedirectUrl = document.getElementById("goLiveRedirectUrl");
 const goLiveWebhookDataRequest = document.getElementById("goLiveWebhookDataRequest");
 const goLiveWebhookCustomersRedact = document.getElementById("goLiveWebhookCustomersRedact");
 const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact");
+
+const params = new URLSearchParams(window.location.search);
+const apiKey = params.get("apiKey") || params.get("api_key") || "YOUR_FALLBACK_API_KEY";
+const host = params.get("host");
 
 const hasAdvancedTabs =
   viewConfig &&
@@ -115,9 +121,14 @@ function setActiveTab(active) {
 //   }
 //   return data.status;
 // }
-async function fetchSystemStatus(app) {
-  const token = await getSessionToken(app);
 
+const shopifyApp = createApp({
+  apiKey,
+  host,
+});
+
+async function fetchSystemStatus() {
+  const token = await getSessionToken(shopifyApp);
   const response = await fetch("/api/system/status", {
     method: "GET",
     headers: {
