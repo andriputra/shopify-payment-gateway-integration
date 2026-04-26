@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
+import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
 import { shopifyAuthRoutes } from "./routes/shopify-auth";
 import { shopifyPaymentSessionRoutes } from "./routes/shopify-payment-session";
@@ -139,10 +140,10 @@ export function createApp(): express.Application {
     res.type("html").send(html);
   });
 
-  app.use("/api/config", configRoutes(storeRepo));
-  app.use("/api/system", systemRoutes(storage));
-  app.use("/api/compliance", complianceRoutes(shopifyComplianceService));
-  app.use("/api/payments", paymentRoutes(paymentService));
+  app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
+  app.use("/api/system", verifyShopifySessionToken, systemRoutes(storage));
+  app.use("/api/compliance", verifyShopifySessionToken, complianceRoutes(shopifyComplianceService));
+  app.use("/api/payments", verifyShopifySessionToken, paymentRoutes(paymentService));
   app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));
   app.use(
     "/api",

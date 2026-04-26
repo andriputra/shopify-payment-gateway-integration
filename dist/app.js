@@ -9,6 +9,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const zod_1 = require("zod");
 const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
+const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
 const shopify_auth_1 = require("./routes/shopify-auth");
 const shopify_payment_session_1 = require("./routes/shopify-payment-session");
@@ -127,10 +128,10 @@ function createApp() {
 </html>`;
         res.type("html").send(html);
     });
-    app.use("/api/config", (0, config_1.configRoutes)(storeRepo));
-    app.use("/api/system", (0, system_1.systemRoutes)(storage));
-    app.use("/api/compliance", (0, compliance_1.complianceRoutes)(shopifyComplianceService));
-    app.use("/api/payments", (0, payments_1.paymentRoutes)(paymentService));
+    app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
+    app.use("/api/system", verify_shopify_session_token_1.verifyShopifySessionToken, (0, system_1.systemRoutes)(storage));
+    app.use("/api/compliance", verify_shopify_session_token_1.verifyShopifySessionToken, (0, compliance_1.complianceRoutes)(shopifyComplianceService));
+    app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
     app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
         paymentService,

@@ -1,6 +1,3 @@
-import createApp from "@shopify/app-bridge";
-import { getSessionToken } from "@shopify/app-bridge/utilities";
-
 const form = document.getElementById("configForm");
 const resultEl = document.getElementById("result");
 const loadBtn = document.getElementById("loadConfigBtn");
@@ -44,6 +41,12 @@ const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact
 const params = new URLSearchParams(window.location.search);
 const apiKey = params.get("apiKey") || params.get("api_key") || "YOUR_FALLBACK_API_KEY";
 const host = params.get("host");
+const AppBridge = window["app-bridge"];
+const createApp = AppBridge && typeof AppBridge.default === "function" ? AppBridge.default : null;
+const getSessionToken =
+  AppBridge && AppBridge.utilities && typeof AppBridge.utilities.getSessionToken === "function"
+    ? AppBridge.utilities.getSessionToken
+    : null;
 
 const hasAdvancedTabs =
   viewConfig &&
@@ -122,19 +125,28 @@ function setActiveTab(active) {
 //   return data.status;
 // }
 
-const shopifyApp = createApp({
-  apiKey,
-  host,
-});
+const shopifyApp = createApp
+  ? createApp({
+      apiKey,
+      host,
+    })
+  : null;
+
+async function appFetch(input, init = {}) {
+  const headers = new Headers(init.headers || {});
+  if (getSessionToken && shopifyApp) {
+    const token = await getSessionToken(shopifyApp);
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+  return fetch(input, { ...init, headers });
+}
 
 async function fetchSystemStatus() {
-  const token = await getSessionToken(shopifyApp);
-  const response = await fetch("/api/system/status", {
+  const response = await appFetch("/api/system/status", {
     method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
   });
 
   const data = await response.json();
@@ -213,7 +225,7 @@ async function fetchComplianceList() {
   if (topic) params.set("topic", topic);
   params.set("limit", limit);
 
-  const response = await fetch(`/api/compliance/requests?${params.toString()}`);
+  const response = await appFetch(`/api/compliance/requests?${params.toString()}`);
   const data = await response.json();
   if (!response.ok || !data.ok) {
     throw new Error(data.message || "Compliance list request failed");
@@ -222,7 +234,7 @@ async function fetchComplianceList() {
 }
 
 async function fetchComplianceDetail(id) {
-  const response = await fetch(`/api/compliance/requests/${encodeURIComponent(id)}`);
+  const response = await appFetch(`/api/compliance/requests/${encodeURIComponent(id)}`);
   const data = await response.json();
   if (!response.ok || !data.ok) {
     throw new Error(data.message || "Compliance detail request failed");
@@ -339,7 +351,7 @@ async function saveConfig(event) {
   };
 
   try {
-    const response = await fetch("/api/config", {
+    const response = await appFetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -359,7 +371,7 @@ async function loadConfig() {
   }
 
   try {
-    const response = await fetch(`/api/config/${encodeURIComponent(shop)}`);
+    const response = await appFetch(`/api/config/${encodeURIComponent(shop)}`);
     const data = await response.json();
     showResult(data);
   } catch (error) {
@@ -381,7 +393,7 @@ async function createDemoCheckout() {
   }
 
   try {
-    const response = await fetch("/api/payments/checkout/create", {
+    const response = await appFetch("/api/payments/checkout/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -439,7 +451,7 @@ async function hydrateInstallState() {
   }
 
   try {
-    const response = await fetch(`/auth/shopify/status/${encodeURIComponent(shop)}`);
+    const response = await appFetch(`/auth/shopify/status/${encodeURIComponent(shop)}`);
     const data = await response.json();
     if (!response.ok || !data.ok) {
       throw new Error(data.message || "Install status check failed");
