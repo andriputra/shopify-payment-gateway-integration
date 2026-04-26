@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "node:fs";
 import path from "node:path";
 import { ZodError } from "zod";
 import { env } from "./config/env";
@@ -29,6 +30,8 @@ export function createApp(): express.Application {
 
   const publicDir = path.join(process.cwd(), "public");
   app.use(express.static(publicDir));
+  const indexHtmlTemplate = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
+  const renderIndexHtml = () => indexHtmlTemplate.replace(/__SHOPIFY_API_KEY__/g, env.shopifyApiKey);
 
   const storage = getStorage();
   const storeRepo = storage.storeRepo;
@@ -46,11 +49,11 @@ export function createApp(): express.Application {
   const shopifyPaymentResolveService = new ShopifyPaymentResolveService(shopifyTokenRepo);
 
   app.get("/", (_req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
+    res.type("html").send(renderIndexHtml());
   });
 
   app.get("/app", (_req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
+    res.type("html").send(renderIndexHtml());
   });
 
   app.get("/sandbox/pay", (req, res) => {

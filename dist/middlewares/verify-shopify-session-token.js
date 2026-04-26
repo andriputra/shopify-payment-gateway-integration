@@ -34,13 +34,9 @@ function verifyJwt(token) {
         throw new Error("Unsupported token algorithm");
     }
     const signedData = `${encodedHeader}.${encodedPayload}`;
-    const expectedSignature = node_crypto_1.default
-        .createHmac("sha256", env_1.env.shopifyApiSecret)
-        .update(signedData, "utf8")
-        .digest("base64url");
-    const a = Buffer.from(expectedSignature, "utf8");
-    const b = Buffer.from(encodedSignature, "utf8");
-    if (a.length !== b.length || !node_crypto_1.default.timingSafeEqual(a, b)) {
+    const expectedMac = node_crypto_1.default.createHmac("sha256", env_1.env.shopifyApiSecret).update(signedData, "utf8").digest();
+    const signatureBytes = decodeBase64Url(encodedSignature);
+    if (signatureBytes.length !== expectedMac.length || !node_crypto_1.default.timingSafeEqual(expectedMac, signatureBytes)) {
         throw new Error("Token signature mismatch");
     }
     const nowSec = Math.floor(Date.now() / 1000);

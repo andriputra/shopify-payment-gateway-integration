@@ -39,14 +39,34 @@ const goLiveWebhookCustomersRedact = document.getElementById("goLiveWebhookCusto
 const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact");
 
 const params = new URLSearchParams(window.location.search);
-const apiKey = params.get("apiKey") || params.get("api_key") || "YOUR_FALLBACK_API_KEY";
+const apiKeyFromMeta = document.querySelector('meta[name="shopify-api-key"]')?.getAttribute("content") || "";
+const apiKey = params.get("apiKey") || params.get("api_key") || apiKeyFromMeta || "";
 const host = params.get("host");
-const AppBridge = window["app-bridge"];
-const createApp = AppBridge && typeof AppBridge.default === "function" ? AppBridge.default : null;
-const getSessionToken =
-  AppBridge && AppBridge.utilities && typeof AppBridge.utilities.getSessionToken === "function"
-    ? AppBridge.utilities.getSessionToken
-    : null;
+
+/** CDN App Bridge exposes `window["app-bridge"]`; createApp is NOT always on `.default`. */
+const AppBridgeGlobal = window["app-bridge"];
+function resolveCreateApp(bridge) {
+  if (!bridge) return null;
+  if (typeof bridge.createApp === "function") return bridge.createApp.bind(bridge);
+  if (bridge.default && typeof bridge.default.createApp === "function") {
+    return bridge.default.createApp.bind(bridge.default);
+  }
+  if (typeof bridge.default === "function") return bridge.default;
+  return null;
+}
+function resolveGetSessionToken(bridge) {
+  if (!bridge || !bridge.utilities) return null;
+  if (typeof bridge.utilities.getSessionToken === "function") return bridge.utilities.getSessionToken;
+  return null;
+}
+function resolveAuthenticatedFetch(bridge) {
+  if (!bridge || !bridge.utilities) return null;
+  if (typeof bridge.utilities.authenticatedFetch === "function") return bridge.utilities.authenticatedFetch;
+  return null;
+}
+
+const createApp = resolveCreateApp(AppBridgeGlobal);
+const getSessionToken = resolveGetSessionToken(AppBridgeGlobal);
 
 const hasAdvancedTabs =
   viewConfig &&
@@ -125,18 +145,44 @@ function setActiveTab(active) {
 //   return data.status;
 // }
 
-const shopifyApp = createApp
-  ? createApp({
+let shopifyApp = null;
+try {
+  if (createApp && apiKey && host) {
+    shopifyApp = createApp({
       apiKey,
       host,
-    })
-  : null;
+    });
+  }
+} catch (_error) {
+  shopifyApp = null;
+}
+
+const makeAuthenticatedFetch = resolveAuthenticatedFetch(AppBridgeGlobal);
+const authenticatedFetch =
+  shopifyApp && makeAuthenticatedFetch ? makeAuthenticatedFetch(shopifyApp) : null;
 
 async function appFetch(input, init = {}) {
+  if (authenticatedFetch) {
+    const merged = { ...init };
+    if (!merged.headers) {
+      merged.headers = {};
+    }
+    const h = new Headers(merged.headers);
+    if (!h.has("Accept")) {
+      h.set("Accept", "application/json");
+    }
+    merged.headers = h;
+    return authenticatedFetch(input, merged);
+  }
+
   const headers = new Headers(init.headers || {});
   if (getSessionToken && shopifyApp) {
     const token = await getSessionToken(shopifyApp);
     headers.set("Authorization", `Bearer ${token}`);
+  } else if (!headers.has("Authorization")) {
+    throw new Error(
+      "App Bridge belum siap (session token belum tersedia). Pastikan app dibuka dari Shopify Admin (embedded), query punya host, dan SHOPIFY_API_KEY sudah terpasang di halaman."
+    );
   }
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
@@ -425,7 +471,16 @@ function connectShopify() {
     showResult({ ok: false, message: "Isi shop domain dulu untuk OAuth install Shopify." });
     return;
   }
-  window.location.href = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
+  const installUrl = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
+  try {
+    if (window.top && window.top !== window.self) {
+      window.top.location.href = installUrl;
+      return;
+    }
+  } catch (_error) {
+    // Ignore cross-origin access issues and fall back below.
+  }
+  window.location.href = installUrl;
 }
 
 async function hydrateInstallState() {

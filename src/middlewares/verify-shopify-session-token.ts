@@ -44,14 +44,9 @@ function verifyJwt(token: string): JwtPayload {
   }
 
   const signedData = `${encodedHeader}.${encodedPayload}`;
-  const expectedSignature = crypto
-    .createHmac("sha256", env.shopifyApiSecret)
-    .update(signedData, "utf8")
-    .digest("base64url");
-
-  const a = Buffer.from(expectedSignature, "utf8");
-  const b = Buffer.from(encodedSignature, "utf8");
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+  const expectedMac = crypto.createHmac("sha256", env.shopifyApiSecret).update(signedData, "utf8").digest();
+  const signatureBytes = decodeBase64Url(encodedSignature);
+  if (signatureBytes.length !== expectedMac.length || !crypto.timingSafeEqual(expectedMac, signatureBytes)) {
     throw new Error("Token signature mismatch");
   }
 

@@ -2,6 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shopifyAuthRoutes = shopifyAuthRoutes;
 const express_1 = require("express");
+function encodeHostParam(shop) {
+    const raw = `${shop}/admin`;
+    return Buffer.from(raw, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "");
+}
 function normalizeQuery(query) {
     const out = {};
     for (const key of Object.keys(query)) {
@@ -53,9 +61,10 @@ function shopifyAuthRoutes(service, tokenRepo) {
                 state,
                 query: data
             });
+            const resolvedHost = host || encodeHostParam(saved.shop);
             return res.redirect(service.buildAppRedirectUrl({
                 shop: saved.shop,
-                host,
+                host: resolvedHost,
                 installed: true
             }));
         }

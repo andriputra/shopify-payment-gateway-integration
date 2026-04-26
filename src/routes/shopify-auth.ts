@@ -2,6 +2,15 @@ import { RequestHandler, Router } from "express";
 import { ShopifyAuthService } from "../services/shopify-auth-service";
 import { ShopifyTokenStore } from "../storage/contracts";
 
+function encodeHostParam(shop: string): string {
+  const raw = `${shop}/admin`;
+  return Buffer.from(raw, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
 function normalizeQuery(query: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const key of Object.keys(query)) {
@@ -65,11 +74,12 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
         state,
         query: data
       });
+      const resolvedHost = host || encodeHostParam(saved.shop);
 
       return res.redirect(
         service.buildAppRedirectUrl({
           shop: saved.shop,
-          host,
+          host: resolvedHost,
           installed: true
         })
       );

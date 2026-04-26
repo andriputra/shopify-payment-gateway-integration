@@ -5,8 +5,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createApp = createApp;
 const express_1 = __importDefault(require("express"));
+const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const zod_1 = require("zod");
+const env_1 = require("./config/env");
 const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
@@ -30,6 +32,8 @@ function createApp() {
     }));
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
+    const indexHtmlTemplate = node_fs_1.default.readFileSync(node_path_1.default.join(publicDir, "index.html"), "utf8");
+    const renderIndexHtml = () => indexHtmlTemplate.replace(/__SHOPIFY_API_KEY__/g, env_1.env.shopifyApiKey);
     const storage = (0, storage_1.getStorage)();
     const storeRepo = storage.storeRepo;
     const paymentService = new payment_service_1.PaymentService(storeRepo);
@@ -40,10 +44,10 @@ function createApp() {
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
     app.get("/", (_req, res) => {
-        res.sendFile(node_path_1.default.join(publicDir, "index.html"));
+        res.type("html").send(renderIndexHtml());
     });
     app.get("/app", (_req, res) => {
-        res.sendFile(node_path_1.default.join(publicDir, "index.html"));
+        res.type("html").send(renderIndexHtml());
     });
     app.get("/sandbox/pay", (req, res) => {
         const shop = String(req.query.shop ?? "");
