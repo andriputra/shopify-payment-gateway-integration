@@ -1,3 +1,4 @@
+import { getSessionToken } from "@shopify/app-bridge/utilities";
 const form = document.getElementById("configForm");
 const resultEl = document.getElementById("result");
 const loadBtn = document.getElementById("loadConfigBtn");
@@ -106,12 +107,31 @@ function setActiveTab(active) {
   }
 }
 
-async function fetchSystemStatus() {
-  const response = await fetch("/api/system/status");
+// async function fetchSystemStatus() {
+//   const response = await fetch("/api/system/status");
+//   const data = await response.json();
+//   if (!response.ok || !data.ok) {
+//     throw new Error(data.message || "System status request failed");
+//   }
+//   return data.status;
+// }
+async function fetchSystemStatus(app) {
+  const token = await getSessionToken(app);
+
+  const response = await fetch("/api/system/status", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+  });
+
   const data = await response.json();
+
   if (!response.ok || !data.ok) {
     throw new Error(data.message || "System status request failed");
   }
+
   return data.status;
 }
 
