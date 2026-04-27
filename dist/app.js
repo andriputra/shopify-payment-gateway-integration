@@ -133,7 +133,8 @@ function createApp() {
         res.type("html").send(html);
     });
     app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
-    app.use("/api/system", verify_shopify_session_token_1.verifyShopifySessionToken, (0, system_1.systemRoutes)(storage));
+    // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
+    app.use("/api/system", (0, system_1.systemRoutes)(storage));
     app.use("/api/compliance", verify_shopify_session_token_1.verifyShopifySessionToken, (0, compliance_1.complianceRoutes)(shopifyComplianceService));
     app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));

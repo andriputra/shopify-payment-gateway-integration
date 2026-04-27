@@ -11,17 +11,28 @@ function encodeHostParam(shop: string): string {
     .replace(/=+$/g, "");
 }
 
-function normalizeQuery(query: Record<string, unknown>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const key of Object.keys(query)) {
-    const value = query[key];
-    if (typeof value === "string") {
-      out[key] = value;
-    } else if (Array.isArray(value) && typeof value[0] === "string") {
-      out[key] = value[0];
-    }
+/**
+ * Parse OAuth callback params for HMAC verification.
+ * Use URLSearchParams on the raw query string — Express `req.query` / `qs` can coerce types
+ * (e.g. numeric timestamp) or omit keys, which breaks Shopify's signed message.
+ */
+function parseOAuthCallbackQuery(req: { url?: string; originalUrl?: string }): Record<string, string> {
+  const extract = (full: string): string => {
+    const i = full.indexOf("?");
+    return i >= 0 ? full.slice(i + 1) : "";
+  };
+  const raw =
+    extract(req.originalUrl ?? "") ||
+    extract(req.url ?? "");
+  const data: Record<string, string> = {};
+  if (!raw) {
+    return data;
   }
-  return out;
+  const params = new URLSearchParams(raw);
+  params.forEach((value, key) => {
+    data[key] = value;
+  });
+  return data;
 }
 
 export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: ShopifyTokenStore): Router {
@@ -40,15 +51,12 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
 
     const installUrl = service.startOAuth(shop);
 
-    console.log("FIXED SHOP:", shop);
-    console.log("INSTALL URL:", installUrl);
-
     return res.redirect(installUrl);
   });
 
   const handleCallback: RequestHandler = async (req, res, next) => {
-    const data = normalizeQuery(req.query as Record<string, unknown>);
-    const shop = data.shop ?? "";
+    const data = parseOAuthCallbackQuery(req);
+    const shop = (data.shop ?? "").trim().toLowerCase();
     const host = data.host ?? "";
 
     try {
@@ -74,6 +82,7 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
         state,
         query: data
       });
+
       const resolvedHost = host || encodeHostParam(saved.shop);
 
       return res.redirect(
