@@ -34,6 +34,23 @@ export function configRoutes(storeRepo: StoreConfigStore): Router {
     }
   });
 
+  router.get("/", async (req, res, next) => {
+    try {
+      const shop = String(req.query.shop ?? "").trim().toLowerCase();
+      if (!shop) {
+        return res.status(400).json({ ok: false, message: "Missing shop query parameter" });
+      }
+      const normalizedShop = shop.endsWith(".myshopify.com") ? shop : `${shop}.myshopify.com`;
+      const config = await storeRepo.get(normalizedShop);
+      if (!config) {
+        return res.status(404).json({ ok: false, message: "Store config not found" });
+      }
+      return res.json({ ok: true, config });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/:shop", async (req, res, next) => {
     try {
       const config = await storeRepo.get(req.params.shop);

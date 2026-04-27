@@ -449,8 +449,16 @@ async function loadConfig() {
   }
 
   try {
-    const response = await appFetch(`/api/config/${encodeURIComponent(shop)}`);
-    const data = await response.json();
+    const response = await appFetch(`/api/config?shop=${encodeURIComponent(shop)}`);
+    const contentType = response.headers.get("content-type") || "";
+    let data;
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const body = await response.text();
+      const shortBody = body.replace(/\s+/g, " ").slice(0, 180);
+      throw new Error(`Config endpoint returned non-JSON (${response.status}). ${shortBody || "Empty response"}`);
+    }
     showResult(data);
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
