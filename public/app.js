@@ -40,10 +40,9 @@ const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact
 
 const params = new URLSearchParams(window.location.search);
 const apiKeyFromMeta = document.querySelector('meta[name="shopify-api-key"]')?.getAttribute("content") || "";
-const apiKey = params.get("apiKey") || params.get("api_key") || apiKeyFromMeta || "";
+const metaKey = apiKeyFromMeta && apiKeyFromMeta !== "__SHOPIFY_API_KEY__" ? apiKeyFromMeta : "";
+const apiKey = params.get("apiKey") || params.get("api_key") || metaKey || "";
 const host = params.get("host");
-
-/** CDN App Bridge exposes `window["app-bridge"]`; createApp is NOT always on `.default`. */
 const AppBridgeGlobal = window["app-bridge"];
 function resolveCreateApp(bridge) {
   if (!bridge) return null;
@@ -64,7 +63,6 @@ function resolveAuthenticatedFetch(bridge) {
   if (typeof bridge.utilities.authenticatedFetch === "function") return bridge.utilities.authenticatedFetch;
   return null;
 }
-
 const createApp = resolveCreateApp(AppBridgeGlobal);
 const getSessionToken = resolveGetSessionToken(AppBridgeGlobal);
 
@@ -148,12 +146,9 @@ function setActiveTab(active) {
 let shopifyApp = null;
 try {
   if (createApp && apiKey && host) {
-    shopifyApp = createApp({
-      apiKey,
-      host,
-    });
+    shopifyApp = createApp({ apiKey, host });
   }
-} catch (_error) {
+} catch (_e) {
   shopifyApp = null;
 }
 
@@ -162,31 +157,25 @@ const authenticatedFetch =
   shopifyApp && makeAuthenticatedFetch ? makeAuthenticatedFetch(shopifyApp) : null;
 
 async function appFetch(input, init = {}) {
-  if (authenticatedFetch) {
-    const merged = { ...init };
-    if (!merged.headers) {
-      merged.headers = {};
-    }
-    const h = new Headers(merged.headers);
-    if (!h.has("Accept")) {
-      h.set("Accept", "application/json");
-    }
-    merged.headers = h;
-    return authenticatedFetch(input, merged);
-  }
-
   const headers = new Headers(init.headers || {});
-  if (getSessionToken && shopifyApp) {
-    const token = await getSessionToken(shopifyApp);
-    headers.set("Authorization", `Bearer ${token}`);
-  } else if (!headers.has("Authorization")) {
-    throw new Error(
-      "App Bridge belum siap (session token belum tersedia). Pastikan app dibuka dari Shopify Admin (embedded), query punya host, dan SHOPIFY_API_KEY sudah terpasang di halaman."
-    );
-  }
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
   }
+
+  // Backend routes use verifyShopifySessionToken (JWT in Authorization). Prefer explicit
+  // getSessionToken + fetch: App Bridge authenticatedFetch often omits Bearer on same-origin POST.
+  if (getSessionToken && shopifyApp) {
+    const token = await getSessionToken(shopifyApp);
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    return fetch(input, { ...init, headers });
+  }
+
+  if (authenticatedFetch) {
+    return authenticatedFetch(input, { ...init, headers });
+  }
+
   return fetch(input, { ...init, headers });
 }
 
@@ -477,9 +466,7 @@ function connectShopify() {
       window.top.location.href = installUrl;
       return;
     }
-  } catch (_error) {
-    // Ignore cross-origin access issues and fall back below.
-  }
+  } catch (_err) {}
   window.location.href = installUrl;
 }
 
@@ -506,7 +493,9 @@ async function hydrateInstallState() {
   }
 
   try {
-    const response = await appFetch(`/auth/shopify/status/${encodeURIComponent(shop)}`);
+    const response = await fetch(`/auth/shopify/status/${encodeURIComponent(shop)}`, {
+      headers: { Accept: "application/json" }
+    });
     const data = await response.json();
     if (!response.ok || !data.ok) {
       throw new Error(data.message || "Install status check failed");

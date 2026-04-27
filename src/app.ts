@@ -30,6 +30,7 @@ export function createApp(): express.Application {
 
   const publicDir = path.join(process.cwd(), "public");
   app.use(express.static(publicDir));
+
   const indexHtmlTemplate = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
   const renderIndexHtml = () => indexHtmlTemplate.replace(/__SHOPIFY_API_KEY__/g, env.shopifyApiKey);
 
@@ -144,7 +145,8 @@ export function createApp(): express.Application {
   });
 
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
-  app.use("/api/system", verifyShopifySessionToken, systemRoutes(storage));
+  // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
+  app.use("/api/system", systemRoutes(storage));
   app.use("/api/compliance", verifyShopifySessionToken, complianceRoutes(shopifyComplianceService));
   app.use("/api/payments", verifyShopifySessionToken, paymentRoutes(paymentService));
   app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));

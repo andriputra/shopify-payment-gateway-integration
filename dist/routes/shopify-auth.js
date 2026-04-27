@@ -10,18 +10,27 @@ function encodeHostParam(shop) {
         .replace(/\//g, "_")
         .replace(/=+$/g, "");
 }
-function normalizeQuery(query) {
-    const out = {};
-    for (const key of Object.keys(query)) {
-        const value = query[key];
-        if (typeof value === "string") {
-            out[key] = value;
-        }
-        else if (Array.isArray(value) && typeof value[0] === "string") {
-            out[key] = value[0];
-        }
+/**
+ * Parse OAuth callback params for HMAC verification.
+ * Use URLSearchParams on the raw query string — Express `req.query` / `qs` can coerce types
+ * (e.g. numeric timestamp) or omit keys, which breaks Shopify's signed message.
+ */
+function parseOAuthCallbackQuery(req) {
+    const extract = (full) => {
+        const i = full.indexOf("?");
+        return i >= 0 ? full.slice(i + 1) : "";
+    };
+    const raw = extract(req.originalUrl ?? "") ||
+        extract(req.url ?? "");
+    const data = {};
+    if (!raw) {
+        return data;
     }
-    return out;
+    const params = new URLSearchParams(raw);
+    params.forEach((value, key) => {
+        data[key] = value;
+    });
+    return data;
 }
 function shopifyAuthRoutes(service, tokenRepo) {
     const router = (0, express_1.Router)();
@@ -34,14 +43,11 @@ function shopifyAuthRoutes(service, tokenRepo) {
             return res.status(400).json({ ok: false, message: "Invalid shop domain" });
         }
         const installUrl = service.startOAuth(shop);
-        console.log("FIXED SHOP:", shop);
-        console.log("INSTALL URL:", installUrl);
         return res.redirect(installUrl);
     });
     const handleCallback = async (req, res, next) => {
-        const data = normalizeQuery(req.query);
-        const rawQueryString = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?") + 1) : "";
-        const shop = data.shop ?? "";
+        const data = parseOAuthCallbackQuery(req);
+        const shop = (data.shop ?? "").trim().toLowerCase();
         const host = data.host ?? "";
         try {
             const code = data.code ?? "";

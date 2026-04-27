@@ -47,6 +47,28 @@ export interface PaymentSessionContextStore {
   delete(orderReference: string): Promise<void>;
 }
 
+/** Auto-generated payment links (post-checkout Swipe flow). */
+export type PaymentRedirectRecord = {
+  shop: string;
+  orderReference: string;
+  provider: string;
+  paymentUrl: string;
+  providerReference: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "paid" | "failed";
+  createdAt: string;
+  updatedAt: string;
+};
+
+export interface PaymentRedirectStore {
+  upsert(record: PaymentRedirectRecord): Promise<PaymentRedirectRecord>;
+  get(shop: string, orderReference: string): Promise<PaymentRedirectRecord | undefined>;
+  listByShop(shop: string, limit?: number): Promise<PaymentRedirectRecord[]>;
+  markStatus(shop: string, orderReference: string, status: PaymentRedirectRecord["status"]): Promise<void>;
+  count(): Promise<number>;
+}
+
 export interface ComplianceRequestStore {
   append(record: ComplianceRequestRecord): Promise<ComplianceRequestRecord>;
   list(): Promise<ComplianceRequestRecord[]>;
