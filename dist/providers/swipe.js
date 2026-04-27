@@ -1,6 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.swipeProvider = void 0;
+const node_http_1 = __importDefault(require("node:http"));
+const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
 const base_1 = require("./base");
 function swipeBaseUrl(store) {
@@ -46,6 +51,17 @@ function numberFromExtra(store, key) {
     }
     return num;
 }
+function minimumAmount(store) {
+    const raw = store.credentials.extra?.minimumAmount?.trim();
+    if (!raw) {
+        return 10;
+    }
+    const num = Number(raw);
+    if (!Number.isFinite(num) || num <= 0) {
+        throw new Error("Swipe: credentials.extra.minimumAmount harus angka positif.");
+    }
+    return num;
+}
 function maskSecret(value) {
     if (!value) {
         return "";
@@ -83,6 +99,56 @@ function pickProviderReference(body, fallback) {
         body.referenceId;
     return typeof id === "string" || typeof id === "number" ? String(id) : fallback;
 }
+function tryParseJsonObject(text) {
+    if (!text || !text.trim()) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            return parsed;
+        }
+        return null;
+    }
+    catch {
+        return null;
+    }
+}
+function postJsonHttp1(endpointUrl, headers, body) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(endpointUrl);
+        const payload = JSON.stringify(body);
+        const isHttps = url.protocol === "https:";
+        const requestLib = isHttps ? node_https_1.default : node_http_1.default;
+        const requestHeaders = {
+            ...headers,
+            "Content-Length": Buffer.byteLength(payload).toString()
+        };
+        const req = requestLib.request({
+            protocol: url.protocol,
+            hostname: url.hostname,
+            port: url.port ? Number(url.port) : undefined,
+            path: `${url.pathname}${url.search}`,
+            method: "POST",
+            headers: requestHeaders,
+            // Keep transport to HTTP/1.1 for gateways that reject HTTP/2.
+            ...(isHttps ? { ALPNProtocols: ["http/1.1"] } : {})
+        }, (res) => {
+            const chunks = [];
+            res.on("data", (chunk) => {
+                chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
+            res.on("end", () => {
+                const bodyText = Buffer.concat(chunks).toString("utf8");
+                const status = res.statusCode ?? 0;
+                resolve({ ok: status >= 200 && status < 300, status, bodyText });
+            });
+        });
+        req.on("error", reject);
+        req.write(payload);
+        req.end();
+    });
+}
 exports.swipeProvider = {
     id: "swipe",
     async createCheckout(store, input) {
@@ -97,6 +163,10 @@ exports.swipeProvider = {
         const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
         const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
         const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
+        const minAmount = minimumAmount(store);
+        if (input.amount < minAmount) {
+            throw new Error(`Swipe: nominal checkout minimal ${minAmount}. Nominal saat ini ${input.amount}.`);
+        }
         const requestBody = {
             pos_request_type: posRequestType,
             request_id: `ReqId-${input.orderId}`,
@@ -112,16 +182,12 @@ exports.swipeProvider = {
                 fee_promotor_amount: feePromotorAmount
             }
         };
-        const response = await fetch(endpointUrl, {
-            method: "POST",
-            headers: {
-                ApiKey: merchantId,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(requestBody)
-        });
+        const response = await postJsonHttp1(endpointUrl, {
+            ApiKey: merchantId,
+            "Content-Type": "application/json"
+        }, requestBody);
         if (!response.ok) {
-            const errText = await response.text().catch(() => "Unknown error");
+            const errText = response.bodyText || "Unknown error";
             const debugInfo = {
                 endpointUrl,
                 request: {
@@ -144,7 +210,11 @@ exports.swipeProvider = {
             });
             throw new Error(`Swipe API error: ${response.status} — ${errText} | debug=${JSON.stringify(debugInfo)}`);
         }
-        const body = (await response.json());
+        const body = tryParseJsonObject(response.bodyText);
+        if (!body) {
+            const bodySnippet = (response.bodyText || "").replace(/\s+/g, " ").slice(0, 240);
+            throw new Error(`Swipe API returned non-JSON success response (${response.status}). Body=${bodySnippet || "EMPTY"}`);
+        }
         const paymentUrl = pickPaymentUrl(body);
         return {
             paymentUrl,

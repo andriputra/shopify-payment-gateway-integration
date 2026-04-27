@@ -1,3 +1,5 @@
+import http from "node:http";
+import https from "node:https";
 import { env } from "../config/env";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
 import { PaymentProvider, ProviderWebhookPayload, ensureApiKey } from "./base";
@@ -55,6 +57,18 @@ function numberFromExtra(store: StoreConfig, key: string): number {
   return num;
 }
 
+function minimumAmount(store: StoreConfig): number {
+  const raw = store.credentials.extra?.minimumAmount?.trim();
+  if (!raw) {
+    return 10;
+  }
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num <= 0) {
+    throw new Error("Swipe: credentials.extra.minimumAmount harus angka positif.");
+  }
+  return num;
+}
+
 function maskSecret(value: string): string {
   if (!value) {
     return "";
@@ -98,6 +112,66 @@ function pickProviderReference(body: Record<string, unknown>, fallback: string):
   return typeof id === "string" || typeof id === "number" ? String(id) : fallback;
 }
 
+function tryParseJsonObject(text: string): Record<string, unknown> | null {
+  if (!text || !text.trim()) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function postJsonHttp1(
+  endpointUrl: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; status: number; bodyText: string }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(endpointUrl);
+    const payload = JSON.stringify(body);
+    const isHttps = url.protocol === "https:";
+    const requestLib = isHttps ? https : http;
+    const requestHeaders = {
+      ...headers,
+      "Content-Length": Buffer.byteLength(payload).toString()
+    };
+
+    const req = requestLib.request(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port ? Number(url.port) : undefined,
+        path: `${url.pathname}${url.search}`,
+        method: "POST",
+        headers: requestHeaders,
+        // Keep transport to HTTP/1.1 for gateways that reject HTTP/2.
+        ...(isHttps ? { ALPNProtocols: ["http/1.1"] } : {})
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        });
+        res.on("end", () => {
+          const bodyText = Buffer.concat(chunks).toString("utf8");
+          const status = res.statusCode ?? 0;
+          resolve({ ok: status >= 200 && status < 300, status, bodyText });
+        });
+      }
+    );
+
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
 export const swipeProvider: PaymentProvider = {
   id: "swipe",
   async createCheckout(store: StoreConfig, input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
@@ -112,6 +186,13 @@ export const swipeProvider: PaymentProvider = {
     const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
     const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
     const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
+    const minAmount = minimumAmount(store);
+
+    if (input.amount < minAmount) {
+      throw new Error(
+        `Swipe: nominal checkout minimal ${minAmount}. Nominal saat ini ${input.amount}.`
+      );
+    }
 
     const requestBody: Record<string, unknown> = {
       pos_request_type: posRequestType,
@@ -129,17 +210,17 @@ export const swipeProvider: PaymentProvider = {
       }
     };
 
-    const response = await fetch(endpointUrl, {
-      method: "POST",
-      headers: {
+    const response = await postJsonHttp1(
+      endpointUrl,
+      {
         ApiKey: merchantId,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(requestBody)
-    });
+      requestBody
+    );
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => "Unknown error");
+      const errText = response.bodyText || "Unknown error";
       const debugInfo = {
         endpointUrl,
         request: {
@@ -165,7 +246,14 @@ export const swipeProvider: PaymentProvider = {
       );
     }
 
-    const body = (await response.json()) as Record<string, unknown>;
+    const body = tryParseJsonObject(response.bodyText);
+    if (!body) {
+      const bodySnippet = (response.bodyText || "").replace(/\s+/g, " ").slice(0, 240);
+      throw new Error(
+        `Swipe API returned non-JSON success response (${response.status}). Body=${bodySnippet || "EMPTY"}`
+      );
+    }
+
     const paymentUrl = pickPaymentUrl(body);
     return {
       paymentUrl,
