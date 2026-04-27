@@ -12,7 +12,7 @@ const createCheckoutSchema = zod_1.z.object({
     customerEmail: zod_1.z.string().email().optional(),
     returnUrl: zod_1.z.string().url().optional()
 });
-function paymentRoutes(service) {
+function paymentRoutes(service, paymentRedirectRepo) {
     const router = (0, express_1.Router)();
     router.post("/checkout/create", async (req, res, next) => {
         try {
@@ -22,6 +22,34 @@ function paymentRoutes(service) {
                 provider: input.provider
             });
             res.json({ ok: true, ...result });
+        }
+        catch (error) {
+            next(error);
+        }
+    });
+    router.get("/links/:shop/:orderReference", async (req, res, next) => {
+        try {
+            if (!paymentRedirectRepo) {
+                return res.status(503).json({ ok: false, message: "Payment redirect repository not configured" });
+            }
+            const record = await paymentRedirectRepo.get(req.params.shop, req.params.orderReference);
+            if (!record) {
+                return res.status(404).json({ ok: false, message: "Payment link not found" });
+            }
+            return res.json({ ok: true, record });
+        }
+        catch (error) {
+            next(error);
+        }
+    });
+    router.get("/links/:shop", async (req, res, next) => {
+        try {
+            if (!paymentRedirectRepo) {
+                return res.status(503).json({ ok: false, message: "Payment redirect repository not configured" });
+            }
+            const limit = Number(req.query.limit ?? 20);
+            const records = await paymentRedirectRepo.listByShop(req.params.shop, limit);
+            return res.json({ ok: true, records });
         }
         catch (error) {
             next(error);

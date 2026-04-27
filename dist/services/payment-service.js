@@ -14,6 +14,21 @@ class PaymentService {
         const provider = (0, providers_1.getProvider)(input.provider);
         return provider.createCheckout(store, input);
     }
+    async createCheckoutForConfiguredProvider(input) {
+        const store = await this.storeRepo.get(input.shop);
+        if (!store) {
+            throw new Error(`Store config not found for shop: ${input.shop}`);
+        }
+        const provider = (0, providers_1.getProvider)(store.provider);
+        const result = await provider.createCheckout(store, {
+            ...input,
+            provider: store.provider
+        });
+        return {
+            ...result,
+            provider: store.provider
+        };
+    }
     async handleWebhook(shop, providerId, payload) {
         const store = await this.storeRepo.get(shop);
         if (!store) {

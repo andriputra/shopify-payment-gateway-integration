@@ -5,7 +5,7 @@ const express_1 = require("express");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 function webhookRoutes(service, deps) {
     const router = (0, express_1.Router)();
-    const { sessionContextRepo, paymentResolve } = deps ?? {};
+    const { sessionContextRepo, paymentRedirectRepo, paymentResolve } = deps ?? {};
     router.post("/payment/:provider/:shop", async (req, res, next) => {
         try {
             const { provider, shop } = req.params;
@@ -29,6 +29,10 @@ function webhookRoutes(service, deps) {
                         }
                     }
                 }
+            }
+            const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
+            if (orderRef && paymentRedirectRepo) {
+                await paymentRedirectRepo.markStatus(decodedShop, orderRef, result.paid ? "paid" : "failed");
             }
             res.json({ ok: true, ...result, shopifyPaymentSession });
         }

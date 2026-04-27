@@ -40,6 +40,7 @@ function shopifyAuthRoutes(service, tokenRepo) {
     });
     const handleCallback = async (req, res, next) => {
         const data = normalizeQuery(req.query);
+        const rawQueryString = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?") + 1) : "";
         const shop = data.shop ?? "";
         const host = data.host ?? "";
         try {
@@ -59,7 +60,8 @@ function shopifyAuthRoutes(service, tokenRepo) {
                 code,
                 hmac,
                 state,
-                query: data
+                query: data,
+                rawQueryString
             });
             const resolvedHost = host || encodeHostParam(saved.shop);
             return res.redirect(service.buildAppRedirectUrl({

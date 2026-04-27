@@ -10,6 +10,7 @@ type OAuthCallbackPayload = {
   hmac: string;
   state: string;
   query: Record<string, string>;
+  rawQueryString?: string;
 };
 
 export class ShopifyAuthService {
@@ -71,7 +72,10 @@ export class ShopifyAuthService {
       throw new Error("Invalid OAuth state");
     }
 
-    if (!this.verifyHmac(payload.query, payload.hmac)) {
+    const hmacValid =
+      (payload.rawQueryString ? this.verifyHmacFromRawQuery(payload.rawQueryString, payload.hmac) : false) ||
+      this.verifyHmac(payload.query, payload.hmac);
+    if (!hmacValid) {
       throw new Error("Invalid Shopify callback HMAC");
     }
 
@@ -117,6 +121,23 @@ export class ShopifyAuthService {
       .update(message, "utf8")
       .digest("hex");
 
+    const a = Buffer.from(digest, "utf8");
+    const b = Buffer.from(incomingHmac, "utf8");
+    if (a.length !== b.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(a, b);
+  }
+
+  verifyHmacFromRawQuery(rawQueryString: string, incomingHmac: string): boolean {
+    const source = rawQueryString.startsWith("?") ? rawQueryString.slice(1) : rawQueryString;
+    const parts = source
+      .split("&")
+      .filter(Boolean)
+      .filter((part) => !part.startsWith("hmac=") && !part.startsWith("signature="))
+      .sort();
+    const message = parts.join("&");
+    const digest = crypto.createHmac("sha256", env.shopifyApiSecret).update(message, "utf8").digest("hex");
     const a = Buffer.from(digest, "utf8");
     const b = Buffer.from(incomingHmac, "utf8");
     if (a.length !== b.length) {

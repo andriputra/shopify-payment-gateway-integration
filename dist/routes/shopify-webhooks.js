@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shopifyWebhookRoutes = shopifyWebhookRoutes;
 const express_1 = require("express");
-function shopifyWebhookRoutes(authService, complianceService) {
+function shopifyWebhookRoutes(authService, complianceService, deps) {
     const router = (0, express_1.Router)();
+    const { paymentService, paymentRedirectRepo } = deps ?? {};
     function parseVerifiedWebhook(req, expectedTopic) {
         const hmac = String(req.get("x-shopify-hmac-sha256") ?? "");
         const rawBody = req.rawBody ?? Buffer.from("");
@@ -89,6 +90,71 @@ function shopifyWebhookRoutes(authService, complianceService) {
             message: "Shopify webhook verified",
             topic: verified.topic
         });
+    });
+    router.post("/shopify/orders/create", async (req, res, next) => {
+        try {
+            const verified = parseVerifiedWebhook(req, "orders/create");
+            if (!verified.ok) {
+                return res.status(verified.status).json(verified.body);
+            }
+            if (!paymentService || !paymentRedirectRepo) {
+                return res.status(503).json({
+                    ok: false,
+                    message: "Auto payment link service not configured"
+                });
+            }
+            const shop = String(req.get("x-shopify-shop-domain") ?? "").trim().toLowerCase();
+            if (!shop) {
+                return res.status(400).json({ ok: false, message: "Missing x-shopify-shop-domain header" });
+            }
+            const payload = verified.payload;
+            const orderIdRaw = payload.id ?? payload.admin_graphql_api_id ?? payload.name;
+            const orderReference = String(orderIdRaw ?? "").trim();
+            if (!orderReference) {
+                return res.status(400).json({ ok: false, message: "Order payload missing id/name" });
+            }
+            const amount = Number(payload.current_total_price ?? payload.total_price ?? 0);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                return res.status(200).json({
+                    ok: true,
+                    skipped: true,
+                    reason: "Order total is zero/non-positive"
+                });
+            }
+            const currency = String(payload.presentment_currency ?? payload.currency ?? "IDR").toUpperCase();
+            const customerEmail = String(payload.contact_email ?? payload.email ?? "").trim() || undefined;
+            const created = await paymentService.createCheckoutForConfiguredProvider({
+                shop,
+                amount,
+                currency,
+                orderId: orderReference,
+                customerEmail
+            });
+            const now = new Date().toISOString();
+            await paymentRedirectRepo.upsert({
+                shop,
+                orderReference,
+                provider: created.provider,
+                paymentUrl: created.paymentUrl,
+                providerReference: created.providerReference,
+                amount,
+                currency,
+                status: "pending",
+                createdAt: now,
+                updatedAt: now
+            });
+            return res.status(200).json({
+                ok: true,
+                topic: verified.topic,
+                shop,
+                orderReference,
+                provider: created.provider,
+                paymentUrl: created.paymentUrl
+            });
+        }
+        catch (error) {
+            next(error);
+        }
     });
     return router;
 }

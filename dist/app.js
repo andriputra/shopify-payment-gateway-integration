@@ -40,6 +40,7 @@ function createApp() {
     const shopifyTokenRepo = storage.tokenRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
     const sessionContextRepo = storage.sessionContextRepo;
+    const paymentRedirectRepo = storage.paymentRedirectRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
@@ -135,7 +136,7 @@ function createApp() {
     app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
     app.use("/api/system", verify_shopify_session_token_1.verifyShopifySessionToken, (0, system_1.systemRoutes)(storage));
     app.use("/api/compliance", verify_shopify_session_token_1.verifyShopifySessionToken, (0, compliance_1.complianceRoutes)(shopifyComplianceService));
-    app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService));
+    app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService, paymentRedirectRepo));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
     app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
         paymentService,
@@ -144,9 +145,13 @@ function createApp() {
     }));
     app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService, {
         sessionContextRepo,
+        paymentRedirectRepo,
         paymentResolve: shopifyPaymentResolveService
     }));
-    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService));
+    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService, {
+        paymentService,
+        paymentRedirectRepo
+    }));
     app.use((error, _req, res, _next) => {
         if (error instanceof zod_1.ZodError) {
             return res.status(400).json({
