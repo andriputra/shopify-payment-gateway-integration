@@ -132,11 +132,8 @@ export const swipeProvider: PaymentProvider = {
     const response = await fetch(endpointUrl, {
       method: "POST",
       headers: {
-        Authorization: merchantId,
         ApiKey: merchantId,
-        "X-API-Key": merchantId,
-        "Content-Type": "application/json",
-        ...(store.credentials.apiSecret ? { "X-API-Secret": store.credentials.apiSecret } : {})
+        "Content-Type": "application/json"
       },
       body: JSON.stringify(requestBody)
     });
@@ -155,10 +152,7 @@ export const swipeProvider: PaymentProvider = {
           payment_method: paymentMethod
         },
         headers: {
-          Authorization: maskSecret(merchantId),
-          ApiKey: maskSecret(merchantId),
-          "X-API-Key": maskSecret(merchantId),
-          "X-API-Secret": store.credentials.apiSecret ? maskSecret(store.credentials.apiSecret) : undefined
+          ApiKey: maskSecret(merchantId)
         }
       };
       console.error("Swipe create payment failed", {

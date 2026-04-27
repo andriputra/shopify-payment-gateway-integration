@@ -39,6 +39,7 @@ const goLiveWebhookCustomersRedact = document.getElementById("goLiveWebhookCusto
 const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact");
 
 const params = new URLSearchParams(window.location.search);
+const installBannerStorageKey = "shopifyInstallBannerState";
 const apiKeyFromMeta = document.querySelector('meta[name="shopify-api-key"]')?.getAttribute("content") || "";
 const metaKey = apiKeyFromMeta && apiKeyFromMeta !== "__SHOPIFY_API_KEY__" ? apiKeyFromMeta : "";
 const apiKey = params.get("apiKey") || params.get("api_key") || metaKey || "";
@@ -98,9 +99,19 @@ function showResult(data) {
 }
 
 function setBanner(type, message) {
+  try {
+    if (!message) {
+      sessionStorage.removeItem(installBannerStorageKey);
+    } else {
+      sessionStorage.setItem(installBannerStorageKey, JSON.stringify({ type, message }));
+    }
+  } catch (_e) {
+    // Ignore storage access errors (private mode, blocked storage, etc.)
+  }
+
   if (!message) {
     installStatusBanner.className = "mb-6 hidden rounded-2xl border px-5 py-4 shadow-sm";
-    installStatusBanner.textContent = "";
+    installStatusBanner.innerHTML = "";
     return;
   }
 
@@ -110,7 +121,39 @@ function setBanner(type, message) {
       : "mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-900 shadow-sm";
 
   installStatusBanner.className = palette;
-  installStatusBanner.textContent = message;
+  installStatusBanner.innerHTML = "";
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "flex items-start justify-between gap-3";
+
+  const messageEl = document.createElement("div");
+  messageEl.className = "text-sm";
+  messageEl.textContent = message;
+
+  const dismissBtn = document.createElement("button");
+  dismissBtn.type = "button";
+  dismissBtn.setAttribute("data-banner-dismiss", "1");
+  dismissBtn.className = "rounded-md border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-black/5";
+  dismissBtn.textContent = "Dismiss";
+
+  wrapper.appendChild(messageEl);
+  wrapper.appendChild(dismissBtn);
+  installStatusBanner.appendChild(wrapper);
+}
+
+function restoreBanner() {
+  try {
+    const raw = sessionStorage.getItem(installBannerStorageKey);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const type = parsed && parsed.type === "success" ? "success" : "error";
+    const message = parsed && typeof parsed.message === "string" ? parsed.message : "";
+    if (message) {
+      setBanner(type, message);
+    }
+  } catch (_e) {
+    // Ignore malformed/unavailable session storage.
+  }
 }
 
 function setActiveTab(active) {
@@ -524,6 +567,12 @@ form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
 connectShopifyBtn.addEventListener("click", connectShopify);
+installStatusBanner.addEventListener("click", (event) => {
+  const target = event.target && event.target.closest ? event.target.closest("[data-banner-dismiss]") : null;
+  if (!target) return;
+  setBanner("error", "");
+});
+restoreBanner();
 hydrateInstallState();
 
 if (hasAdvancedTabs) {
