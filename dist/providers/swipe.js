@@ -99,6 +99,16 @@ function pickProviderReference(body, fallback) {
         body.referenceId;
     return typeof id === "string" || typeof id === "number" ? String(id) : fallback;
 }
+function buildFallbackPaymentUrl(store, input) {
+    const base = env_1.env.host.replace(/\/$/, "");
+    const params = new URLSearchParams({
+        shop: store.shop,
+        orderId: input.orderId,
+        amount: String(input.amount),
+        currency: input.currency
+    });
+    return `${base}/sandbox/pay?${params.toString()}`;
+}
 function tryParseJsonObject(text) {
     if (!text || !text.trim()) {
         return null;
@@ -208,6 +218,18 @@ exports.swipeProvider = {
                 error: errText,
                 debugInfo
             });
+            if (response.status === 403 && env_1.env.swipeFallbackOn403) {
+                const fallbackUrl = buildFallbackPaymentUrl(store, input);
+                console.warn("[SWIPE FALLBACK] 403 detected, using sandbox redirect", {
+                    orderId: input.orderId,
+                    shop: store.shop,
+                    fallbackUrl
+                });
+                return {
+                    paymentUrl: fallbackUrl,
+                    providerReference: `swipe-fallback-${input.orderId}`
+                };
+            }
             throw new Error(`Swipe API error: ${response.status} — ${errText} | debug=${JSON.stringify(debugInfo)}`);
         }
         const body = tryParseJsonObject(response.bodyText);
@@ -216,6 +238,11 @@ exports.swipeProvider = {
             throw new Error(`Swipe API returned non-JSON success response (${response.status}). Body=${bodySnippet || "EMPTY"}`);
         }
         const paymentUrl = pickPaymentUrl(body);
+        console.info("[SWIPE LIVE] payment URL created", {
+            orderId: input.orderId,
+            shop: store.shop,
+            endpointUrl
+        });
         return {
             paymentUrl,
             providerReference: pickProviderReference(body, input.orderId)

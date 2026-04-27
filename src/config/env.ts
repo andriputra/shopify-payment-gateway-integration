@@ -21,6 +21,12 @@ function resolveHost(): string {
   return "http://localhost:3000";
 }
 
+function toBool(value: string | undefined, defaultValue = false): boolean {
+  if (value == null) return defaultValue;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
 export const env = {
   port: Number(process.env.PORT ?? 3000),
   host: resolveHost(),
@@ -35,6 +41,7 @@ export const env = {
   shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/callback",
   shopifyAppUiPath: process.env.SHOPIFY_APP_UI_PATH ?? "/app",
   shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01",
+  swipeFallbackOn403: toBool(process.env.SWIPE_FALLBACK_ON_403, false),
   mysqlUrl: process.env.MYSQL_URL ?? process.env.DATABASE_URL,
   mysqlHost: process.env.MYSQL_HOST,
   mysqlPort: Number(process.env.MYSQL_PORT ?? 3306),
