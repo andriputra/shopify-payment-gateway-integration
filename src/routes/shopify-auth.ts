@@ -112,9 +112,14 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
   router.get("/callback", handleCallback);
   router.get("/shopify/callback", handleCallback);
 
-  router.get("/shopify/status/:shop", async (req, res, next) => {
+  const getInstallStatus: RequestHandler = async (req, res, next) => {
     try {
-      const shop = req.params.shop;
+      const shopParam = String(req.params.shop ?? req.query.shop ?? "").trim().toLowerCase();
+      if (!shopParam) {
+        return res.status(400).json({ ok: false, message: "Missing shop parameter" });
+      }
+
+      const shop = shopParam.endsWith(".myshopify.com") ? shopParam : `${shopParam}.myshopify.com`;
       const token = await tokenRepo.get(shop);
       if (!token) {
         return res.status(404).json({ ok: false, message: "App not installed on this shop" });
@@ -128,7 +133,10 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
     } catch (error) {
       next(error);
     }
-  });
+  };
+
+  router.get("/shopify/status", getInstallStatus);
+  router.get("/shopify/status/:shop", getInstallStatus);
 
   return router;
 }

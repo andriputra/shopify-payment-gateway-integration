@@ -493,10 +493,20 @@ async function hydrateInstallState() {
   }
 
   try {
-    const response = await fetch(`/auth/shopify/status/${encodeURIComponent(shop)}`, {
+    const response = await fetch(`/auth/shopify/status?shop=${encodeURIComponent(shop)}`, {
       headers: { Accept: "application/json" }
     });
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    let data;
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const body = await response.text();
+      const shortBody = body.replace(/\s+/g, " ").slice(0, 180);
+      throw new Error(
+        `Status endpoint returned non-JSON (${response.status}). ${shortBody || "Empty response"}`
+      );
+    }
     if (!response.ok || !data.ok) {
       throw new Error(data.message || "Install status check failed");
     }

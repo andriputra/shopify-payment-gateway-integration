@@ -33,14 +33,16 @@ function createApp() {
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
     const indexHtmlTemplate = node_fs_1.default.readFileSync(node_path_1.default.join(publicDir, "index.html"), "utf8");
-    const renderIndexHtml = () => indexHtmlTemplate.replace(/__SHOPIFY_API_KEY__/g, env_1.env.shopifyApiKey);
+    const assetVersion = process.env.APP_ASSET_VERSION ?? String(Date.now());
+    const renderIndexHtml = () => indexHtmlTemplate
+        .replace(/__SHOPIFY_API_KEY__/g, env_1.env.shopifyApiKey)
+        .replace('src="/app.js"', `src="/app.js?v=${assetVersion}"`);
     const storage = (0, storage_1.getStorage)();
     const storeRepo = storage.storeRepo;
     const paymentService = new payment_service_1.PaymentService(storeRepo);
     const shopifyTokenRepo = storage.tokenRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
     const sessionContextRepo = storage.sessionContextRepo;
-    const paymentRedirectRepo = storage.paymentRedirectRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
@@ -137,7 +139,7 @@ function createApp() {
     // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
     app.use("/api/system", (0, system_1.systemRoutes)(storage));
     app.use("/api/compliance", verify_shopify_session_token_1.verifyShopifySessionToken, (0, compliance_1.complianceRoutes)(shopifyComplianceService));
-    app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService, paymentRedirectRepo));
+    app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService));
     app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
     app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
         paymentService,
@@ -146,13 +148,9 @@ function createApp() {
     }));
     app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService, {
         sessionContextRepo,
-        paymentRedirectRepo,
         paymentResolve: shopifyPaymentResolveService
     }));
-    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService, {
-        paymentService,
-        paymentRedirectRepo
-    }));
+    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService));
     app.use((error, _req, res, _next) => {
         if (error instanceof zod_1.ZodError) {
             return res.status(400).json({

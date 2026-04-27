@@ -146,66 +146,6 @@ class MysqlPaymentSessionContextRepository {
         await this.pool.execute("DELETE FROM payment_session_contexts WHERE order_reference = ?", [orderReference]);
     }
 }
-class MysqlPaymentRedirectRepository {
-    constructor(pool) {
-        this.pool = pool;
-    }
-    async upsert(record) {
-        await this.pool.execute(`INSERT INTO payment_redirects (
-        shop, order_reference, provider, payment_url, provider_reference, amount, currency, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        provider = VALUES(provider),
-        payment_url = VALUES(payment_url),
-        provider_reference = VALUES(provider_reference),
-        amount = VALUES(amount),
-        currency = VALUES(currency),
-        status = VALUES(status),
-        updated_at = VALUES(updated_at)`, [
-            record.shop,
-            record.orderReference,
-            record.provider,
-            record.paymentUrl,
-            record.providerReference,
-            record.amount,
-            record.currency,
-            record.status,
-            record.createdAt,
-            record.updatedAt
-        ]);
-        return record;
-    }
-    async get(shop, orderReference) {
-        const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND order_reference = ? LIMIT 1", [shop, orderReference]);
-        return rows[0] ? this.mapRow(rows[0]) : undefined;
-    }
-    async listByShop(shop, limit = 50) {
-        const safeLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
-        const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? ORDER BY updated_at DESC LIMIT ?", [shop, safeLimit]);
-        return rows.map((row) => this.mapRow(row));
-    }
-    async markStatus(shop, orderReference, status) {
-        await this.pool.execute("UPDATE payment_redirects SET status = ?, updated_at = ? WHERE shop = ? AND order_reference = ?", [status, new Date().toISOString(), shop, orderReference]);
-    }
-    async count() {
-        const [[row]] = await this.pool.query("SELECT COUNT(*) AS c FROM payment_redirects");
-        return Number(row?.c ?? 0);
-    }
-    mapRow(row) {
-        return {
-            shop: String(row.shop),
-            orderReference: String(row.order_reference),
-            provider: String(row.provider),
-            paymentUrl: String(row.payment_url),
-            providerReference: String(row.provider_reference),
-            amount: Number(row.amount),
-            currency: String(row.currency),
-            status: row.status,
-            createdAt: String(row.created_at),
-            updatedAt: String(row.updated_at)
-        };
-    }
-}
 class MysqlComplianceRequestRepository {
     constructor(pool) {
         this.pool = pool;
@@ -323,22 +263,6 @@ function createMysqlStorage() {
         )
       `);
             await pool.execute(`
-        CREATE TABLE IF NOT EXISTS payment_redirects (
-          shop VARCHAR(255) NOT NULL,
-          order_reference VARCHAR(255) NOT NULL,
-          provider VARCHAR(50) NOT NULL,
-          payment_url TEXT NOT NULL,
-          provider_reference VARCHAR(255) NOT NULL,
-          amount DECIMAL(18,2) NOT NULL,
-          currency VARCHAR(8) NOT NULL,
-          status VARCHAR(32) NOT NULL,
-          created_at VARCHAR(64) NOT NULL,
-          updated_at VARCHAR(64) NOT NULL,
-          PRIMARY KEY (shop, order_reference),
-          INDEX idx_payment_redirect_shop_updated (shop, updated_at)
-        )
-      `);
-            await pool.execute(`
         CREATE TABLE IF NOT EXISTS compliance_requests (
           id VARCHAR(64) PRIMARY KEY,
           topic VARCHAR(64) NOT NULL,
@@ -367,7 +291,6 @@ function createMysqlStorage() {
             const [[storeCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM store_configs");
             const [[tokenCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM shopify_tokens");
             const [[sessionCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM payment_session_contexts");
-            const [[redirectCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM payment_redirects");
             const [[complianceCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM compliance_requests");
             const [lastRows] = await pool.query("SELECT id, topic, shop, triggered_at FROM compliance_requests ORDER BY triggered_at DESC LIMIT 1");
             const last = lastRows[0];
@@ -387,7 +310,6 @@ function createMysqlStorage() {
                     storeConfigs: Number(storeCountRow?.c ?? 0),
                     shopifyTokens: Number(tokenCountRow?.c ?? 0),
                     paymentSessionContexts: Number(sessionCountRow?.c ?? 0),
-                    paymentRedirects: Number(redirectCountRow?.c ?? 0),
                     complianceRequests: Number(complianceCountRow?.c ?? 0)
                 },
                 lastCompliance: last
@@ -403,7 +325,6 @@ function createMysqlStorage() {
         storeRepo: new MysqlStoreConfigRepository(pool),
         tokenRepo: new MysqlShopifyTokenRepository(pool),
         sessionContextRepo: new MysqlPaymentSessionContextRepository(pool),
-        paymentRedirectRepo: new MysqlPaymentRedirectRepository(pool),
         complianceRequestRepo: new MysqlComplianceRequestRepository(pool)
     };
 }

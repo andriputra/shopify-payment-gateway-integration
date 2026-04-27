@@ -32,7 +32,11 @@ export function createApp(): express.Application {
   app.use(express.static(publicDir));
 
   const indexHtmlTemplate = fs.readFileSync(path.join(publicDir, "index.html"), "utf8");
-  const renderIndexHtml = () => indexHtmlTemplate.replace(/__SHOPIFY_API_KEY__/g, env.shopifyApiKey);
+  const assetVersion = process.env.APP_ASSET_VERSION ?? String(Date.now());
+  const renderIndexHtml = () =>
+    indexHtmlTemplate
+      .replace(/__SHOPIFY_API_KEY__/g, env.shopifyApiKey)
+      .replace('src="/app.js"', `src="/app.js?v=${assetVersion}"`);
 
   const storage = getStorage();
   const storeRepo = storage.storeRepo;
