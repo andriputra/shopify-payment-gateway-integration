@@ -286,6 +286,19 @@
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Halaman pembayaran browser — URL template (credentials.extra.paymentBrowserUrl)
+                <span class="block text-xs font-normal text-slate-500">
+                  Wajib jika API hanya mengembalikan <code class="rounded bg-slate-100 px-1">ws_token</code> (SwingWireless). Contoh penempatan token:
+                  <code class="rounded bg-slate-100 px-1">…?ws_token=&#123;ws_token&#125;</code> — lihat PDF/API Swipe untuk host &amp; query yang benar.
+                </span>
+                <input
+                  id="swipePaymentBrowserUrl"
+                  type="url"
+                  placeholder="https://…?ws_token={ws_token}"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
               <div class="grid gap-4 md:grid-cols-3">
                 <label class="grid gap-1 text-sm font-medium text-slate-700">
                   Fee Agent
@@ -463,7 +476,9 @@
         </div>
 
         <p id="checkoutHint" class="mb-4 text-xs text-slate-400">
-          Tips: pilih provider <strong>sandbox</strong>, simpan konfigurasi dulu, lalu klik tombol di atas.
+          Tips: tombol ini memanggil API backend dengan <strong>provider</strong> yang dipilih di formulir konfigurasi di atas.
+          Untuk uji tanpa gateway eksternal, set provider ke <strong>sandbox</strong>, klik <strong>Simpan Konfigurasi</strong>, lalu klik di sini.
+          Untuk <strong>swipe</strong>, simpan konfigurasi lengkap (ApiKey + Swipe fields) dan pastikan API Swipe menerima request dari server ini — jika Swipe menolak (mis. 403), checkout akan gagal meskipun tombol ini berfungsi.
         </p>
 
         <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>

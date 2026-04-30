@@ -4,6 +4,10 @@ import { env } from "../config/env";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
 import { PaymentProvider, ProviderWebhookPayload, ensureApiKey } from "./base";
 
+/** Ditampilkan di debug saat edge mengembalikan HTML (mis. 403) — sering bukan rejection JSON Swipe. */
+const SWIPE_EGRESS_HINT =
+  "HTML/WAF 403: sering diblokir proxy/CDN sebelum logic API Swipe. Uji curl yang sama dari host yang sama dengan app deploy (IP egress sama), bukan dari laptop; samakan header dengan Postman yang sukses (termasuk User-Agent); minta whitelist IP egress ke Swipe jika laptop OK tapi server gagal.";
+
 function swipeBaseUrl(store: StoreConfig): string {
   const fromExtra = store.credentials.extra?.apiBaseUrl?.trim();
   if (fromExtra) {
@@ -79,37 +83,89 @@ function maskSecret(value: string): string {
   return `${value.slice(0, 4)}***${value.slice(-4)}`;
 }
 
-function pickPaymentUrl(body: Record<string, unknown>): string {
-  const candidates = [
-    body.payment_url,
-    body.paymentUrl,
-    body.checkout_url,
-    body.checkoutUrl,
-    body.redirect_url,
-    body.redirectUrl,
-    body.url,
-    body.link
-  ];
-  for (const c of candidates) {
-    if (typeof c === "string" && c.startsWith("http")) {
-      return c;
+/** Root + nested shapes yang dipakai beberapa gateway (data / result). */
+function swipeResponseLayers(body: Record<string, unknown>): Record<string, unknown>[] {
+  const layers: Record<string, unknown>[] = [body];
+  for (const key of ["data", "result"] as const) {
+    const nested = body[key];
+    if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+      layers.push(nested as Record<string, unknown>);
     }
   }
+  return layers;
+}
+
+function pickPaymentUrl(body: Record<string, unknown>, store: StoreConfig): string {
+  const layers = swipeResponseLayers(body);
+  const keys = [
+    "payment_url",
+    "paymentUrl",
+    "checkout_url",
+    "checkoutUrl",
+    "redirect_url",
+    "redirectUrl",
+    "url",
+    "link"
+  ] as const;
+
+  for (const layer of layers) {
+    for (const k of keys) {
+      const c = layer[k];
+      if (typeof c === "string" && c.startsWith("http")) {
+        return c;
+      }
+    }
+  }
+
+  let wsToken: string | undefined;
+  for (const layer of layers) {
+    const t = layer.ws_token ?? layer.wsToken;
+    if (typeof t === "string" && t.length > 0) {
+      wsToken = t;
+      break;
+    }
+  }
+
+  if (wsToken) {
+    const template =
+      store.credentials.extra?.paymentBrowserUrl?.trim() ||
+      store.credentials.extra?.paymentUrlTemplate?.trim();
+    if (template) {
+      const encoded = encodeURIComponent(wsToken);
+      return template
+        .replace(/\{ws_token\}/gi, encoded)
+        .replace(/\{token\}/gi, encoded)
+        .replace(/\{ws_token_raw\}/gi, wsToken)
+        .replace(/\{token_raw\}/gi, wsToken);
+    }
+    throw new Error(
+      "Swipe: API mengembalikan ws_token (SwingWireless), bukan URL pembayaran langsung. Isi credentials.extra.paymentBrowserUrl dengan URL halaman/hosted payment dari dokumentasi Swipe; sisipkan placeholder {ws_token} (query). Untuk path tanpa encoding gunakan {ws_token_raw}."
+    );
+  }
+
   throw new Error(
-    "Swipe: response tidak berisi URL pembayaran yang dikenali (payment_url / checkout_url / redirect_url / url). Sesuaikan mapping di provider jika field API lain."
+    "Swipe: response tidak berisi URL pembayaran yang dikenali (payment_url / checkout_url / redirect_url / url) atau ws_token. Sesuaikan mapping di provider jika field API lain."
   );
 }
 
 function pickProviderReference(body: Record<string, unknown>, fallback: string): string {
-  const id =
-    body.transaction_id ??
-    body.transactionId ??
-    body.id ??
-    body.payment_id ??
-    body.paymentId ??
-    body.reference_id ??
-    body.referenceId;
-  return typeof id === "string" || typeof id === "number" ? String(id) : fallback;
+  const layers = swipeResponseLayers(body);
+  for (const layer of layers) {
+    const id =
+      layer.transaction_id ??
+      layer.transactionId ??
+      layer.ws_token ??
+      layer.wsToken ??
+      layer.id ??
+      layer.payment_id ??
+      layer.paymentId ??
+      layer.reference_id ??
+      layer.referenceId;
+    if (typeof id === "string" || typeof id === "number") {
+      return String(id);
+    }
+  }
+  return fallback;
 }
 
 function buildFallbackPaymentUrl(store: StoreConfig, input: CreateCheckoutInput): string {
@@ -138,6 +194,29 @@ function tryParseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
+function createSwipeRequestId(): string {
+  return `ReqId-${Date.now()}`;
+}
+
+function createSwipeInvoiceNumber(orderId: string): string {
+  const sanitized = orderId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24);
+  return sanitized ? `INV-${sanitized}` : `INV-${Date.now()}`;
+}
+
+/** Headers mendekati Postman; beberapa WAF menolak UA khas bot atau request “telanjang”.
+ * Pakai process.env langsung supaya kompatibel dengan deploy yang env.ts-nya belum ada field swipeOutboundUserAgent.
+ */
+function swipeOutboundHeaders(apiKey: string): Record<string, string> {
+  const userAgent =
+    process.env.SWIPE_OUTBOUND_USER_AGENT?.trim() || "PostmanRuntime/7.36.0";
+  return {
+    ApiKey: apiKey,
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "User-Agent": userAgent
+  };
+}
+
 function postJsonHttp1(
   endpointUrl: string,
   headers: Record<string, string>,
@@ -155,14 +234,13 @@ function postJsonHttp1(
 
     const req = requestLib.request(
       {
-        protocol: url.protocol,
         hostname: url.hostname,
         port: url.port ? Number(url.port) : undefined,
         path: `${url.pathname}${url.search}`,
         method: "POST",
         headers: requestHeaders,
-        // Keep transport to HTTP/1.1 for gateways that reject HTTP/2.
-        ...(isHttps ? { ALPNProtocols: ["http/1.1"] } : {})
+        // Force HTTP/1.1 via ALPN (jangan kirim option `protocol`; bukan opsi standar ClientRequest).
+        ...(isHttps ? { ALPNProtocols: ["http/1.1"] as const } : {})
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -188,11 +266,11 @@ export const swipeProvider: PaymentProvider = {
   async createCheckout(store: StoreConfig, input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
     const merchantId = ensureApiKey(store.credentials);
     const endpointUrl = swipeEndpointUrl(store);
-    const defaultNotifyUrl = `${env.host.replace(/\/$/, "")}/webhooks/payment/swipe/${encodeURIComponent(store.shop)}`;
+    const defaultNotifyUrl = `${env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
     const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
     const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
     const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
-    const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
+    const posRequestType = "Postman";
     const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
     const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
     const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
@@ -207,11 +285,11 @@ export const swipeProvider: PaymentProvider = {
 
     const requestBody: Record<string, unknown> = {
       pos_request_type: posRequestType,
-      request_id: `ReqId-${input.orderId}`,
+      request_id: createSwipeRequestId(),
       client_id: clientId,
       device_user: deviceUser,
       payment_method: paymentMethod,
-      invoice_number: input.orderId,
+      invoice_number: createSwipeInvoiceNumber(input.orderId),
       amount: input.amount,
       callback_url: notifyUrl,
       additional_param: {
@@ -221,31 +299,40 @@ export const swipeProvider: PaymentProvider = {
       }
     };
 
-    const response = await postJsonHttp1(
-      endpointUrl,
-      {
-        ApiKey: merchantId,
-        "Content-Type": "application/json"
-      },
-      requestBody
-    );
+    const outboundHeaders = swipeOutboundHeaders(merchantId);
+
+    if (env.swipeDebugFingerprint) {
+      console.info("[SWIPE DEBUG FINGERPRINT] outbound request", {
+        endpointUrl,
+        request: requestBody,
+        headers: {
+          ...outboundHeaders,
+          ApiKey: maskSecret(merchantId)
+        }
+      });
+    }
+
+    const response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
 
     if (!response.ok) {
       const errText = response.bodyText || "Unknown error";
+      const looksLikeHtmlOr403 =
+        response.status === 403 || /<\s*html/i.test(errText);
       const debugInfo = {
         endpointUrl,
         request: {
+          pos_request_type: requestBody.pos_request_type,
           request_id: requestBody.request_id,
+          client_id: clientId,
+          device_user: deviceUser,
+          payment_method: paymentMethod,
           invoice_number: requestBody.invoice_number,
           amount: requestBody.amount,
           callback_url: requestBody.callback_url,
-          client_id: clientId,
-          device_user: deviceUser,
-          payment_method: paymentMethod
+          additional_param: requestBody.additional_param
         },
-        headers: {
-          ApiKey: maskSecret(merchantId)
-        }
+        headers: swipeOutboundHeaders(maskSecret(merchantId)),
+        ...(looksLikeHtmlOr403 ? { egressHint: SWIPE_EGRESS_HINT } : {})
       };
       console.error("Swipe create payment failed", {
         status: response.status,
@@ -279,7 +366,7 @@ export const swipeProvider: PaymentProvider = {
       );
     }
 
-    const paymentUrl = pickPaymentUrl(body);
+    const paymentUrl = pickPaymentUrl(body, store);
     console.info("[SWIPE LIVE] payment URL created", {
       orderId: input.orderId,
       shop: store.shop,

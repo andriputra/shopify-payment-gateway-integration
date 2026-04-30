@@ -98,6 +98,62 @@ function showResult(data) {
   resultEl.textContent = JSON.stringify(data, null, 2);
 }
 
+function toPlainHeaders(headers) {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  return { ...headers };
+}
+
+function shellEscapeSingleQuotes(value) {
+  return String(value).replace(/'/g, "'\"'\"'");
+}
+
+function buildCurlCommand(requestDebug) {
+  if (!requestDebug || !requestDebug.url || !requestDebug.method) {
+    return null;
+  }
+
+  const headerEntries = Object.entries(toPlainHeaders(requestDebug.headers));
+  const parts = [`curl -X ${requestDebug.method.toUpperCase()} '${shellEscapeSingleQuotes(requestDebug.url)}'`];
+
+  for (const [key, value] of headerEntries) {
+    parts.push(`-H '${shellEscapeSingleQuotes(`${key}: ${value}`)}'`);
+  }
+
+  if (requestDebug.body !== undefined && requestDebug.body !== null && requestDebug.body !== "") {
+    const rawBody =
+      typeof requestDebug.body === "string" ? requestDebug.body : JSON.stringify(requestDebug.body, null, 2);
+    parts.push(`--data '${shellEscapeSingleQuotes(rawBody)}'`);
+  }
+
+  return parts.join(" \\\n  ");
+}
+
+function showResultWithDebug(data, requestDebug) {
+  const curl = buildCurlCommand(requestDebug);
+  const payload =
+    requestDebug && requestDebug.body !== undefined
+      ? typeof requestDebug.body === "string"
+        ? requestDebug.body
+        : requestDebug.body
+      : null;
+
+  showResult({
+    request: requestDebug
+      ? {
+          method: requestDebug.method || null,
+          url: requestDebug.url || null,
+          headers: toPlainHeaders(requestDebug.headers),
+          payload
+        }
+      : null,
+    curl,
+    response: data
+  });
+}
+
 function setBanner(type, message) {
   try {
     if (!message) {
@@ -176,16 +232,6 @@ function setActiveTab(active) {
         : "rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200";
   }
 }
-
-// async function fetchSystemStatus() {
-//   const response = await fetch("/api/system/status");
-//   const data = await response.json();
-//   if (!response.ok || !data.ok) {
-//     throw new Error(data.message || "System status request failed");
-//   }
-//   return data.status;
-// }
-
 let shopifyApp = null;
 try {
   if (createApp && apiKey && host) {
@@ -223,8 +269,14 @@ async function appFetch(input, init = {}) {
 }
 
 async function fetchSystemStatus() {
+  const requestDebug = {
+    method: "GET",
+    url: `${window.location.origin}/api/system/status`,
+    headers: { Accept: "application/json" }
+  };
   const response = await appFetch("/api/system/status", {
     method: "GET",
+    headers: requestDebug.headers
   });
 
   const data = await response.json();
@@ -233,7 +285,7 @@ async function fetchSystemStatus() {
     throw new Error(data.message || "System status request failed");
   }
 
-  return data.status;
+  return { status: data.status, requestDebug };
 }
 
 function renderSystemStatus(status) {
@@ -303,21 +355,33 @@ async function fetchComplianceList() {
   if (topic) params.set("topic", topic);
   params.set("limit", limit);
 
-  const response = await appFetch(`/api/compliance/requests?${params.toString()}`);
+  const endpoint = `/api/compliance/requests?${params.toString()}`;
+  const requestDebug = {
+    method: "GET",
+    url: `${window.location.origin}${endpoint}`,
+    headers: { Accept: "application/json" }
+  };
+  const response = await appFetch(endpoint, { headers: requestDebug.headers });
   const data = await response.json();
   if (!response.ok || !data.ok) {
     throw new Error(data.message || "Compliance list request failed");
   }
-  return data.records || [];
+  return { records: data.records || [], requestDebug };
 }
 
 async function fetchComplianceDetail(id) {
-  const response = await appFetch(`/api/compliance/requests/${encodeURIComponent(id)}`);
+  const endpoint = `/api/compliance/requests/${encodeURIComponent(id)}`;
+  const requestDebug = {
+    method: "GET",
+    url: `${window.location.origin}${endpoint}`,
+    headers: { Accept: "application/json" }
+  };
+  const response = await appFetch(endpoint, { headers: requestDebug.headers });
   const data = await response.json();
   if (!response.ok || !data.ok) {
     throw new Error(data.message || "Compliance detail request failed");
   }
-  return data.record;
+  return { record: data.record, requestDebug };
 }
 
 function escapeHtml(value) {
@@ -375,6 +439,7 @@ async function saveConfig(event) {
     const swipePosRequestType = document.getElementById("swipePosRequestType").value.trim();
     const swipePaymentMethod = document.getElementById("swipePaymentMethod").value.trim();
     const swipePath = document.getElementById("swipeCreatePath").value.trim();
+    const swipePaymentBrowserUrl = document.getElementById("swipePaymentBrowserUrl").value.trim();
     const swipeFeeAgentAmount = document.getElementById("swipeFeeAgentAmount").value.trim();
     const swipeFeeDistributorAmount = document.getElementById("swipeFeeDistributorAmount").value.trim();
     const swipeFeePromotorAmount = document.getElementById("swipeFeePromotorAmount").value.trim();
@@ -385,6 +450,7 @@ async function saveConfig(event) {
       swipeDeviceUser ||
       swipePosRequestType ||
       swipePaymentMethod ||
+      swipePaymentBrowserUrl ||
       swipeFeeAgentAmount ||
       swipeFeeDistributorAmount ||
       swipeFeePromotorAmount
@@ -395,6 +461,9 @@ async function saveConfig(event) {
       }
       if (swipePath) {
         credentials.extra.createPath = swipePath.startsWith("/") ? swipePath : `/${swipePath}`;
+      }
+      if (swipePaymentBrowserUrl) {
+        credentials.extra.paymentBrowserUrl = swipePaymentBrowserUrl;
       }
       if (swipeClientId) {
         credentials.extra.clientId = swipeClientId;
@@ -429,13 +498,19 @@ async function saveConfig(event) {
   };
 
   try {
-    const response = await appFetch("/api/config", {
+    const requestDebug = {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      url: `${window.location.origin}/api/config`,
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: payload
+    };
+    const response = await appFetch("/api/config", {
+      method: requestDebug.method,
+      headers: requestDebug.headers,
       body: JSON.stringify(payload)
     });
     const data = await response.json();
-    showResult(data);
+    showResultWithDebug(data, requestDebug);
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
   }
@@ -449,7 +524,13 @@ async function loadConfig() {
   }
 
   try {
-    const response = await appFetch(`/api/config?shop=${encodeURIComponent(shop)}`);
+    const endpoint = `/api/config?shop=${encodeURIComponent(shop)}`;
+    const requestDebug = {
+      method: "GET",
+      url: `${window.location.origin}${endpoint}`,
+      headers: { Accept: "application/json" }
+    };
+    const response = await appFetch(endpoint, { headers: requestDebug.headers });
     const contentType = response.headers.get("content-type") || "";
     let data;
     if (contentType.includes("application/json")) {
@@ -459,7 +540,7 @@ async function loadConfig() {
       const shortBody = body.replace(/\s+/g, " ").slice(0, 180);
       throw new Error(`Config endpoint returned non-JSON (${response.status}). ${shortBody || "Empty response"}`);
     }
-    showResult(data);
+    showResultWithDebug(data, requestDebug);
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
   }
@@ -479,19 +560,26 @@ async function createDemoCheckout() {
   }
 
   try {
-    const response = await appFetch("/api/payments/checkout/create", {
+    const payload = {
+      shop,
+      provider,
+      amount,
+      currency,
+      orderId
+    };
+    const requestDebug = {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        shop,
-        provider,
-        amount,
-        currency,
-        orderId
-      })
+      url: `${window.location.origin}/api/payments/checkout/create`,
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: payload
+    };
+    const response = await appFetch("/api/payments/checkout/create", {
+      method: requestDebug.method,
+      headers: requestDebug.headers,
+      body: JSON.stringify(payload)
     });
     const data = await response.json();
-    showResult(data);
+    showResultWithDebug(data, requestDebug);
 
     if (data.ok && data.paymentUrl) {
       checkoutHintEl.textContent = "Checkout dibuat. Membuka halaman pembayaran di tab baru…";
@@ -589,9 +677,10 @@ if (hasAdvancedTabs) {
   tabSystem.addEventListener("click", async () => {
     setActiveTab("system");
     try {
-      const status = await fetchSystemStatus();
+      const { status, requestDebug } = await fetchSystemStatus();
       renderSystemStatus(status);
       renderGoLive(status);
+      showResultWithDebug({ ok: true, status }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "System status failed" });
     }
@@ -600,8 +689,9 @@ if (hasAdvancedTabs) {
   tabCompliance.addEventListener("click", async () => {
     setActiveTab("compliance");
     try {
-      const records = await fetchComplianceList();
+      const { records, requestDebug } = await fetchComplianceList();
       renderComplianceTable(records);
+      showResultWithDebug({ ok: true, recordsCount: records.length, records }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance logs failed" });
     }
@@ -610,9 +700,10 @@ if (hasAdvancedTabs) {
   tabGoLive.addEventListener("click", async () => {
     setActiveTab("golive");
     try {
-      const status = await fetchSystemStatus();
+      const { status, requestDebug } = await fetchSystemStatus();
       renderSystemStatus(status);
       renderGoLive(status);
+      showResultWithDebug({ ok: true, status }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
     }
@@ -620,9 +711,10 @@ if (hasAdvancedTabs) {
 
   refreshSystemBtn.addEventListener("click", async () => {
     try {
-      const status = await fetchSystemStatus();
+      const { status, requestDebug } = await fetchSystemStatus();
       renderSystemStatus(status);
       renderGoLive(status);
+      showResultWithDebug({ ok: true, status }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "System refresh failed" });
     }
@@ -630,8 +722,9 @@ if (hasAdvancedTabs) {
 
   refreshComplianceBtn.addEventListener("click", async () => {
     try {
-      const records = await fetchComplianceList();
+      const { records, requestDebug } = await fetchComplianceList();
       renderComplianceTable(records);
+      showResultWithDebug({ ok: true, recordsCount: records.length, records }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance refresh failed" });
     }
@@ -639,8 +732,9 @@ if (hasAdvancedTabs) {
 
   refreshGoLiveBtn.addEventListener("click", async () => {
     try {
-      const status = await fetchSystemStatus();
+      const { status, requestDebug } = await fetchSystemStatus();
       renderGoLive(status);
+      showResultWithDebug({ ok: true, status }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
     }
@@ -652,8 +746,8 @@ if (hasAdvancedTabs) {
     const id = btn.getAttribute("data-compliance-id");
     if (!id) return;
     try {
-      const record = await fetchComplianceDetail(id);
-      showResult({ ok: true, record });
+      const { record, requestDebug } = await fetchComplianceDetail(id);
+      showResultWithDebug({ ok: true, record }, requestDebug);
     } catch (error) {
       showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance detail failed" });
     }
