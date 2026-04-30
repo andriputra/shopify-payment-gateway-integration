@@ -426,23 +426,28 @@ function renderComplianceTable(records) {
 async function saveConfig(event) {
   event.preventDefault();
 
-  const provider = document.getElementById("provider").value;
+  const valueOf = (id) => {
+    const el = document.getElementById(id);
+    return el && "value" in el ? String(el.value).trim() : "";
+  };
+
+  const provider = valueOf("provider");
   const credentials = {
-    apiKey: document.getElementById("apiKey").value.trim(),
-    apiSecret: document.getElementById("apiSecret").value.trim() || undefined
+    apiKey: valueOf("apiKey"),
+    apiSecret: valueOf("apiSecret") || undefined
   };
 
   if (provider === "swipe") {
-    const swipeBase = document.getElementById("swipeApiBaseUrl").value.trim();
-    const swipeClientId = document.getElementById("swipeClientId").value.trim();
-    const swipeDeviceUser = document.getElementById("swipeDeviceUser").value.trim();
-    const swipePosRequestType = document.getElementById("swipePosRequestType").value.trim();
-    const swipePaymentMethod = document.getElementById("swipePaymentMethod").value.trim();
-    const swipePath = document.getElementById("swipeCreatePath").value.trim();
-    const swipePaymentBrowserUrl = document.getElementById("swipePaymentBrowserUrl").value.trim();
-    const swipeFeeAgentAmount = document.getElementById("swipeFeeAgentAmount").value.trim();
-    const swipeFeeDistributorAmount = document.getElementById("swipeFeeDistributorAmount").value.trim();
-    const swipeFeePromotorAmount = document.getElementById("swipeFeePromotorAmount").value.trim();
+    const swipeBase = valueOf("swipeApiBaseUrl");
+    const swipeClientId = valueOf("swipeClientId");
+    const swipeDeviceUser = valueOf("swipeDeviceUser");
+    const swipePosRequestType = valueOf("swipePosRequestType");
+    const swipePaymentMethod = valueOf("swipePaymentMethod");
+    const swipePath = valueOf("swipeCreatePath");
+    const swipePaymentBrowserUrl = valueOf("swipePaymentBrowserUrl");
+    const swipeFeeAgentAmount = valueOf("swipeFeeAgentAmount");
+    const swipeFeeDistributorAmount = valueOf("swipeFeeDistributorAmount");
+    const swipeFeePromotorAmount = valueOf("swipeFeePromotorAmount");
     if (
       swipeBase ||
       swipePath ||
@@ -490,10 +495,10 @@ async function saveConfig(event) {
   }
 
   const payload = {
-    shop: document.getElementById("shop").value.trim(),
+    shop: valueOf("shop"),
     provider,
-    redirectUrlAfterPaid: document.getElementById("redirectUrlAfterPaid").value.trim(),
-    webhookUrlAfterPaid: document.getElementById("webhookUrlAfterPaid").value.trim() || undefined,
+    redirectUrlAfterPaid: valueOf("redirectUrlAfterPaid"),
+    webhookUrlAfterPaid: valueOf("webhookUrlAfterPaid") || undefined,
     credentials
   };
 
