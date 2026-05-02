@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.swipeProvider = void 0;
+exports.swipeTestPaymentRequest = swipeTestPaymentRequest;
 const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
@@ -59,10 +60,29 @@ function minimumAmount(store) {
         return 10;
     }
     const num = Number(raw);
-    if (!Number.isFinite(num) || num <= 0) {
-        throw new Error("Swipe: credentials.extra.minimumAmount harus angka positif.");
+    if (!Number.isFinite(num) || num < 0) {
+        throw new Error("Swipe: credentials.extra.minimumAmount harus angka ≥ 0.");
     }
     return num;
+}
+/** Respons Swipe kadang mengisi `url` dengan URL endpoint POST (path sama) — bukan redirect customer; GET ke sana = 404. */
+function shouldIgnoreEchoApiUrl(candidate, createEndpointUrl) {
+    try {
+        const c = new URL(candidate);
+        const e = new URL(createEndpointUrl);
+        const pathMatch = c.origin === e.origin &&
+            c.pathname.replace(/\/$/, "") === e.pathname.replace(/\/$/, "");
+        if (!pathMatch) {
+            return false;
+        }
+        if (c.searchParams.has("ws_token") || c.searchParams.has("token")) {
+            return false;
+        }
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 function maskSecret(value) {
     if (!value) {
@@ -84,7 +104,7 @@ function swipeResponseLayers(body) {
     }
     return layers;
 }
-function pickPaymentUrl(body, store) {
+function pickPaymentUrl(body, store, createEndpointUrl) {
     const layers = swipeResponseLayers(body);
     const keys = [
         "payment_url",
@@ -100,7 +120,9 @@ function pickPaymentUrl(body, store) {
         for (const k of keys) {
             const c = layer[k];
             if (typeof c === "string" && c.startsWith("http")) {
-                return c;
+                if (!shouldIgnoreEchoApiUrl(c, createEndpointUrl)) {
+                    return c;
+                }
             }
         }
     }
@@ -232,7 +254,7 @@ exports.swipeProvider = {
         const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
         const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
         const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
-        const posRequestType = "Postman";
+        const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
         const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
         const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
         const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
@@ -311,7 +333,7 @@ exports.swipeProvider = {
             const bodySnippet = (response.bodyText || "").replace(/\s+/g, " ").slice(0, 240);
             throw new Error(`Swipe API returned non-JSON success response (${response.status}). Body=${bodySnippet || "EMPTY"}`);
         }
-        const paymentUrl = pickPaymentUrl(body, store);
+        const paymentUrl = pickPaymentUrl(body, store, endpointUrl);
         console.info("[SWIPE LIVE] payment URL created", {
             orderId: input.orderId,
             shop: store.shop,
@@ -331,3 +353,59 @@ exports.swipeProvider = {
         };
     }
 };
+/** POST ke Swipe seperti create checkout, mengembalikan body mentah + percobaan resolve paymentUrl (untuk uji dari admin). */
+async function swipeTestPaymentRequest(store, options) {
+    const merchantId = (0, base_1.ensureApiKey)(store.credentials);
+    const endpointUrl = swipeEndpointUrl(store);
+    const defaultNotifyUrl = `${env_1.env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
+    const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
+    const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
+    const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
+    const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
+    const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
+    const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
+    const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
+    const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
+    const minAmount = minimumAmount(store);
+    if (options.amount < minAmount) {
+        throw new Error(`Swipe: nominal minimal ${minAmount}. Saat ini ${options.amount}. Set credentials.extra.minimumAmount ke 0 untuk uji amount 0 seperti Postman.`);
+    }
+    const requestBody = {
+        pos_request_type: posRequestType,
+        request_id: createSwipeRequestId(),
+        client_id: clientId,
+        device_user: deviceUser,
+        payment_method: paymentMethod,
+        invoice_number: createSwipeInvoiceNumber(options.orderId),
+        amount: options.amount,
+        callback_url: notifyUrl,
+        additional_param: {
+            fee_agent_amount: feeAgentAmount,
+            fee_distributor_amount: feeDistributorAmount,
+            fee_promotor_amount: feePromotorAmount
+        }
+    };
+    const outboundHeaders = swipeOutboundHeaders(merchantId);
+    const response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
+    const parsed = tryParseJsonObject(response.bodyText);
+    let paymentUrl;
+    let pickUrlError;
+    if (parsed) {
+        try {
+            paymentUrl = pickPaymentUrl(parsed, store, endpointUrl);
+        }
+        catch (err) {
+            pickUrlError = err instanceof Error ? err.message : String(err);
+        }
+    }
+    return {
+        endpointUrl,
+        request: requestBody,
+        status: response.status,
+        httpOk: response.ok,
+        rawBody: response.bodyText,
+        parsed,
+        paymentUrl,
+        pickUrlError
+    };
+}

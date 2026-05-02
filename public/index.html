@@ -294,8 +294,25 @@
                 </span>
                 <input
                   id="swipePaymentBrowserUrl"
-                  type="url"
+                  type="text"
+                  inputmode="url"
+                  autocomplete="off"
                   placeholder="https://…?ws_token={ws_token}"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Minimum nominal checkout (credentials.extra.minimumAmount)
+                <span class="block text-xs font-normal text-slate-500">
+                  Kosong = 10. Isi <code class="rounded bg-slate-100 px-1">0</code> agar bisa uji
+                  <code class="rounded bg-slate-100 px-1">amount: 0</code> seperti Postman / EDC.
+                </span>
+                <input
+                  id="swipeMinimumAmount"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="10"
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
@@ -445,6 +462,18 @@
       </section>
       <section class="mt-6 rounded-2xl bg-slate-950 p-6 shadow-sm ring-1 ring-slate-800">
         <h2 class="mb-3 text-lg font-semibold text-white">Sandbox Demo Checkout</h2>
+        <div class="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            id="swipeTestApiBtn"
+            type="button"
+            class="inline-flex items-center justify-center rounded-lg border border-amber-500/80 bg-amber-950/80 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-900"
+          >
+            Uji Swipe API (seperti Postman)
+          </button>
+          <span class="text-xs text-slate-500"
+            >POST payment-request dari server, tampilkan JSON mentah + <code class="text-slate-300">paymentUrl</code> jika bisa dibangun.</span
+          >
+        </div>
         <div class="mb-5 grid gap-3 md:grid-cols-4">
           <input
             id="checkoutOrderId"
@@ -455,7 +484,7 @@
           <input
             id="checkoutAmount"
             type="number"
-            min="1"
+            min="0"
             value="125000"
             class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
           />
@@ -476,9 +505,8 @@
         </div>
 
         <p id="checkoutHint" class="mb-4 text-xs text-slate-400">
-          Tips: tombol ini memanggil API backend dengan <strong>provider</strong> yang dipilih di formulir konfigurasi di atas.
-          Untuk uji tanpa gateway eksternal, set provider ke <strong>sandbox</strong>, klik <strong>Simpan Konfigurasi</strong>, lalu klik di sini.
-          Untuk <strong>swipe</strong>, simpan konfigurasi lengkap (ApiKey + Swipe fields) dan pastikan API Swipe menerima request dari server ini — jika Swipe menolak (mis. 403), checkout akan gagal meskipun tombol ini berfungsi.
+          Tips: <strong>Create Test Checkout</strong> memakai provider di form. <strong>Uji Swipe API</strong> hanya untuk Swipe: request sama dengan Postman dari <em>server</em> Anda, lihat <code class="text-slate-300">rawBody</code> / <code class="text-slate-300">parsed</code>.
+          Isi <strong>payment browser URL</strong> dengan template <code class="text-slate-300">?ws_token=&#123;ws_token&#125;</code> (bukan token asli). Field <strong>minimumAmount</strong> 0 = izinkan amount 0 seperti curl Anda.
         </p>
 
         <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>

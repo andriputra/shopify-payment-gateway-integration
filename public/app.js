@@ -3,6 +3,7 @@ const resultEl = document.getElementById("result");
 const loadBtn = document.getElementById("loadConfigBtn");
 const lookupShopInput = document.getElementById("lookupShop");
 const createCheckoutBtn = document.getElementById("createCheckoutBtn");
+const swipeTestApiBtn = document.getElementById("swipeTestApiBtn");
 const checkoutHintEl = document.getElementById("checkoutHint");
 const connectShopifyBtn = document.getElementById("connectShopifyBtn");
 const oauthShopInput = document.getElementById("oauthShop");
@@ -448,6 +449,7 @@ async function saveConfig(event) {
     const swipeFeeAgentAmount = valueOf("swipeFeeAgentAmount");
     const swipeFeeDistributorAmount = valueOf("swipeFeeDistributorAmount");
     const swipeFeePromotorAmount = valueOf("swipeFeePromotorAmount");
+    const swipeMinimumAmount = valueOf("swipeMinimumAmount");
     if (
       swipeBase ||
       swipePath ||
@@ -458,7 +460,8 @@ async function saveConfig(event) {
       swipePaymentBrowserUrl ||
       swipeFeeAgentAmount ||
       swipeFeeDistributorAmount ||
-      swipeFeePromotorAmount
+      swipeFeePromotorAmount ||
+      swipeMinimumAmount
     ) {
       credentials.extra = {};
       if (swipeBase) {
@@ -490,6 +493,9 @@ async function saveConfig(event) {
       }
       if (swipeFeePromotorAmount) {
         credentials.extra.feePromotorAmount = swipeFeePromotorAmount;
+      }
+      if (swipeMinimumAmount !== "") {
+        credentials.extra.minimumAmount = swipeMinimumAmount;
       }
     }
   }
@@ -557,7 +563,7 @@ async function createDemoCheckout() {
   const orderId = document.getElementById("checkoutOrderId").value.trim() || `ORDER-${Date.now()}`;
   const amountRaw = Number(document.getElementById("checkoutAmount").value);
   const currency = document.getElementById("checkoutCurrency").value.trim().toUpperCase() || "IDR";
-  const amount = Number.isFinite(amountRaw) && amountRaw > 0 ? amountRaw : 125000;
+  const amount = Number.isFinite(amountRaw) && amountRaw >= 0 ? amountRaw : 125000;
 
   if (!shop) {
     showResult({ ok: false, message: "Isi Shop Domain dulu sebelum create checkout." });
@@ -667,6 +673,46 @@ async function hydrateInstallState() {
 form.addEventListener("submit", saveConfig);
 loadBtn.addEventListener("click", loadConfig);
 createCheckoutBtn.addEventListener("click", createDemoCheckout);
+
+async function swipeTestApiFromAdmin() {
+  const shop = document.getElementById("shop").value.trim();
+  const amountRaw = Number(document.getElementById("checkoutAmount").value);
+  const amount = Number.isFinite(amountRaw) && amountRaw >= 0 ? amountRaw : 0;
+
+  if (!shop) {
+    showResult({ ok: false, message: "Isi Shop Domain di form konfigurasi." });
+    return;
+  }
+
+  try {
+    const payload = { shop, amount };
+    const requestDebug = {
+      method: "POST",
+      url: `${window.location.origin}/api/payments/swipe/test-request`,
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: payload
+    };
+    const response = await appFetch("/api/payments/swipe/test-request", {
+      method: requestDebug.method,
+      headers: requestDebug.headers,
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    showResultWithDebug(data, requestDebug);
+    if (checkoutHintEl) {
+      checkoutHintEl.textContent =
+        data.ok && data.swipe && data.swipe.httpOk
+          ? "Request Swipe OK. Cek parsed / rawBody; paymentUrl terisi jika token + template valid."
+          : "Lihat response — httpOk false berarti Swipe menolak (bandingkan dengan Postman & IP server).";
+    }
+  } catch (error) {
+    showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
+  }
+}
+
+if (swipeTestApiBtn) {
+  swipeTestApiBtn.addEventListener("click", swipeTestApiFromAdmin);
+}
 connectShopifyBtn.addEventListener("click", connectShopify);
 installStatusBanner.addEventListener("click", (event) => {
   const target = event.target && event.target.closest ? event.target.closest("[data-banner-dismiss]") : null;

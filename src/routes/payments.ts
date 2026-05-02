@@ -6,15 +6,31 @@ import { SupportedProvider } from "../types";
 const createCheckoutSchema = z.object({
   shop: z.string().min(3),
   provider: z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const),
-  amount: z.number().positive(),
+  amount: z.coerce.number().min(0),
   currency: z.string().length(3),
   orderId: z.string().min(1),
   customerEmail: z.string().email().optional(),
   returnUrl: z.string().url().optional()
 });
 
+const swipeTestRequestSchema = z.object({
+  shop: z.string().min(3),
+  amount: z.coerce.number().min(0).optional().default(0),
+  orderId: z.string().min(1).optional()
+});
+
 export function paymentRoutes(service: PaymentService): Router {
   const router = Router();
+
+  router.post("/swipe/test-request", async (req, res, next) => {
+    try {
+      const raw = swipeTestRequestSchema.parse(req.body);
+      const result = await service.swipeTestRequest(raw.shop, raw.amount, raw.orderId);
+      res.json({ ok: true, swipe: result });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.post("/checkout/create", async (req, res, next) => {
     try {
