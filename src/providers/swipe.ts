@@ -115,10 +115,23 @@ function swipeResponseLayers(body: Record<string, unknown>): Record<string, unkn
   return layers;
 }
 
+/** Redirect Shopify ke halaman instruksi EDC — pembayaran di terminal + callback Swipe. */
+function buildEdcPendingPageUrl(store: StoreConfig, input: CreateCheckoutInput): string {
+  const base = env.host.replace(/\/$/, "");
+  const params = new URLSearchParams({
+    shop: store.shop,
+    orderId: input.orderId,
+    amount: String(input.amount),
+    currency: input.currency
+  });
+  return `${base}/pay/edc-pending?${params.toString()}`;
+}
+
 function pickPaymentUrl(
   body: Record<string, unknown>,
   store: StoreConfig,
-  createEndpointUrl: string
+  createEndpointUrl: string,
+  redirectCtx: CreateCheckoutInput
 ): string {
   const layers = swipeResponseLayers(body);
   const keys = [
@@ -153,20 +166,7 @@ function pickPaymentUrl(
   }
 
   if (wsToken) {
-    const template =
-      store.credentials.extra?.paymentBrowserUrl?.trim() ||
-      store.credentials.extra?.paymentUrlTemplate?.trim();
-    if (template) {
-      const encoded = encodeURIComponent(wsToken);
-      return template
-        .replace(/\{ws_token\}/gi, encoded)
-        .replace(/\{token\}/gi, encoded)
-        .replace(/\{ws_token_raw\}/gi, wsToken)
-        .replace(/\{token_raw\}/gi, wsToken);
-    }
-    throw new Error(
-      "Swipe: API mengembalikan ws_token (SwingWireless), bukan URL pembayaran langsung. Isi credentials.extra.paymentBrowserUrl dengan URL halaman/hosted payment dari dokumentasi Swipe; sisipkan placeholder {ws_token} (query). Untuk path tanpa encoding gunakan {ws_token_raw}."
-    );
+    return buildEdcPendingPageUrl(store, redirectCtx);
   }
 
   throw new Error(
@@ -224,7 +224,8 @@ function createSwipeRequestId(): string {
   return `ReqId-${Date.now()}`;
 }
 
-function createSwipeInvoiceNumber(orderId: string): string {
+/** Sama dengan field `invoice_number` ke API Swipe; dipakai sebagai kunci webhook ↔ payment session. */
+export function swipeInvoiceNumberForOrder(orderId: string): string {
   const sanitized = orderId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24);
   return sanitized ? `INV-${sanitized}` : `INV-${Date.now()}`;
 }
@@ -315,7 +316,7 @@ export const swipeProvider: PaymentProvider = {
       client_id: clientId,
       device_user: deviceUser,
       payment_method: paymentMethod,
-      invoice_number: createSwipeInvoiceNumber(input.orderId),
+      invoice_number: swipeInvoiceNumberForOrder(input.orderId),
       amount: input.amount,
       callback_url: notifyUrl,
       additional_param: {
@@ -392,7 +393,7 @@ export const swipeProvider: PaymentProvider = {
       );
     }
 
-    const paymentUrl = pickPaymentUrl(body, store, endpointUrl);
+    const paymentUrl = pickPaymentUrl(body, store, endpointUrl, input);
     console.info("[SWIPE LIVE] payment URL created", {
       orderId: input.orderId,
       shop: store.shop,
@@ -431,7 +432,7 @@ export type SwipeTestPaymentResult = {
 /** POST ke Swipe seperti create checkout, mengembalikan body mentah + percobaan resolve paymentUrl (untuk uji dari admin). */
 export async function swipeTestPaymentRequest(
   store: StoreConfig,
-  options: { amount: number; orderId: string }
+  options: { amount: number; orderId: string; currency?: string }
 ): Promise<SwipeTestPaymentResult> {
   const merchantId = ensureApiKey(store.credentials);
   const endpointUrl = swipeEndpointUrl(store);
@@ -458,7 +459,7 @@ export async function swipeTestPaymentRequest(
     client_id: clientId,
     device_user: deviceUser,
     payment_method: paymentMethod,
-    invoice_number: createSwipeInvoiceNumber(options.orderId),
+    invoice_number: swipeInvoiceNumberForOrder(options.orderId),
     amount: options.amount,
     callback_url: notifyUrl,
     additional_param: {
@@ -476,7 +477,14 @@ export async function swipeTestPaymentRequest(
   let pickUrlError: string | undefined;
   if (parsed) {
     try {
-      paymentUrl = pickPaymentUrl(parsed, store, endpointUrl);
+      const currency = (options.currency ?? "IDR").trim().toUpperCase() || "IDR";
+      paymentUrl = pickPaymentUrl(parsed, store, endpointUrl, {
+        shop: store.shop,
+        provider: "swipe" as const,
+        amount: options.amount,
+        currency,
+        orderId: options.orderId
+      });
     } catch (err) {
       pickUrlError = err instanceof Error ? err.message : String(err);
     }

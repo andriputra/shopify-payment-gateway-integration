@@ -287,21 +287,6 @@
                 />
               </label>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Halaman pembayaran browser — URL template (credentials.extra.paymentBrowserUrl)
-                <span class="block text-xs font-normal text-slate-500">
-                  Wajib jika API hanya mengembalikan <code class="rounded bg-slate-100 px-1">ws_token</code> (SwingWireless). Contoh penempatan token:
-                  <code class="rounded bg-slate-100 px-1">…?ws_token=&#123;ws_token&#125;</code> — lihat PDF/API Swipe untuk host &amp; query yang benar.
-                </span>
-                <input
-                  id="swipePaymentBrowserUrl"
-                  type="text"
-                  inputmode="url"
-                  autocomplete="off"
-                  placeholder="https://…?ws_token={ws_token}"
-                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                />
-              </label>
-              <label class="grid gap-1 text-sm font-medium text-slate-700">
                 Minimum nominal checkout (credentials.extra.minimumAmount)
                 <span class="block text-xs font-normal text-slate-500">
                   Kosong = 10. Isi <code class="rounded bg-slate-100 px-1">0</code> agar bisa uji
@@ -505,8 +490,8 @@
         </div>
 
         <p id="checkoutHint" class="mb-4 text-xs text-slate-400">
-          Tips: <strong>Create Test Checkout</strong> memakai provider di form. <strong>Uji Swipe API</strong> hanya untuk Swipe: request sama dengan Postman dari <em>server</em> Anda, lihat <code class="text-slate-300">rawBody</code> / <code class="text-slate-300">parsed</code>.
-          Isi <strong>payment browser URL</strong> dengan template <code class="text-slate-300">?ws_token=&#123;ws_token&#125;</code> (bukan token asli). Field <strong>minimumAmount</strong> 0 = izinkan amount 0 seperti curl Anda.
+          Tips: <strong>Create Test Checkout</strong> memakai provider di form. <strong>Uji Swipe API</strong> = Postman dari server, lihat <code class="text-slate-300">rawBody</code> / <code class="text-slate-300">parsed</code>. Alur EDC: redirect ke halaman instruksi app, selesaikan di mesin; sukses lewat
+          <strong>callback</strong> Swipe. <strong>minimumAmount</strong> 0 = uji <code class="text-slate-300">amount: 0</code> seperti curl.
         </p>
 
         <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>

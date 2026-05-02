@@ -7,6 +7,7 @@ exports.shopifyPaymentSessionRoutes = shopifyPaymentSessionRoutes;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const express_1 = require("express");
 const zod_1 = require("zod");
+const swipe_1 = require("../providers/swipe");
 const createSessionSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     gid: zod_1.z.string().optional(),
@@ -47,11 +48,14 @@ function shopifyPaymentSessionRoutes(deps) {
                     ? `ps_${node_crypto_1.default.createHash("sha256").update(paymentSessionGid).digest("hex").slice(0, 24)}`
                     : `ps_${Date.now()}`);
             if (paymentSessionGid) {
-                await sessionContextRepo.save(orderRef, {
+                const ctx = {
                     shop,
                     paymentSessionId: paymentSessionGid,
                     createdAt: new Date().toISOString()
-                });
+                };
+                await sessionContextRepo.save(orderRef, ctx);
+                /** Webhook Swipe mengembalikan `invoice_number`, bukan internal orderRef — simpan keduanya. */
+                await sessionContextRepo.save((0, swipe_1.swipeInvoiceNumberForOrder)(orderRef), ctx);
             }
             const result = await paymentService.createCheckout({
                 shop,

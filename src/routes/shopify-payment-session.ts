@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
+import { swipeInvoiceNumberForOrder } from "../providers/swipe";
 import { PaymentService } from "../services/payment-service";
 import { PaymentSessionContextStore, StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
@@ -55,11 +56,14 @@ export function shopifyPaymentSessionRoutes(deps: {
           : `ps_${Date.now()}`);
 
       if (paymentSessionGid) {
-        await sessionContextRepo.save(orderRef, {
+        const ctx = {
           shop,
           paymentSessionId: paymentSessionGid,
           createdAt: new Date().toISOString()
-        });
+        };
+        await sessionContextRepo.save(orderRef, ctx);
+        /** Webhook Swipe mengembalikan `invoice_number`, bukan internal orderRef — simpan keduanya. */
+        await sessionContextRepo.save(swipeInvoiceNumberForOrder(orderRef), ctx);
       }
 
       const result = await paymentService.createCheckout({

@@ -445,7 +445,6 @@ async function saveConfig(event) {
     const swipePosRequestType = valueOf("swipePosRequestType");
     const swipePaymentMethod = valueOf("swipePaymentMethod");
     const swipePath = valueOf("swipeCreatePath");
-    const swipePaymentBrowserUrl = valueOf("swipePaymentBrowserUrl");
     const swipeFeeAgentAmount = valueOf("swipeFeeAgentAmount");
     const swipeFeeDistributorAmount = valueOf("swipeFeeDistributorAmount");
     const swipeFeePromotorAmount = valueOf("swipeFeePromotorAmount");
@@ -457,7 +456,6 @@ async function saveConfig(event) {
       swipeDeviceUser ||
       swipePosRequestType ||
       swipePaymentMethod ||
-      swipePaymentBrowserUrl ||
       swipeFeeAgentAmount ||
       swipeFeeDistributorAmount ||
       swipeFeePromotorAmount ||
@@ -469,9 +467,6 @@ async function saveConfig(event) {
       }
       if (swipePath) {
         credentials.extra.createPath = swipePath.startsWith("/") ? swipePath : `/${swipePath}`;
-      }
-      if (swipePaymentBrowserUrl) {
-        credentials.extra.paymentBrowserUrl = swipePaymentBrowserUrl;
       }
       if (swipeClientId) {
         credentials.extra.clientId = swipeClientId;

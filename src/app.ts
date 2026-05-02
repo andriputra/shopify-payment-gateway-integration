@@ -148,6 +148,47 @@ export function createApp(): express.Application {
     res.type("html").send(html);
   });
 
+  app.get("/pay/edc-pending", (req, res) => {
+    const shop = String(req.query.shop ?? "");
+    const orderId = String(req.query.orderId ?? "");
+    const amount = String(req.query.amount ?? "0");
+    const currency = String(req.query.currency ?? "IDR");
+
+    const safeShop = shop.replace(/"/g, "&quot;");
+    const safeOrderId = orderId.replace(/"/g, "&quot;");
+    const safeAmount = amount.replace(/"/g, "&quot;");
+    const safeCurrency = currency.replace(/"/g, "&quot;");
+
+    const html = `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Selesaikan di EDC</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  <main class="mx-auto max-w-lg px-4 py-10">
+    <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+      <h1 class="text-xl font-bold text-slate-900">Lanjutkan pembayaran di EDC</h1>
+      <p class="mt-3 text-sm text-slate-600">
+        Transaksi ini diproses lewat <strong>terminal Swipe (EDC)</strong>, bukan halaman pembayaran di browser.
+        Selesaikan pembayaran di mesin. Setelah Swipe mengirim <strong>callback</strong> sukses ke toko, checkout akan dilanjutkan dan stok mengikuti aturan Shopify.
+      </p>
+      <div class="mt-5 space-y-1 rounded-lg bg-slate-50 p-4 text-sm">
+        <p><span class="font-semibold">Shop:</span> ${safeShop}</p>
+        <p><span class="font-semibold">Referensi:</span> ${safeOrderId}</p>
+        <p><span class="font-semibold">Nominal:</span> ${safeCurrency} ${safeAmount}</p>
+      </div>
+      <p class="mt-4 text-xs text-slate-500">Anda boleh menutup tab ini setelah selesai membayar di EDC jika toko mengarahkan kembali ke konfirmasi order.</p>
+    </section>
+  </main>
+</body>
+</html>`;
+
+    res.type("html").send(html);
+  });
+
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
   // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
   app.use("/api/system", systemRoutes(storage));
