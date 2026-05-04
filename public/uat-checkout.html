@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout — Simulasi UAT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+            colors: {
+              checkout: {
+                bg: "#faf9f8",
+                border: "#e3e3e3",
+                accent: "#008060",
+                accentHover: "#006e52",
+                ink: "#212326",
+                muted: "#6d7175"
+              }
+            },
+            boxShadow: {
+              checkout: "0 1px 2px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.06)"
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      body {
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-checkout-bg font-sans text-checkout-ink antialiased">
+    <!-- Banner UAT -->
+    <div
+      class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950"
+      role="status"
+    >
+      <span class="font-semibold">Mode simulasi UAT</span>
+      — Bukan checkout Shopify sungguhan. Gunakan untuk uji alur pembayaran gateway Anda sebelum app approved.
+    </div>
+
+    <header class="border-b border-checkout-border bg-white">
+      <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <div class="min-w-0">
+          <p class="truncate text-xs font-medium uppercase tracking-wide text-checkout-muted">Checkout</p>
+          <h1 id="storeTitle" class="truncate text-lg font-semibold text-checkout-ink">Toko</h1>
+        </div>
+        <div class="hidden shrink-0 items-center gap-2 sm:flex" aria-hidden="true">
+          <span class="h-8 w-8 rounded-full bg-checkout-bg ring-1 ring-checkout-border"></span>
+          <span class="text-xs text-checkout-muted">Simulasi aman</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1fr_380px] lg:gap-12 lg:px-6 lg:py-10">
+      <!-- Kolom kiri: pembayaran -->
+      <section class="order-2 space-y-8 lg:order-1">
+        <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
+          <h2 class="text-base font-semibold text-checkout-ink">Kontak</h2>
+          <p id="contactEmail" class="mt-3 text-sm text-checkout-muted">uat-buyer@example.com</p>
+        </div>
+
+        <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
+          <h2 class="text-base font-semibold text-checkout-ink">Pengiriman</h2>
+          <p class="mt-3 text-sm leading-relaxed text-checkout-muted">
+            Alamat dan metode pengiriman diatur di checkout Shopify sungguhan. Di halaman ini hanya simulasi tampilan.
+          </p>
+          <div class="mt-4 rounded-md bg-checkout-bg px-3 py-2 text-sm text-checkout-ink ring-1 ring-checkout-border">
+            <span class="font-medium">Reguler</span>
+            <span class="text-checkout-muted"> · Estimasi sesuai konfigurasi toko</span>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
+          <h2 class="text-base font-semibold text-checkout-ink">Pembayaran</h2>
+          <p class="mt-1 text-sm text-checkout-muted">
+            Detail kartu hanya visual; tidak ada data sensitif yang dikirim dari halaman ini.
+          </p>
+
+          <div class="mt-5 space-y-3">
+            <label
+              class="flex cursor-pointer items-start gap-3 rounded-lg border-2 border-checkout-accent bg-emerald-50/40 p-4"
+            >
+              <input type="radio" name="payMethod" checked class="mt-1 h-4 w-4 accent-checkout-accent" />
+              <span class="flex-1">
+                <span class="font-medium text-checkout-ink">Kartu kredit / debit</span>
+                <span class="mt-1 flex flex-wrap gap-1">
+                  <span class="rounded border border-checkout-border bg-white px-1.5 py-0.5 text-[10px] font-semibold"
+                    >VISA</span
+                  >
+                  <span class="rounded border border-checkout-border bg-white px-1.5 py-0.5 text-[10px] font-semibold"
+                    >MC</span
+                  >
+                </span>
+              </span>
+            </label>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-medium text-checkout-muted">Nomor kartu</label>
+                <div
+                  class="mt-1 flex items-center rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
+                >
+                  <span class="tracking-widest">4242 ···· ···· 4242</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-checkout-muted">Kadaluarsa</label>
+                <div
+                  class="mt-1 rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
+                >
+                  12 / 28
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-checkout-muted">CVV</label>
+                <div
+                  class="mt-1 rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
+                >
+                  ···
+                </div>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-medium text-checkout-muted">Nama di kartu</label>
+                <div
+                  class="mt-1 rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
+                >
+                  UAT Tester
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="missingShop" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+            Parameter <code class="font-mono">shop</code> wajib ada di URL agar webhook sandbox bisa dipetakan ke toko.
+          </div>
+
+          <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              id="paySuccess"
+              class="inline-flex flex-1 items-center justify-center rounded-md bg-checkout-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-checkout-accentHover focus:outline-none focus:ring-2 focus:ring-checkout-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Bayar sekarang
+            </button>
+            <button
+              type="button"
+              id="payFailed"
+              class="inline-flex flex-1 items-center justify-center rounded-md border border-checkout-border bg-white px-5 py-3.5 text-sm font-semibold text-checkout-ink shadow-sm transition hover:bg-checkout-bg focus:outline-none focus:ring-2 focus:ring-checkout-border focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Tolak pembayaran
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kolom kanan: ringkasan order -->
+      <aside class="order-1 lg:order-2">
+        <div class="lg:sticky lg:top-8">
+          <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
+            <h2 class="text-base font-semibold text-checkout-ink">Ringkasan pesanan</h2>
+
+            <ul id="lineItems" class="mt-4 divide-y divide-checkout-border border-t border-checkout-border"></ul>
+
+            <dl class="mt-4 space-y-2 text-sm">
+              <div class="flex justify-between text-checkout-muted">
+                <dt>Subtotal</dt>
+                <dd id="subtotalEl">—</dd>
+              </div>
+              <div class="flex justify-between text-checkout-muted">
+                <dt>Pengiriman</dt>
+                <dd id="shippingEl">—</dd>
+              </div>
+              <div class="flex justify-between text-checkout-muted">
+                <dt>Perkiraan pajak</dt>
+                <dd id="taxEl">—</dd>
+              </div>
+              <div class="flex items-baseline justify-between border-t border-checkout-border pt-3 text-base font-semibold text-checkout-ink">
+                <dt>Total</dt>
+                <dd id="totalEl" class="tabular-nums">—</dd>
+              </div>
+            </dl>
+
+            <p id="orderRefLine" class="mt-4 font-mono text-xs text-checkout-muted"></p>
+          </div>
+
+          <pre
+            id="result"
+            class="mt-4 max-h-48 overflow-auto rounded-lg border border-checkout-border bg-checkout-ink p-4 text-xs text-emerald-100"
+          >{}</pre>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="border-t border-checkout-border bg-white py-8 text-center text-xs text-checkout-muted">
+      <p>Simulasi checkout gateway · tidak berafiliasi dengan Shopify Inc.</p>
+    </footer>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const shop = params.get("shop") || "";
+        const orderId = params.get("orderId") || "";
+        const amountRaw = params.get("amount") || "0";
+        const currency = (params.get("currency") || "IDR").toUpperCase();
+        const email = params.get("email") || "uat-buyer@example.com";
+
+        const amount = Number(amountRaw);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+        function formatMoney(value) {
+          try {
+            return new Intl.NumberFormat("id-ID", {
+              style: "currency",
+              currency: currency.length === 3 ? currency : "IDR",
+              minimumFractionDigits: currency === "IDR" ? 0 : 2
+            }).format(value);
+          } catch (_e) {
+            return currency + " " + value.toFixed(2);
+          }
+        }
+
+        function displayNameFromShop(domain) {
+          if (!domain) return "Demo Store";
+          const d = domain.replace(/\.myshopify\.com$/i, "").trim();
+          if (!d) return "Demo Store";
+          return d.charAt(0).toUpperCase() + d.slice(1);
+        }
+
+        document.getElementById("storeTitle").textContent = displayNameFromShop(shop);
+        document.getElementById("contactEmail").textContent = email;
+
+        const shipping = 0;
+        const tax = 0;
+        const subtotal = Math.max(0, safeAmount - shipping - tax);
+
+        document.getElementById("subtotalEl").textContent = formatMoney(subtotal);
+        document.getElementById("shippingEl").textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        document.getElementById("taxEl").textContent = tax === 0 ? "—" : formatMoney(tax);
+        document.getElementById("totalEl").textContent = formatMoney(safeAmount);
+
+        const lineItems = document.getElementById("lineItems");
+        const itemLabel = params.get("itemLabel") || "Item pesanan (UAT)";
+        lineItems.innerHTML = `
+          <li class="flex gap-3 py-4 first:pt-0">
+            <div class="h-16 w-16 shrink-0 rounded-md bg-checkout-bg ring-1 ring-checkout-border"></div>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-checkout-ink">${escapeHtml(itemLabel)}</p>
+              <p class="mt-0.5 text-sm text-checkout-muted">Qty 1</p>
+            </div>
+            <p class="shrink-0 text-sm font-medium tabular-nums text-checkout-ink">${formatMoney(safeAmount)}</p>
+          </li>
+        `;
+
+        const refEl = document.getElementById("orderRefLine");
+        refEl.textContent =
+          (orderId ? "Referensi: " + orderId : "Tanpa orderId") +
+          (shop ? " · " + shop : "");
+
+        const resultEl = document.getElementById("result");
+        const missingShopEl = document.getElementById("missingShop");
+        const paySuccess = document.getElementById("paySuccess");
+        const payFailed = document.getElementById("payFailed");
+
+        if (!shop) {
+          missingShopEl.classList.remove("hidden");
+          paySuccess.disabled = true;
+          payFailed.disabled = true;
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function show(data) {
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function sendWebhook(status) {
+          if (!shop) {
+            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            return;
+          }
+
+          paySuccess.disabled = true;
+          payFailed.disabled = true;
+
+          try {
+            const response = await fetch(
+              "/webhooks/payment/sandbox/" + encodeURIComponent(shop),
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  status,
+                  id: "sandbox_" + (orderId || "order"),
+                  orderId: orderId || undefined
+                })
+              }
+            );
+            const data = await response.json();
+            show(data);
+
+            if (data.ok && data.paid && data.redirectUrl) {
+              setTimeout(function () {
+                window.location.href = data.redirectUrl;
+              }, 1200);
+            }
+          } catch (error) {
+            show({ ok: false, message: error && error.message ? error.message : "Request failed" });
+          } finally {
+            paySuccess.disabled = false;
+            payFailed.disabled = false;
+          }
+        }
+
+        paySuccess.addEventListener("click", function () {
+          sendWebhook("PAID");
+        });
+        payFailed.addEventListener("click", function () {
+          sendWebhook("FAILED");
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -14,7 +14,7 @@ export const sandboxProvider: PaymentProvider = {
     });
 
     return {
-      paymentUrl: `${env.host}/sandbox/pay?${params.toString()}`,
+      paymentUrl: `${env.host}/uat/checkout?${params.toString()}`,
       providerReference: `sbox_${input.orderId}`
     };
   },

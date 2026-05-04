@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout — Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+            colors: {
+              sc: {
+                page: "#faf9f8",
+                border: "#d9d9d9",
+                borderStrong: "#c9cccf",
+                ink: "#202223",
+                muted: "#6d7175",
+                accent: "#008060",
+                accentHover: "#006e52",
+                fieldBg: "#f6f6f7",
+                focus: "#005bd3"
+              }
+            },
+            boxShadow: {
+              sc: "0 1px 1px rgba(0,0,0,.05), 0 2px 8px rgba(0,0,0,.06)"
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      body {
+        font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-sc-page font-sans text-sc-ink antialiased">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow-sc"
+      >Lewati ke konten</a
+    >
+
+    <header class="border-b border-sc-border bg-white">
+      <div class="mx-auto flex max-w-[1140px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
+        <div class="min-w-0">
+          <p class="text-[11px] font-medium uppercase tracking-[0.08em] text-sc-muted">Checkout</p>
+          <h1 id="storeTitle" class="truncate text-[17px] font-semibold tracking-tight text-sc-ink">Toko</h1>
+        </div>
+        <div class="flex shrink-0 items-center gap-2 text-sc-muted" aria-hidden="true">
+          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
+            />
+          </svg>
+          <span class="hidden text-xs sm:inline">Amankan dengan SSL</span>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="mx-auto grid max-w-[1140px] gap-0 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <!-- Mobile order summary (accordion) -->
+      <div class="border-b border-sc-border bg-white px-4 py-3 lg:hidden">
+        <button
+          type="button"
+          id="toggleSummary"
+          class="flex w-full items-center justify-between text-left"
+          aria-expanded="false"
+          aria-controls="mobileSummary"
+        >
+          <span class="text-sm font-semibold text-sc-accent">Tampilkan ringkasan pesanan</span>
+          <span id="mobileTotalBadge" class="text-sm font-semibold tabular-nums text-sc-ink">—</span>
+        </button>
+        <div id="mobileSummary" class="hidden pt-4">
+          <div id="mobileLineItems" class="divide-y divide-sc-border border-t border-sc-border"></div>
+          <dl class="mt-4 space-y-2 text-sm">
+            <div class="flex justify-between text-sc-muted">
+              <dt>Subtotal</dt>
+              <dd id="mSubtotal" class="tabular-nums">—</dd>
+            </div>
+            <div class="flex justify-between text-sc-muted">
+              <dt>Pengiriman</dt>
+              <dd id="mShipping" class="tabular-nums">—</dd>
+            </div>
+            <div class="flex justify-between text-sc-muted">
+              <dt>Pajak</dt>
+              <dd id="mTax" class="tabular-nums">—</dd>
+            </div>
+            <div class="flex justify-between border-t border-sc-border pt-3 text-base font-semibold text-sc-ink">
+              <dt>Total</dt>
+              <dd id="mTotal" class="tabular-nums">—</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Left: forms -->
+      <section class="order-2 border-sc-border px-4 py-8 sm:px-6 lg:order-1 lg:border-r lg:py-10 lg:pr-10">
+        <div class="mx-auto max-w-xl space-y-8">
+          <!-- Contact -->
+          <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
+            <h2 class="text-[15px] font-semibold text-sc-ink">Kontak</h2>
+            <p class="mt-1 text-sm text-sc-muted">Email untuk konfirmasi pesanan.</p>
+            <label class="mt-4 block">
+              <span class="sr-only">Email</span>
+              <input
+                id="emailInput"
+                type="email"
+                autocomplete="email"
+                class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm transition placeholder:text-sc-muted focus:border-sc-focus focus:outline-none focus:ring-2 focus:ring-sc-focus/25"
+                placeholder="email@contoh.com"
+              />
+            </label>
+            <label class="mt-3 flex items-start gap-2 text-sm text-sc-ink">
+              <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-sc-border text-sc-accent focus:ring-sc-focus" checked disabled />
+              <span class="text-sc-muted">Kirim berita dan penawaran ke email saya (demo — tidak tersimpan).</span>
+            </label>
+          </div>
+
+          <!-- Delivery -->
+          <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
+            <h2 class="text-[15px] font-semibold text-sc-ink">Pengiriman</h2>
+            <p class="mt-1 text-sm text-sc-muted">Alamat pengiriman (hanya tampilan demo).</p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              <label class="sm:col-span-2 block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Negara / wilayah</span>
+                <select
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm focus:border-sc-focus focus:outline-none focus:ring-2 focus:ring-sc-focus/25"
+                  disabled
+                >
+                  <option>Indonesia</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Nama depan</span>
+                <input
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
+                  type="text"
+                  value="UAT"
+                  readonly
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Nama belakang</span>
+                <input
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
+                  type="text"
+                  value="Pembeli"
+                  readonly
+                />
+              </label>
+              <label class="sm:col-span-2 block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Alamat</span>
+                <input
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
+                  type="text"
+                  value="Jl. Contoh No. 1"
+                  readonly
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Kota</span>
+                <input
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
+                  type="text"
+                  value="Jakarta"
+                  readonly
+                />
+              </label>
+              <label class="block">
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Kode pos</span>
+                <input
+                  class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
+                  type="text"
+                  value="10110"
+                  readonly
+                />
+              </label>
+            </div>
+
+            <p class="mt-5 text-[15px] font-semibold text-sc-ink">Metode pengiriman</p>
+            <div class="mt-3 space-y-2">
+              <label
+                class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-accent bg-emerald-50/30 p-4"
+              >
+                <input type="radio" name="ship" checked class="mt-1 h-4 w-4 accent-sc-accent" />
+                <span class="flex-1 text-sm">
+                  <span class="font-medium text-sc-ink">Reguler</span>
+                  <span class="mt-0.5 block text-sc-muted">Estimasi 3–5 hari kerja</span>
+                </span>
+                <span id="shipPriceEl" class="shrink-0 text-sm font-medium tabular-nums text-sc-ink">Gratis</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Payment -->
+          <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
+            <h2 class="text-[15px] font-semibold text-sc-ink">Pembayaran</h2>
+            <p class="mt-1 text-sm text-sc-muted">Semua transaksi aman dan terenkripsi (demo).</p>
+
+            <div class="mt-5 space-y-3">
+              <label class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-border p-4 hover:border-sc-borderStrong">
+                <input type="radio" name="pay" class="mt-1 h-4 w-4 accent-sc-accent" />
+                <span class="flex-1 text-sm font-medium text-sc-ink">Shop Pay</span>
+              </label>
+              <label
+                class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-accent bg-emerald-50/30 p-4"
+              >
+                <input type="radio" name="pay" checked class="mt-1 h-4 w-4 accent-sc-accent" />
+                <span class="flex-1">
+                  <span class="text-sm font-medium text-sc-ink">Kartu kredit</span>
+                  <span class="mt-1 flex flex-wrap gap-1">
+                    <span class="rounded border border-sc-border bg-white px-1.5 py-0.5 text-[10px] font-semibold">VISA</span>
+                    <span class="rounded border border-sc-border bg-white px-1.5 py-0.5 text-[10px] font-semibold">MC</span>
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+              <div class="sm:col-span-2">
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Nomor kartu</label>
+                <div
+                  class="flex items-center rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted"
+                >
+                  <span class="tracking-[0.2em]">4242 ···· ···· 4242</span>
+                </div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Kadaluarsa</label>
+                <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">12 / 28</div>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Kode keamanan</label>
+                <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">···</div>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Nama di kartu</label>
+                <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">UAT Pembeli</div>
+              </div>
+            </div>
+
+            <label class="mt-4 flex items-start gap-2 text-sm">
+              <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-sc-border text-sc-accent" checked disabled />
+              <span class="text-sc-muted">Alamat penagihan sama dengan alamat pengiriman</span>
+            </label>
+
+            <div id="missingShop" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+              Parameter <code class="font-mono text-xs">shop</code> wajib di URL agar webhook sandbox terpetakan ke toko.
+            </div>
+
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                id="paySuccess"
+                class="inline-flex flex-1 items-center justify-center rounded-md bg-sc-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sc-accentHover focus:outline-none focus:ring-2 focus:ring-sc-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Bayar sekarang
+              </button>
+              <button
+                type="button"
+                id="payFailed"
+                class="inline-flex flex-1 items-center justify-center rounded-md border border-sc-border bg-white px-5 py-3.5 text-sm font-semibold text-sc-ink shadow-sm transition hover:bg-sc-page focus:outline-none focus:ring-2 focus:ring-sc-border focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Tolak pembayaran
+              </button>
+            </div>
+          </div>
+
+          <p class="text-center text-xs text-sc-muted lg:text-left">
+            Dengan melanjutkan, Anda menyetujui syarat layanan toko (demo).
+          </p>
+        </div>
+      </section>
+
+      <!-- Right: summary desktop -->
+      <aside class="order-1 hidden bg-sc-page lg:order-2 lg:block">
+        <div class="sticky top-0 border-b border-sc-border bg-sc-page px-6 py-10">
+          <div class="rounded-lg border border-sc-border bg-white p-6 shadow-sc">
+            <h2 class="text-[15px] font-semibold text-sc-ink">Ringkasan pesanan</h2>
+
+            <ul id="lineItems" class="mt-4 divide-y divide-sc-border border-t border-sc-border"></ul>
+
+            <div class="mt-4">
+              <label class="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Kode diskon"
+                  class="flex-1 rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm placeholder:text-sc-muted"
+                  disabled
+                  value=""
+                />
+                <button
+                  type="button"
+                  class="rounded-md border border-sc-border bg-white px-3 text-sm font-semibold text-sc-muted"
+                  disabled
+                >
+                  Terapkan
+                </button>
+              </label>
+            </div>
+
+            <dl class="mt-4 space-y-2 text-sm">
+              <div class="flex justify-between text-sc-muted">
+                <dt>Subtotal</dt>
+                <dd id="subtotalEl" class="tabular-nums">—</dd>
+              </div>
+              <div class="flex justify-between text-sc-muted">
+                <dt>Pengiriman</dt>
+                <dd id="shippingEl" class="tabular-nums">—</dd>
+              </div>
+              <div class="flex justify-between text-sc-muted">
+                <dt>Perkiraan pajak</dt>
+                <dd id="taxEl" class="tabular-nums">—</dd>
+              </div>
+              <div
+                class="flex items-baseline justify-between border-t border-sc-border pt-3 text-[17px] font-semibold text-sc-ink"
+              >
+                <dt>Total</dt>
+                <dd id="totalEl" class="tabular-nums">—</dd>
+              </div>
+            </dl>
+
+            <p id="orderRefLine" class="mt-4 font-mono text-[11px] leading-relaxed text-sc-muted"></p>
+          </div>
+
+          <pre
+            id="result"
+            class="mt-4 max-h-40 overflow-auto rounded-lg border border-sc-border bg-sc-ink p-4 text-[11px] leading-relaxed text-emerald-100"
+          >{}</pre>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="border-t border-sc-border bg-white py-8 text-center text-xs text-sc-muted">
+      <p>Halaman demo alur checkout — tidak berafiliasi dengan Shopify Inc.</p>
+      <p class="mt-1">
+        UAT gateway:
+        <a class="text-sc-accent underline" href="/uat/checkout">/uat/checkout</a>
+        · Versi mirip Shopify:
+        <a class="text-sc-accent underline" href="/checkout/like">/checkout/like</a>
+      </p>
+    </footer>
+
+    <script>
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const shop = params.get("shop") || "";
+        const orderId = params.get("orderId") || "";
+        const amountRaw = params.get("amount") || "0";
+        const currency = (params.get("currency") || "IDR").toUpperCase();
+        const email = params.get("email") || "uat-buyer@example.com";
+
+        const amount = Number(amountRaw);
+        const safeAmount = Number.isFinite(amount) ? amount : 0;
+
+        function formatMoney(value) {
+          try {
+            return new Intl.NumberFormat("id-ID", {
+              style: "currency",
+              currency: currency.length === 3 ? currency : "IDR",
+              minimumFractionDigits: currency === "IDR" ? 0 : 2
+            }).format(value);
+          } catch (_e) {
+            return currency + " " + value.toFixed(2);
+          }
+        }
+
+        function displayNameFromShop(domain) {
+          if (!domain) return "Demo Store";
+          const d = domain.replace(/\.myshopify\.com$/i, "").trim();
+          if (!d) return "Demo Store";
+          return d.charAt(0).toUpperCase() + d.slice(1);
+        }
+
+        document.getElementById("storeTitle").textContent = displayNameFromShop(shop);
+        document.getElementById("emailInput").value = email;
+
+        const shipping = 0;
+        const tax = 0;
+        const subtotal = Math.max(0, safeAmount - shipping - tax);
+
+        const subtotalEl = document.getElementById("subtotalEl");
+        const shippingEl = document.getElementById("shippingEl");
+        const taxEl = document.getElementById("taxEl");
+        const totalEl = document.getElementById("totalEl");
+
+        subtotalEl.textContent = formatMoney(subtotal);
+        shippingEl.textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        taxEl.textContent = tax === 0 ? "—" : formatMoney(tax);
+        totalEl.textContent = formatMoney(safeAmount);
+        document.getElementById("mobileTotalBadge").textContent = formatMoney(safeAmount);
+        document.getElementById("mSubtotal").textContent = formatMoney(subtotal);
+        document.getElementById("mShipping").textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        document.getElementById("mTax").textContent = tax === 0 ? "—" : formatMoney(tax);
+        document.getElementById("mTotal").textContent = formatMoney(safeAmount);
+
+        const itemLabel = params.get("itemLabel") || "Produk demo";
+        const lineHtml = `
+          <li class="flex gap-3 py-4 first:pt-0">
+            <div class="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-sc-fieldBg ring-1 ring-sc-border">
+              <div class="h-full w-full bg-gradient-to-br from-sc-fieldBg to-white"></div>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium leading-snug text-sc-ink">${escapeHtml(itemLabel)}</p>
+              <p class="mt-0.5 text-sm text-sc-muted">Jumlah 1</p>
+            </div>
+            <p class="shrink-0 text-sm font-medium tabular-nums text-sc-ink">${formatMoney(safeAmount)}</p>
+          </li>
+        `;
+        document.getElementById("lineItems").innerHTML = lineHtml;
+        document.getElementById("mobileLineItems").innerHTML = lineHtml;
+
+        const refEl = document.getElementById("orderRefLine");
+        refEl.textContent =
+          (orderId ? "Referensi: " + orderId : "Tanpa orderId") + (shop ? " · " + shop : "");
+
+        const resultEl = document.getElementById("result");
+        const missingShopEl = document.getElementById("missingShop");
+        const paySuccess = document.getElementById("paySuccess");
+        const payFailed = document.getElementById("payFailed");
+
+        if (!shop) {
+          missingShopEl.classList.remove("hidden");
+          paySuccess.disabled = true;
+          payFailed.disabled = true;
+        }
+
+        const toggle = document.getElementById("toggleSummary");
+        const mobileSummary = document.getElementById("mobileSummary");
+        toggle.addEventListener("click", function () {
+          const open = mobileSummary.classList.toggle("hidden");
+          toggle.setAttribute("aria-expanded", String(!open));
+          toggle.querySelector("span:first-child").textContent = open
+            ? "Tampilkan ringkasan pesanan"
+            : "Sembunyikan ringkasan pesanan";
+        });
+
+        function escapeHtml(value) {
+          return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function show(data) {
+          resultEl.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function sendWebhook(status) {
+          if (!shop) {
+            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            return;
+          }
+
+          paySuccess.disabled = true;
+          payFailed.disabled = true;
+
+          try {
+            const response = await fetch("/webhooks/payment/sandbox/" + encodeURIComponent(shop), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status,
+                id: "sandbox_" + (orderId || "order"),
+                orderId: orderId || undefined
+              })
+            });
+            const data = await response.json();
+            show(data);
+
+            if (data.ok && data.paid && data.redirectUrl) {
+              setTimeout(function () {
+                window.location.href = data.redirectUrl;
+              }, 1200);
+            }
+          } catch (error) {
+            show({ ok: false, message: error && error.message ? error.message : "Request failed" });
+          } finally {
+            paySuccess.disabled = false;
+            payFailed.disabled = false;
+          }
+        }
+
+        paySuccess.addEventListener("click", function () {
+          sendWebhook("PAID");
+        });
+        payFailed.addEventListener("click", function () {
+          sendWebhook("FAILED");
+        });
+      })();
+    </script>
+  </body>
+</html>
