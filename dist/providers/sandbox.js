@@ -13,7 +13,7 @@ exports.sandboxProvider = {
             provider: "sandbox"
         });
         return {
-            paymentUrl: `${env_1.env.host}/sandbox/pay?${params.toString()}`,
+            paymentUrl: `${env_1.env.host}/uat/checkout?${params.toString()}`,
             providerReference: `sbox_${input.orderId}`
         };
     },
