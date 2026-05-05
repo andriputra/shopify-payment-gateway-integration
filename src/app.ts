@@ -74,6 +74,57 @@ export function createApp(): express.Application {
   app.get("/checkout/like", (_req, res) => {
     res.sendFile(path.join(publicDir, "checkout-like-shopify.html"));
   });
+  app.post("/checkout/like/swipe/create", async (req, res, next) => {
+    try {
+      const shopRaw = String(req.body?.shop ?? "").trim().toLowerCase();
+      const orderId = String(req.body?.orderId ?? "").trim();
+      const amount = Number(req.body?.amount ?? 0);
+      const currency = String(req.body?.currency ?? "IDR").trim().toUpperCase();
+      const customerEmail = req.body?.customerEmail
+        ? String(req.body.customerEmail).trim()
+        : undefined;
+
+      const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
+      if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
+        return res.status(400).json({
+          ok: false,
+          message: "Body wajib berisi shop, orderId, amount >= 0, currency."
+        });
+      }
+
+      const store = await storeRepo.get(shop);
+      if (!store) {
+        return res.status(404).json({
+          ok: false,
+          message: `Store config tidak ditemukan untuk shop: ${shop}`
+        });
+      }
+      if (store.provider !== "swipe") {
+        return res.status(409).json({
+          ok: false,
+          message: `Provider toko saat ini "${store.provider}". Ubah ke "swipe" agar halaman ini mengarah ke Swipe.`
+        });
+      }
+
+      const checkout = await paymentService.createCheckout({
+        shop,
+        provider: "swipe",
+        amount,
+        currency: currency.length === 3 ? currency : "IDR",
+        orderId,
+        customerEmail
+      });
+
+      return res.json({
+        ok: true,
+        channel: "swipe",
+        paymentUrl: checkout.paymentUrl,
+        providerReference: checkout.providerReference
+      });
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   app.get("/pay/edc-pending", (req, res) => {
     const shop = String(req.query.shop ?? "");
