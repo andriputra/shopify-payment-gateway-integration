@@ -265,14 +265,14 @@
                 id="paySuccess"
                 class="inline-flex flex-1 items-center justify-center rounded-md bg-sc-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sc-accentHover focus:outline-none focus:ring-2 focus:ring-sc-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Bayar sekarang
+                Lanjutkan ke Swipe
               </button>
               <button
                 type="button"
                 id="payFailed"
                 class="inline-flex flex-1 items-center justify-center rounded-md border border-sc-border bg-white px-5 py-3.5 text-sm font-semibold text-sc-ink shadow-sm transition hover:bg-sc-page focus:outline-none focus:ring-2 focus:ring-sc-border focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Tolak pembayaran
+                Simulasi gagal (sandbox)
               </button>
             </div>
           </div>
@@ -342,7 +342,7 @@
       </aside>
     </main>
 
-    <footer class="border-t border-sc-border bg-white py-8 text-center text-xs text-sc-muted">
+    <!-- <footer class="border-t border-sc-border bg-white py-8 text-center text-xs text-sc-muted">
       <p>Halaman demo alur checkout — tidak berafiliasi dengan Shopify Inc.</p>
       <p class="mt-1">
         UAT gateway:
@@ -350,7 +350,7 @@
         · Versi mirip Shopify:
         <a class="text-sc-accent underline" href="/checkout/like">/checkout/like</a>
       </p>
-    </footer>
+    </footer> -->
 
     <script>
       (function () {
@@ -459,6 +459,46 @@
           resultEl.textContent = JSON.stringify(data, null, 2);
         }
 
+        async function createSwipeCheckout() {
+          if (!shop) {
+            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            return;
+          }
+
+          paySuccess.disabled = true;
+          payFailed.disabled = true;
+
+          try {
+            const response = await fetch("/checkout/like/swipe/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                shop,
+                orderId: orderId || "DEMO-" + Date.now(),
+                amount: safeAmount,
+                currency,
+                customerEmail: document.getElementById("emailInput").value || undefined
+              })
+            });
+            const data = await response.json();
+            show(data);
+
+            if (!response.ok) {
+              return;
+            }
+            if (data.ok && data.paymentUrl) {
+              setTimeout(function () {
+                window.location.href = data.paymentUrl;
+              }, 800);
+            }
+          } catch (error) {
+            show({ ok: false, message: error && error.message ? error.message : "Request failed" });
+          } finally {
+            paySuccess.disabled = false;
+            payFailed.disabled = false;
+          }
+        }
+
         async function sendWebhook(status) {
           if (!shop) {
             show({ ok: false, message: "Parameter shop tidak ada di URL." });
@@ -495,7 +535,7 @@
         }
 
         paySuccess.addEventListener("click", function () {
-          sendWebhook("PAID");
+          createSwipeCheckout();
         });
         payFailed.addEventListener("click", function () {
           sendWebhook("FAILED");
