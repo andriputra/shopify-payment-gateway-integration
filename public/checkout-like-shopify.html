@@ -211,7 +211,7 @@
             <div class="mt-5 space-y-3">
               <label class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-border p-4 hover:border-sc-borderStrong">
                 <input type="radio" name="pay" class="mt-1 h-4 w-4 accent-sc-accent" />
-                <span class="flex-1 text-sm font-medium text-sc-ink">Shop Pay</span>
+                <span class="flex-1 text-sm font-medium text-sc-ink">ID O2O Multi Payment Gateway</span>
               </label>
               <label
                 class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-accent bg-emerald-50/30 p-4"
@@ -265,7 +265,7 @@
                 id="paySuccess"
                 class="inline-flex flex-1 items-center justify-center rounded-md bg-sc-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sc-accentHover focus:outline-none focus:ring-2 focus:ring-sc-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Lanjutkan ke Swipe
+                Pembayaran
               </button>
               <button
                 type="button"
@@ -285,7 +285,7 @@
 
       <!-- Right: summary desktop -->
       <aside class="order-1 hidden bg-sc-page lg:order-2 lg:block">
-        <div class="sticky top-0 border-b border-sc-border bg-sc-page px-6 py-10">
+        <div class="sticky top-0 bg-sc-page px-6 py-10">
           <div class="rounded-lg border border-sc-border bg-white p-6 shadow-sc">
             <h2 class="text-[15px] font-semibold text-sc-ink">Ringkasan pesanan</h2>
 
@@ -407,7 +407,7 @@
 
         const itemLabel = params.get("itemLabel") || "Produk demo";
         const lineHtml = `
-          <li class="flex gap-3 py-4 first:pt-0">
+          <li class="flex gap-3 py-4">
             <div class="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-sc-fieldBg ring-1 ring-sc-border">
               <div class="h-full w-full bg-gradient-to-br from-sc-fieldBg to-white"></div>
             </div>
