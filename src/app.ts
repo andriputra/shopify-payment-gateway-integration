@@ -66,8 +66,6 @@ export function createApp(): express.Application {
     const qs = new URLSearchParams(req.query as Record<string, string>).toString();
     res.redirect(302, `/uat/checkout${qs ? `?${qs}` : ""}`);
   });
-
-  /** Halaman simulasi checkout (mirip alur Shopify Checkout) untuk UAT sebelum Payments Apps approved. */
   app.get("/uat/checkout", (_req, res) => {
     res.sendFile(path.join(publicDir, "uat-checkout.html"));
   });
