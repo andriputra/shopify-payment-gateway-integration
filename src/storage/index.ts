@@ -2,6 +2,7 @@ import path from "node:path";
 import { env } from "../config/env";
 import { ComplianceRequestRepository } from "./compliance-request-repo";
 import { PaymentSessionContextRepository } from "./payment-session-context-repo";
+import { PaymentRedirectRepository } from "./payment-redirect-repo";
 import { ShopifyTokenRepository } from "./shopify-token-repo";
 import { StorageBundle, SystemStatus } from "./contracts";
 import { createMysqlStorage } from "./mysql-storage";
@@ -22,15 +23,17 @@ function createJsonStorage(): StorageBundle {
   const storeRepo = new StoreConfigRepository(path.join(env.dataDir, "store-configs.json"));
   const tokenRepo = new ShopifyTokenRepository(path.join(env.dataDir, "shopify-tokens.json"));
   const sessionContextRepo = new PaymentSessionContextRepository(path.join(env.dataDir, "payment-session-contexts.json"));
+  const paymentRedirectRepo = new PaymentRedirectRepository(path.join(env.dataDir, "payment-redirects.json"));
   const complianceRequestRepo = new ComplianceRequestRepository(path.join(env.dataDir, "compliance-requests.json"));
 
   return {
     initialize: async () => undefined,
     systemStatus: async (): Promise<SystemStatus> => {
-      const [storeConfigs, shopifyTokens, paymentSessionContexts, complianceRequests] = await Promise.all([
+      const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests] = await Promise.all([
         storeRepo.list(),
         tokenRepo.list(),
         sessionContextRepo.list(),
+        paymentRedirectRepo.count(),
         complianceRequestRepo.list()
       ]);
 
@@ -51,6 +54,7 @@ function createJsonStorage(): StorageBundle {
           storeConfigs: storeConfigs.length,
           shopifyTokens: shopifyTokens.length,
           paymentSessionContexts: paymentSessionContexts.length,
+          paymentRedirects: paymentRedirects,
           complianceRequests: complianceRequests.length
         },
         lastCompliance: last
@@ -66,6 +70,7 @@ function createJsonStorage(): StorageBundle {
     storeRepo,
     tokenRepo,
     sessionContextRepo,
+    paymentRedirectRepo,
     complianceRequestRepo
   };
 }

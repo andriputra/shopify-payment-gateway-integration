@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentRedirectRepository = void 0;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
-function key(shop, orderReference) {
+function keyOf(shop, orderReference) {
     return `${shop}::${orderReference}`;
 }
 class PaymentRedirectRepository {
@@ -16,31 +16,26 @@ class PaymentRedirectRepository {
     }
     async upsert(record) {
         const data = this.readAll();
-        data[key(record.shop, record.orderReference)] = record;
+        data[keyOf(record.shop, record.orderReference)] = record;
         this.writeAll(data);
         return record;
     }
     async get(shop, orderReference) {
-        return this.readAll()[key(shop, orderReference)];
+        return this.readAll()[keyOf(shop, orderReference)];
     }
     async listByShop(shop, limit = 50) {
-        return Object.values(this.readAll())
+        const all = Object.values(this.readAll())
             .filter((r) => r.shop === shop)
-            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-            .slice(0, Math.max(1, Math.min(200, limit)));
+            .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+        return all.slice(0, Math.max(1, limit));
     }
     async markStatus(shop, orderReference, status) {
         const data = this.readAll();
-        const k = key(shop, orderReference);
-        const current = data[k];
-        if (!current) {
+        const k = keyOf(shop, orderReference);
+        const existing = data[k];
+        if (!existing)
             return;
-        }
-        data[k] = {
-            ...current,
-            status,
-            updatedAt: new Date().toISOString()
-        };
+        data[k] = { ...existing, status, updatedAt: new Date().toISOString() };
         this.writeAll(data);
     }
     async count() {
@@ -58,9 +53,8 @@ class PaymentRedirectRepository {
     readAll() {
         this.ensureFile();
         const content = node_fs_1.default.readFileSync(this.filePath, "utf8");
-        if (!content.trim()) {
+        if (!content.trim())
             return {};
-        }
         return JSON.parse(content);
     }
     writeAll(data) {
