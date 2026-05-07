@@ -39,6 +39,28 @@ Halaman ini menyediakan form untuk:
 - Zod validation
 - Storage driver fleksibel: JSON untuk dev, MySQL untuk production
 
+## Arsitektur App (BE/FE) & Metode
+
+- **Backend (BE)**: `Node.js` + `Express` + `TypeScript`
+  - API utama: konfigurasi merchant, create checkout, webhook provider, webhook Shopify, webhook Accurate
+  - Integrasi Shopify: OAuth install, verifikasi HMAC webhook, GraphQL Admin API (`orderMarkAsPaid`, `paymentSessionResolve`)
+  - Validasi request: `Zod`
+  - Penyimpanan data: repository pattern dengan 2 driver (`JSON file` / `MySQL`)
+
+- **Frontend (FE)**: HTML + Vanilla JavaScript (`public/index.html`, `public/app.js`)
+  - Form konfigurasi merchant/provider
+  - Trigger test checkout dan test request ke Swipe
+  - Menampilkan request/response debug untuk troubleshooting integrasi
+
+- **Metode / algoritma yang dipakai**
+  - **Webhook signature verification (HMAC-SHA256)** untuk request dari Shopify
+  - **Strategy/Provider pattern** untuk gateway (`xendit`, `midtrans`, `swipe`, `sandbox`, `custom`) agar provider baru mudah ditambah
+  - **Idempotent upsert flow** untuk mapping transaksi (`payment_redirects`, `payment_session_contexts`) agar aman saat webhook retry
+  - **State transition sederhana** status transaksi (`pending -> paid/failed`)
+  - **Async event-driven flow** berbasis webhook:
+    - `orders/create` -> trigger create payment ke provider
+    - callback provider/accurate -> update status -> mark paid ke Shopify
+
 ## Jalankan Project
 
 ```bash
@@ -199,6 +221,37 @@ Response bila status sukses:
   "redirectUrl": "https://contoh-shop.myshopify.com/thank-you"
 }
 ```
+
+### 5) Webhook Konfirmasi dari Accurate (opsional, untuk mode "tunggu Accurate")
+
+Jika `credentials.extra.accurateRequireConfirmation = true`, callback Swipe **tidak langsung** mark paid ke Shopify.
+Order baru akan di-mark paid setelah webhook dari Accurate masuk.
+
+Endpoint:
+
+`POST /webhooks/accurate/payment-paid`
+
+Header wajib (salah satu):
+
+- `X-Accurate-Webhook-Secret: <ACCURATE_WEBHOOK_SECRET>`
+- `Authorization: Bearer <ACCURATE_WEBHOOK_SECRET>`
+
+Body minimal yang direkomendasikan:
+
+```json
+{
+  "shop": "contoh-shop.myshopify.com",
+  "orderReference": "order_6672921723016",
+  "status": "paid"
+}
+```
+
+Field alias yang juga didukung:
+
+- shop: `shop_domain`, `shopDomain`, `store_domain`
+- order reference: `order_reference`, `invoice_number`, `invoice_no`, `reference`
+- order id Shopify: `orderId`, `order_id`, `shopifyOrderId`
+- status: `payment_status`, `transaction_status`
 
 ## Tambah Provider Baru
 

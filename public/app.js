@@ -449,6 +449,7 @@ async function saveConfig(event) {
     const swipeFeeDistributorAmount = valueOf("swipeFeeDistributorAmount");
     const swipeFeePromotorAmount = valueOf("swipeFeePromotorAmount");
     const swipeMinimumAmount = valueOf("swipeMinimumAmount");
+    const swipeAccurateRequireConfirmation = valueOf("swipeAccurateRequireConfirmation");
     if (
       swipeBase ||
       swipePath ||
@@ -459,7 +460,8 @@ async function saveConfig(event) {
       swipeFeeAgentAmount ||
       swipeFeeDistributorAmount ||
       swipeFeePromotorAmount ||
-      swipeMinimumAmount
+      swipeMinimumAmount ||
+      swipeAccurateRequireConfirmation
     ) {
       credentials.extra = {};
       if (swipeBase) {
@@ -491,6 +493,9 @@ async function saveConfig(event) {
       }
       if (swipeMinimumAmount !== "") {
         credentials.extra.minimumAmount = swipeMinimumAmount;
+      }
+      if (swipeAccurateRequireConfirmation !== "") {
+        credentials.extra.accurateRequireConfirmation = swipeAccurateRequireConfirmation;
       }
     }
   }

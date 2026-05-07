@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
+import { accurateWebhookRoutes } from "./routes/accurate-webhooks";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
 import { shopifyAuthRoutes } from "./routes/shopify-auth";
@@ -189,6 +190,14 @@ export function createApp(): express.Application {
     webhookRoutes(paymentService, {
       sessionContextRepo,
       paymentResolve: shopifyPaymentResolveService,
+      paymentRedirectRepo,
+      storeRepo,
+      orderService: shopifyOrderService
+    })
+  );
+  app.use(
+    "/webhooks/accurate",
+    accurateWebhookRoutes({
       paymentRedirectRepo,
       orderService: shopifyOrderService
     })

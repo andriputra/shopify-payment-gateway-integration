@@ -5,7 +5,7 @@ const express_1 = require("express");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 function webhookRoutes(service, deps) {
     const router = (0, express_1.Router)();
-    const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService } = deps ?? {};
+    const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService, storeRepo } = deps ?? {};
     const handlePaymentWebhook = async (provider, decodedShop, body, res) => {
         const result = await service.handleWebhook(decodedShop, provider, body);
         let shopifyPaymentSession = {
@@ -32,18 +32,31 @@ function webhookRoutes(service, deps) {
             if (orderRef) {
                 const record = await paymentRedirectRepo.get(decodedShop, orderRef);
                 if (record) {
-                    await paymentRedirectRepo.markStatus(decodedShop, orderRef, "paid");
-                    if (record.shopifyOrderId) {
-                        const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
-                        // Best-effort: do not fail webhook if Shopify mark paid fails.
-                        if (!marked.ok) {
-                            console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
-                                shop: decodedShop,
-                                orderRef,
-                                orderId: record.shopifyOrderId,
-                                message: marked.message
-                            });
+                    const store = storeRepo ? await storeRepo.get(decodedShop) : undefined;
+                    const waitAccurate = String(store?.credentials?.extra?.accurateRequireConfirmation ?? "")
+                        .trim()
+                        .toLowerCase();
+                    const shouldWaitAccurate = waitAccurate === "1" || waitAccurate === "true" || waitAccurate === "yes";
+                    if (!shouldWaitAccurate) {
+                        await paymentRedirectRepo.markStatus(decodedShop, orderRef, "paid");
+                        if (record.shopifyOrderId) {
+                            const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+                            // Best-effort: do not fail webhook if Shopify mark paid fails.
+                            if (!marked.ok) {
+                                console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
+                                    shop: decodedShop,
+                                    orderRef,
+                                    orderId: record.shopifyOrderId,
+                                    message: marked.message
+                                });
+                            }
                         }
+                    }
+                    else {
+                        console.info("[MANUAL PAYMENT] waiting Accurate confirmation before mark paid", {
+                            shop: decodedShop,
+                            orderRef
+                        });
                     }
                 }
             }

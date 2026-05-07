@@ -301,6 +301,19 @@
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
+              <label class="grid gap-1 text-sm font-medium text-slate-700">
+                Tunggu konfirmasi Accurate sebelum mark paid ke Shopify (credentials.extra.accurateRequireConfirmation)
+                <span class="block text-xs font-normal text-slate-500">
+                  Isi <code class="rounded bg-slate-100 px-1">true</code> untuk menunda update paid sampai webhook Accurate diterima.
+                  Kosong = langsung mark paid saat callback Swipe sukses.
+                </span>
+                <input
+                  id="swipeAccurateRequireConfirmation"
+                  type="text"
+                  placeholder="true / false"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                />
+              </label>
               <div class="grid gap-4 md:grid-cols-3">
                 <label class="grid gap-1 text-sm font-medium text-slate-700">
                   Fee Agent

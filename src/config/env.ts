@@ -41,6 +41,7 @@ export const env = {
   shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/callback",
   shopifyAppUiPath: process.env.SHOPIFY_APP_UI_PATH ?? "/app",
   shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01",
+  accurateWebhookSecret: process.env.ACCURATE_WEBHOOK_SECRET?.trim(),
   swipeFallbackOn403: toBool(process.env.SWIPE_FALLBACK_ON_403, false),
   swipeDebugFingerprint: toBool(process.env.SWIPE_DEBUG_FINGERPRINT, false),
   mysqlUrl: process.env.MYSQL_URL ?? process.env.DATABASE_URL,

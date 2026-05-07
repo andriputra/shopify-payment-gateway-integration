@@ -11,6 +11,7 @@ const zod_1 = require("zod");
 const env_1 = require("./config/env");
 const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
+const accurate_webhooks_1 = require("./routes/accurate-webhooks");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
 const shopify_auth_1 = require("./routes/shopify-auth");
@@ -166,6 +167,11 @@ function createApp() {
     app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService, {
         sessionContextRepo,
         paymentResolve: shopifyPaymentResolveService,
+        paymentRedirectRepo,
+        storeRepo,
+        orderService: shopifyOrderService
+    }));
+    app.use("/webhooks/accurate", (0, accurate_webhooks_1.accurateWebhookRoutes)({
         paymentRedirectRepo,
         orderService: shopifyOrderService
     }));
