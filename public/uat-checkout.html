@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Checkout — Simulasi UAT</title>
+    <title>Checkout — UAT Simulation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -40,51 +40,51 @@
     </style>
   </head>
   <body class="min-h-screen bg-checkout-bg font-sans text-checkout-ink antialiased">
-    <!-- Banner UAT -->
+    <!-- UAT Banner -->
     <div
       class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950"
       role="status"
     >
-      <span class="font-semibold">Mode simulasi UAT</span>
-      — Bukan checkout Shopify sungguhan. Gunakan untuk uji alur pembayaran gateway Anda sebelum app approved.
+      <span class="font-semibold">UAT simulation mode</span>
+      — Not a real Shopify checkout. Use this to test your gateway payment flow before the app is approved.
     </div>
 
     <header class="border-b border-checkout-border bg-white">
       <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div class="min-w-0">
           <p class="truncate text-xs font-medium uppercase tracking-wide text-checkout-muted">Checkout</p>
-          <h1 id="storeTitle" class="truncate text-lg font-semibold text-checkout-ink">Toko</h1>
+          <h1 id="storeTitle" class="truncate text-lg font-semibold text-checkout-ink">Store</h1>
         </div>
         <div class="hidden shrink-0 items-center gap-2 sm:flex" aria-hidden="true">
           <span class="h-8 w-8 rounded-full bg-checkout-bg ring-1 ring-checkout-border"></span>
-          <span class="text-xs text-checkout-muted">Simulasi aman</span>
+          <span class="text-xs text-checkout-muted">Safe simulation</span>
         </div>
       </div>
     </header>
 
     <main class="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1fr_380px] lg:gap-12 lg:px-6 lg:py-10">
-      <!-- Kolom kiri: pembayaran -->
+      <!-- Left column: payment -->
       <section class="order-2 space-y-8 lg:order-1">
         <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
-          <h2 class="text-base font-semibold text-checkout-ink">Kontak</h2>
+          <h2 class="text-base font-semibold text-checkout-ink">Contact</h2>
           <p id="contactEmail" class="mt-3 text-sm text-checkout-muted">uat-buyer@example.com</p>
         </div>
 
         <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
-          <h2 class="text-base font-semibold text-checkout-ink">Pengiriman</h2>
+          <h2 class="text-base font-semibold text-checkout-ink">Shipping</h2>
           <p class="mt-3 text-sm leading-relaxed text-checkout-muted">
-            Alamat dan metode pengiriman diatur di checkout Shopify sungguhan. Di halaman ini hanya simulasi tampilan.
+            Address and shipping methods are configured in real Shopify checkout. This page is visual simulation only.
           </p>
           <div class="mt-4 rounded-md bg-checkout-bg px-3 py-2 text-sm text-checkout-ink ring-1 ring-checkout-border">
-            <span class="font-medium">Reguler</span>
-            <span class="text-checkout-muted"> · Estimasi sesuai konfigurasi toko</span>
+            <span class="font-medium">Standard</span>
+            <span class="text-checkout-muted"> · Estimated based on store configuration</span>
           </div>
         </div>
 
         <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
-          <h2 class="text-base font-semibold text-checkout-ink">Pembayaran</h2>
+          <h2 class="text-base font-semibold text-checkout-ink">Payment</h2>
           <p class="mt-1 text-sm text-checkout-muted">
-            Detail kartu hanya visual; tidak ada data sensitif yang dikirim dari halaman ini.
+            Card details are visual only; no sensitive data is sent from this page.
           </p>
 
           <div class="mt-5 space-y-3">
@@ -93,7 +93,7 @@
             >
               <input type="radio" name="payMethod" checked class="mt-1 h-4 w-4 accent-checkout-accent" />
               <span class="flex-1">
-                <span class="font-medium text-checkout-ink">Kartu kredit / debit</span>
+                <span class="font-medium text-checkout-ink">Credit / debit card</span>
                 <span class="mt-1 flex flex-wrap gap-1">
                   <span class="rounded border border-checkout-border bg-white px-1.5 py-0.5 text-[10px] font-semibold"
                     >VISA</span
@@ -107,7 +107,7 @@
 
             <div class="grid gap-3 sm:grid-cols-2">
               <div class="sm:col-span-2">
-                <label class="block text-xs font-medium text-checkout-muted">Nomor kartu</label>
+                <label class="block text-xs font-medium text-checkout-muted">Card number</label>
                 <div
                   class="mt-1 flex items-center rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
                 >
@@ -115,7 +115,7 @@
                 </div>
               </div>
               <div>
-                <label class="block text-xs font-medium text-checkout-muted">Kadaluarsa</label>
+                <label class="block text-xs font-medium text-checkout-muted">Expiry date</label>
                 <div
                   class="mt-1 rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
                 >
@@ -131,7 +131,7 @@
                 </div>
               </div>
               <div class="sm:col-span-2">
-                <label class="block text-xs font-medium text-checkout-muted">Nama di kartu</label>
+                <label class="block text-xs font-medium text-checkout-muted">Name on card</label>
                 <div
                   class="mt-1 rounded-md border border-checkout-border bg-checkout-bg px-3 py-2.5 text-sm text-checkout-muted"
                 >
@@ -142,7 +142,7 @@
           </div>
 
           <div id="missingShop" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            Parameter <code class="font-mono">shop</code> wajib ada di URL agar webhook sandbox bisa dipetakan ke toko.
+            The <code class="font-mono">shop</code> parameter is required in the URL so the sandbox webhook can be mapped to the store.
           </div>
 
           <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -151,24 +151,24 @@
               id="paySuccess"
               class="inline-flex flex-1 items-center justify-center rounded-md bg-checkout-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-checkout-accentHover focus:outline-none focus:ring-2 focus:ring-checkout-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Bayar sekarang
+              Pay now
             </button>
             <button
               type="button"
               id="payFailed"
               class="inline-flex flex-1 items-center justify-center rounded-md border border-checkout-border bg-white px-5 py-3.5 text-sm font-semibold text-checkout-ink shadow-sm transition hover:bg-checkout-bg focus:outline-none focus:ring-2 focus:ring-checkout-border focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Tolak pembayaran
+              Decline payment
             </button>
           </div>
         </div>
       </section>
 
-      <!-- Kolom kanan: ringkasan order -->
+      <!-- Right column: order summary -->
       <aside class="order-1 lg:order-2">
         <div class="lg:sticky lg:top-8">
           <div class="rounded-lg border border-checkout-border bg-white p-6 shadow-checkout">
-            <h2 class="text-base font-semibold text-checkout-ink">Ringkasan pesanan</h2>
+            <h2 class="text-base font-semibold text-checkout-ink">Order summary</h2>
 
             <ul id="lineItems" class="mt-4 divide-y divide-checkout-border border-t border-checkout-border"></ul>
 
@@ -178,11 +178,11 @@
                 <dd id="subtotalEl">—</dd>
               </div>
               <div class="flex justify-between text-checkout-muted">
-                <dt>Pengiriman</dt>
+                <dt>Shipping</dt>
                 <dd id="shippingEl">—</dd>
               </div>
               <div class="flex justify-between text-checkout-muted">
-                <dt>Perkiraan pajak</dt>
+                <dt>Estimated tax</dt>
                 <dd id="taxEl">—</dd>
               </div>
               <div class="flex items-baseline justify-between border-t border-checkout-border pt-3 text-base font-semibold text-checkout-ink">
@@ -203,7 +203,7 @@
     </main>
 
     <footer class="border-t border-checkout-border bg-white py-8 text-center text-xs text-checkout-muted">
-      <p>Simulasi checkout gateway · tidak berafiliasi dengan Shopify Inc.</p>
+      <p>Gateway checkout simulation · not affiliated with Shopify Inc.</p>
     </footer>
 
     <script>
@@ -245,12 +245,12 @@
         const subtotal = Math.max(0, safeAmount - shipping - tax);
 
         document.getElementById("subtotalEl").textContent = formatMoney(subtotal);
-        document.getElementById("shippingEl").textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        document.getElementById("shippingEl").textContent = shipping === 0 ? "Free" : formatMoney(shipping);
         document.getElementById("taxEl").textContent = tax === 0 ? "—" : formatMoney(tax);
         document.getElementById("totalEl").textContent = formatMoney(safeAmount);
 
         const lineItems = document.getElementById("lineItems");
-        const itemLabel = params.get("itemLabel") || "Item pesanan (UAT)";
+        const itemLabel = params.get("itemLabel") || "Order item (UAT)";
         lineItems.innerHTML = `
           <li class="flex gap-3 py-4 first:pt-0">
             <div class="h-16 w-16 shrink-0 rounded-md bg-checkout-bg ring-1 ring-checkout-border"></div>
@@ -264,7 +264,7 @@
 
         const refEl = document.getElementById("orderRefLine");
         refEl.textContent =
-          (orderId ? "Referensi: " + orderId : "Tanpa orderId") +
+          (orderId ? "Reference: " + orderId : "No orderId") +
           (shop ? " · " + shop : "");
 
         const resultEl = document.getElementById("result");
@@ -293,7 +293,7 @@
 
         async function sendWebhook(status) {
           if (!shop) {
-            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            show({ ok: false, message: "Missing shop parameter in URL." });
             return;
           }
 

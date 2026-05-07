@@ -28,7 +28,7 @@ export class ShopifyOrderService {
   async markOrderPaid(shop: string, orderGid: string): Promise<{ ok: boolean; message?: string }> {
     const token = await this.tokenRepo.get(shop);
     if (!token) {
-      return { ok: false, message: "Token Shopify tidak ditemukan. Install app lewat OAuth dulu." };
+      return { ok: false, message: "Shopify token not found. Install the app through OAuth first." };
     }
 
     const version = env.shopifyPaymentsApiVersion; // re-use configured version

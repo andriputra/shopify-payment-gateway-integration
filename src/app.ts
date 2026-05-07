@@ -64,7 +64,7 @@ export function createApp(): express.Application {
     res.type("html").send(renderIndexHtml());
   });
 
-  /** Legacy sandbox URL — mengarah ke halaman simulasi checkout UAT. */
+  /** Legacy sandbox URL — points to the UAT checkout simulation page. */
   app.get("/sandbox/pay", (req, res) => {
     const qs = new URLSearchParams(req.query as Record<string, string>).toString();
     res.redirect(302, `/uat/checkout${qs ? `?${qs}` : ""}`);
@@ -73,7 +73,7 @@ export function createApp(): express.Application {
     res.sendFile(path.join(publicDir, "uat-checkout.html"));
   });
 
-  /** Demo UI checkout bergaya Shopify Checkout (layout dua kolom + ringkasan). */
+  /** Demo UI with Shopify-like checkout layout (two columns + summary). */
   app.get("/checkout/like", (_req, res) => {
     res.sendFile(path.join(publicDir, "checkout-like-shopify.html"));
   });
@@ -91,7 +91,7 @@ export function createApp(): express.Application {
       if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
         return res.status(400).json({
           ok: false,
-          message: "Body wajib berisi shop, orderId, amount >= 0, currency."
+          message: "Body must include shop, orderId, amount >= 0, and currency."
         });
       }
 
@@ -99,13 +99,13 @@ export function createApp(): express.Application {
       if (!store) {
         return res.status(404).json({
           ok: false,
-          message: `Store config tidak ditemukan untuk shop: ${shop}`
+          message: `Store config not found for shop: ${shop}`
         });
       }
       if (store.provider !== "swipe") {
         return res.status(409).json({
           ok: false,
-          message: `Provider toko saat ini "${store.provider}". Ubah ke "swipe" agar halaman ini mengarah ke Swipe.`
+          message: `Current store provider is "${store.provider}". Change it to "swipe" so this page can continue to Swipe.`
         });
       }
 
@@ -141,27 +141,27 @@ export function createApp(): express.Application {
     const safeCurrency = currency.replace(/"/g, "&quot;");
 
     const html = `<!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Selesaikan di EDC</title>
+  <title>Complete Payment in EDC</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
   <main class="mx-auto max-w-lg px-4 py-10">
     <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <h1 class="text-xl font-bold text-slate-900">Lanjutkan pembayaran di EDC</h1>
+      <h1 class="text-xl font-bold text-slate-900">Continue payment on EDC</h1>
       <p class="mt-3 text-sm text-slate-600">
-        Transaksi ini diproses lewat <strong>terminal Swipe (EDC)</strong>, bukan halaman pembayaran di browser.
-        Selesaikan pembayaran di mesin. Setelah Swipe mengirim <strong>callback</strong> sukses ke toko, checkout akan dilanjutkan dan stok mengikuti aturan Shopify.
+        This transaction is processed through a <strong>Swipe EDC terminal</strong>, not a browser payment page.
+        Complete the payment on the terminal. After Swipe sends a successful <strong>callback</strong> to the store, checkout will continue and inventory follows Shopify rules.
       </p>
       <div class="mt-5 space-y-1 rounded-lg bg-slate-50 p-4 text-sm">
         <p><span class="font-semibold">Shop:</span> ${safeShop}</p>
-        <p><span class="font-semibold">Referensi:</span> ${safeOrderId}</p>
-        <p><span class="font-semibold">Nominal:</span> ${safeCurrency} ${safeAmount}</p>
+        <p><span class="font-semibold">Reference:</span> ${safeOrderId}</p>
+        <p><span class="font-semibold">Amount:</span> ${safeCurrency} ${safeAmount}</p>
       </div>
-      <p class="mt-4 text-xs text-slate-500">Anda boleh menutup tab ini setelah selesai membayar di EDC jika toko mengarahkan kembali ke konfirmasi order.</p>
+      <p class="mt-4 text-xs text-slate-500">You may close this tab after payment is completed on EDC if your store redirects back to order confirmation.</p>
     </section>
   </main>
 </body>

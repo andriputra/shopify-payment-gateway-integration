@@ -24,7 +24,7 @@
 
       <header class="mb-8">
         <h1 class="text-3xl font-bold tracking-tight text-slate-900">Shopify Payment Gateway Integration</h1>
-        <p class="mt-2 text-slate-600">Input credential payment gateway untuk tiap toko Shopify dan selesaikan install app langsung ke dashboard.</p>
+        <p class="mt-2 text-slate-600">Enter payment gateway credentials for each Shopify store and complete app installation directly from this dashboard.</p>
       </header>
 
       <nav class="mb-6 flex flex-wrap items-center gap-2">
@@ -105,18 +105,18 @@
             <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
               <thead class="bg-slate-50">
                 <tr>
-                  <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">Triggered</th>
+                  <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">Triggered At</th>
                   <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">Topic</th>
                   <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">Shop</th>
                   <th class="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600">Request ID</th>
                 </tr>
               </thead>
               <tbody id="complianceTableBody" class="divide-y divide-slate-200 bg-white">
-                <tr><td class="px-4 py-3 text-slate-500" colspan="4">No data.</td></tr>
+                <tr><td class="px-4 py-3 text-slate-500" colspan="4">No records.</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="mt-3 text-xs text-slate-500">Tip: klik Request ID untuk lihat detail JSON di panel hasil (bawah).</p>
+          <p class="mt-3 text-xs text-slate-500">Tip: click Request ID to view JSON details in the results panel below.</p>
         </div>
       </section>
 
@@ -128,7 +128,7 @@
               Refresh
             </button>
           </div>
-          <p class="mt-2 text-sm text-slate-600">URL ini biasanya perlu diisi di Shopify Partner Dashboard.</p>
+          <p class="mt-2 text-sm text-slate-600">These URLs are usually required in the Shopify Partner Dashboard.</p>
 
           <div class="mt-4 grid gap-3">
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -180,7 +180,7 @@
       <section id="viewConfig">
       <div class="grid gap-6 lg:grid-cols-3">
         <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-          <h2 class="mb-4 text-xl font-semibold text-slate-900">Konfigurasi Merchant</h2>
+          <h2 class="mb-4 text-xl font-semibold text-slate-900">Merchant Configuration</h2>
 
           <form id="configForm" class="grid gap-4">
             <label class="grid gap-1 text-sm font-medium text-slate-700">
@@ -189,7 +189,7 @@
                 id="shop"
                 name="shop"
                 type="text"
-                placeholder="contoh-shop.myshopify.com"
+                placeholder="example-shop.myshopify.com"
                 required
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
@@ -227,20 +227,20 @@
 
             <div id="swipeFields" class="hidden grid gap-4 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
               <p class="text-xs text-amber-900">
-                Isi dari dokumen / Postman Swipe. Header <code class="rounded bg-amber-100 px-1">Authorization</code> memakai
-                Merchant ID (simpan di API Key). Path &amp; body request bisa disesuaikan di server jika API Anda berbeda.
+                Fill these values from Swipe docs / Postman. The <code class="rounded bg-amber-100 px-1">Authorization</code> header uses
+                Merchant ID (store it in API Key). Request path &amp; body can be adjusted in the server if your Swipe API differs.
               </p>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
                 Client ID
                 <input
                   id="swipeClientId"
                   type="text"
-                  placeholder="client-id-dari-swipe"
+                  placeholder="client-id-from-swipe"
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Name Device User 
+                Device User Name
                 <input
                   id="swipeDeviceUser"
                   type="text"
@@ -269,16 +269,16 @@
                 </label>
               </div>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Swipe API Base URL (credentials.extra.apiBaseUrl)
+                Swipe API Base URL (`credentials.extra.apiBaseUrl`)
                 <input
                   id="swipeApiBaseUrl"
                   type="url"
-                  placeholder="https://api… (tanpa slash akhir)"
+                  placeholder="https://api... (without trailing slash)"
                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                 />
               </label>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Swipe create path (credentials.extra.createPath)
+                Swipe create path (`credentials.extra.createPath`)
                 <input
                   id="swipeCreatePath"
                   type="text"
@@ -287,10 +287,10 @@
                 />
               </label>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Minimum nominal checkout (credentials.extra.minimumAmount)
+                Minimum checkout amount (`credentials.extra.minimumAmount`)
                 <span class="block text-xs font-normal text-slate-500">
-                  Kosong = 10. Isi <code class="rounded bg-slate-100 px-1">0</code> agar bisa uji
-                  <code class="rounded bg-slate-100 px-1">amount: 0</code> seperti Postman / EDC.
+                  Empty = 10. Set <code class="rounded bg-slate-100 px-1">0</code> to test
+                  <code class="rounded bg-slate-100 px-1">amount: 0</code> like Postman / EDC.
                 </span>
                 <input
                   id="swipeMinimumAmount"
@@ -321,7 +321,7 @@
                   />
                 </label>
                 <label class="grid gap-1 text-sm font-medium text-slate-700">
-                  Fee Promotor
+                  Fee Promoter
                   <input
                     id="swipeFeePromotorAmount"
                     type="number"
@@ -374,7 +374,7 @@
             </label>
 
             <label class="grid gap-1 text-sm font-medium text-slate-700">
-              Redirect URL setelah pembayaran sukses
+              Redirect URL after successful payment
               <input
                 id="redirectUrlAfterPaid"
                 name="redirectUrlAfterPaid"
@@ -385,22 +385,23 @@
               />
             </label>
 
-            <label class="grid gap-1 text-sm font-medium text-slate-700">
+            <!-- TODO: optional webhook URL field -->
+            <!-- <label class="grid gap-1 text-sm font-medium text-slate-700">
               Webhook URL (optional)
               <input
                 id="webhookUrlAfterPaid"
                 name="webhookUrlAfterPaid"
                 type="url"
-                placeholder="https://domain-anda.com/webhooks/payment/xendit/shop.myshopify.com"
+                placeholder="https://your-domain.com/webhooks/payment/xendit/shop.myshopify.com"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
-            </label>
+            </label> -->
 
             <button
               type="submit"
               class="mt-2 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
             >
-              Simpan Konfigurasi
+              Save Configuration
             </button>
           </form>
         </section>
@@ -408,7 +409,7 @@
         <aside class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 class="mb-4 text-lg font-semibold text-slate-900">Shopify App Install</h2>
           <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-            Redirect app sesudah OAuth akan masuk ke <code class="rounded bg-white px-1 py-0.5 text-slate-800">/app</code>.
+            After OAuth, the app redirects to <code class="rounded bg-white px-1 py-0.5 text-slate-800">/app</code>.
           </div>
           <div class="mb-6 grid gap-3">
             <input
@@ -426,7 +427,7 @@
             </button>
           </div>
 
-          <h2 class="mb-4 text-lg font-semibold text-slate-900">Load Konfigurasi</h2>
+          <h2 class="mb-4 text-lg font-semibold text-slate-900">Load Configuration</h2>
           <div class="grid gap-3">
             <input
               id="lookupShop"
@@ -453,7 +454,7 @@
             type="button"
             class="inline-flex items-center justify-center rounded-lg border border-amber-500/80 bg-amber-950/80 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-900"
           >
-            Uji Swipe API (seperti Postman)
+            Test Swipe API (Postman-like)
           </button>
         </div>
         <div class="mb-5 grid gap-3 md:grid-cols-4">
@@ -487,11 +488,11 @@
         </div>
 
         <p id="checkoutHint" class="mb-4 text-xs text-slate-400">
-          Tips: <strong>Create Test Checkout</strong> memakai provider di form. <strong>Uji Swipe API</strong> = Postman dari server, lihat <code class="text-slate-300">rawBody</code> / <code class="text-slate-300">parsed</code>. Alur EDC: redirect ke halaman instruksi app, selesaikan di mesin; sukses lewat
-          <strong>callback</strong> Swipe. <strong>minimumAmount</strong> 0 = uji <code class="text-slate-300">amount: 0</code> seperti curl.
+          Tip: <strong>Create Test Checkout</strong> uses the provider selected in the form. <strong>Test Swipe API</strong> sends a Postman-like request from the server; check <code class="text-slate-300">rawBody</code> / <code class="text-slate-300">parsed</code>. The EDC flow redirects to an instruction page, payment is completed on the terminal, and success is confirmed through Swipe
+          <strong>callback</strong>. Set <strong>minimumAmount</strong> to 0 to test <code class="text-slate-300">amount: 0</code> like curl.
         </p>
 
-        <h2 class="mb-3 text-lg font-semibold text-white">Hasil</h2>
+        <h2 class="mb-3 text-lg font-semibold text-white">Result</h2>
         <pre id="result" class="overflow-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-200">{}</pre>
       </section>
     </main>

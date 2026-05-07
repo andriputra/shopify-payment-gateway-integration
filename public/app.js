@@ -525,7 +525,7 @@ async function saveConfig(event) {
 async function loadConfig() {
   const shop = lookupShopInput.value.trim();
   if (!shop) {
-    showResult({ ok: false, message: "Masukkan shop domain dulu." });
+    showResult({ ok: false, message: "Please enter the shop domain first." });
     return;
   }
 
@@ -561,7 +561,7 @@ async function createDemoCheckout() {
   const amount = Number.isFinite(amountRaw) && amountRaw >= 0 ? amountRaw : 125000;
 
   if (!shop) {
-    showResult({ ok: false, message: "Isi Shop Domain dulu sebelum create checkout." });
+    showResult({ ok: false, message: "Please enter Shop Domain before creating checkout." });
     return;
   }
 
@@ -588,10 +588,10 @@ async function createDemoCheckout() {
     showResultWithDebug(data, requestDebug);
 
     if (data.ok && data.paymentUrl) {
-      checkoutHintEl.textContent = "Checkout dibuat. Membuka halaman pembayaran di tab baru…";
+      checkoutHintEl.textContent = "Checkout created. Opening payment page in a new tab...";
       window.open(data.paymentUrl, "_blank", "noopener,noreferrer");
     } else if (data.ok) {
-      checkoutHintEl.textContent = "Permintaan pembayaran berhasil (tanpa URL redirect).";
+      checkoutHintEl.textContent = "Payment request succeeded (without redirect URL).";
     }
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });
@@ -602,7 +602,7 @@ function connectShopify() {
   const shop =
     oauthShopInput.value.trim() || document.getElementById("shop").value.trim() || lookupShopInput.value.trim();
   if (!shop) {
-    showResult({ ok: false, message: "Isi shop domain dulu untuk OAuth install Shopify." });
+    showResult({ ok: false, message: "Please enter shop domain before Shopify OAuth install." });
     return;
   }
   const installUrl = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
@@ -628,7 +628,7 @@ async function hydrateInstallState() {
   }
 
   if (error) {
-    setBanner("error", `Install Shopify gagal untuk ${shop || "shop ini"}: ${error}`);
+    setBanner("error", `Shopify install failed for ${shop || "this shop"}: ${error}`);
     showResult({ ok: false, shop, message: error });
     return;
   }
@@ -656,11 +656,11 @@ async function hydrateInstallState() {
       throw new Error(data.message || "Install status check failed");
     }
 
-    setBanner("success", `Shopify app berhasil terinstall dan terautentikasi untuk ${shop}.`);
+    setBanner("success", `Shopify app installed and authenticated successfully for ${shop}.`);
     showResult(data);
   } catch (installError) {
     const message = installError instanceof Error ? installError.message : "Install status check failed";
-    setBanner("error", `Install selesai, tapi status install belum bisa dibaca: ${message}`);
+    setBanner("error", `Install completed, but install status could not be read yet: ${message}`);
     showResult({ ok: false, shop, message });
   }
 }
@@ -675,7 +675,7 @@ async function swipeTestApiFromAdmin() {
   const amount = Number.isFinite(amountRaw) && amountRaw >= 0 ? amountRaw : 0;
 
   if (!shop) {
-    showResult({ ok: false, message: "Isi Shop Domain di form konfigurasi." });
+    showResult({ ok: false, message: "Please enter Shop Domain in the configuration form." });
     return;
   }
 
@@ -697,8 +697,8 @@ async function swipeTestApiFromAdmin() {
     if (checkoutHintEl) {
       checkoutHintEl.textContent =
         data.ok && data.swipe && data.swipe.httpOk
-          ? "Request Swipe OK. Cek parsed / rawBody; paymentUrl terisi jika token + template valid."
-          : "Lihat response — httpOk false berarti Swipe menolak (bandingkan dengan Postman & IP server).";
+          ? "Swipe request OK. Check parsed/rawBody; paymentUrl is set when token and template are valid."
+          : "Check response — httpOk false means Swipe rejected the request (compare with Postman and server IP).";
     }
   } catch (error) {
     showResult({ ok: false, message: error instanceof Error ? error.message : "Request error" });

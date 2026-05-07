@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -46,14 +46,14 @@
     <a
       href="#main"
       class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow-sc"
-      >Lewati ke konten</a
+      >Skip to content</a
     >
 
     <header class="border-b border-sc-border bg-white">
       <div class="mx-auto flex max-w-[1140px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <div class="min-w-0">
           <p class="text-[11px] font-medium uppercase tracking-[0.08em] text-sc-muted">Checkout</p>
-          <h1 id="storeTitle" class="truncate text-[17px] font-semibold tracking-tight text-sc-ink">Toko</h1>
+          <h1 id="storeTitle" class="truncate text-[17px] font-semibold tracking-tight text-sc-ink">Store</h1>
         </div>
         <div class="flex shrink-0 items-center gap-2 text-sc-muted" aria-hidden="true">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -63,7 +63,7 @@
               d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
             />
           </svg>
-          <span class="hidden text-xs sm:inline">Amankan dengan SSL</span>
+          <span class="hidden text-xs sm:inline">Secured with SSL</span>
         </div>
       </div>
     </header>
@@ -78,7 +78,7 @@
           aria-expanded="false"
           aria-controls="mobileSummary"
         >
-          <span class="text-sm font-semibold text-sc-accent">Tampilkan ringkasan pesanan</span>
+          <span class="text-sm font-semibold text-sc-accent">Show order summary</span>
           <span id="mobileTotalBadge" class="text-sm font-semibold tabular-nums text-sc-ink">—</span>
         </button>
         <div id="mobileSummary" class="hidden pt-4">
@@ -89,11 +89,11 @@
               <dd id="mSubtotal" class="tabular-nums">—</dd>
             </div>
             <div class="flex justify-between text-sc-muted">
-              <dt>Pengiriman</dt>
+              <dt>Shipping</dt>
               <dd id="mShipping" class="tabular-nums">—</dd>
             </div>
             <div class="flex justify-between text-sc-muted">
-              <dt>Pajak</dt>
+              <dt>Tax</dt>
               <dd id="mTax" class="tabular-nums">—</dd>
             </div>
             <div class="flex justify-between border-t border-sc-border pt-3 text-base font-semibold text-sc-ink">
@@ -109,8 +109,8 @@
         <div class="mx-auto max-w-xl space-y-8">
           <!-- Contact -->
           <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
-            <h2 class="text-[15px] font-semibold text-sc-ink">Kontak</h2>
-            <p class="mt-1 text-sm text-sc-muted">Email untuk konfirmasi pesanan.</p>
+            <h2 class="text-[15px] font-semibold text-sc-ink">Contact</h2>
+            <p class="mt-1 text-sm text-sc-muted">Email for order confirmation.</p>
             <label class="mt-4 block">
               <span class="sr-only">Email</span>
               <input
@@ -118,22 +118,22 @@
                 type="email"
                 autocomplete="email"
                 class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm transition placeholder:text-sc-muted focus:border-sc-focus focus:outline-none focus:ring-2 focus:ring-sc-focus/25"
-                placeholder="email@contoh.com"
+                placeholder="email@example.com"
               />
             </label>
             <label class="mt-3 flex items-start gap-2 text-sm text-sc-ink">
               <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-sc-border text-sc-accent focus:ring-sc-focus" checked disabled />
-              <span class="text-sc-muted">Kirim berita dan penawaran ke email saya (demo — tidak tersimpan).</span>
+              <span class="text-sc-muted">Send me news and offers by email (demo — not stored).</span>
             </label>
           </div>
 
           <!-- Delivery -->
           <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
-            <h2 class="text-[15px] font-semibold text-sc-ink">Pengiriman</h2>
-            <p class="mt-1 text-sm text-sc-muted">Alamat pengiriman (hanya tampilan demo).</p>
+            <h2 class="text-[15px] font-semibold text-sc-ink">Shipping</h2>
+            <p class="mt-1 text-sm text-sc-muted">Shipping address (demo display only).</p>
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
               <label class="sm:col-span-2 block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Negara / wilayah</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Country / region</span>
                 <select
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm focus:border-sc-focus focus:outline-none focus:ring-2 focus:ring-sc-focus/25"
                   disabled
@@ -142,7 +142,7 @@
                 </select>
               </label>
               <label class="block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Nama depan</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">First name</span>
                 <input
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
                   type="text"
@@ -151,25 +151,25 @@
                 />
               </label>
               <label class="block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Nama belakang</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Last name</span>
                 <input
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
                   type="text"
-                  value="Pembeli"
+                  value="Buyer"
                   readonly
                 />
               </label>
               <label class="sm:col-span-2 block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Alamat</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Address</span>
                 <input
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
                   type="text"
-                  value="Jl. Contoh No. 1"
+                  value="Example Street No. 1"
                   readonly
                 />
               </label>
               <label class="block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Kota</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">City</span>
                 <input
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
                   type="text"
@@ -178,7 +178,7 @@
                 />
               </label>
               <label class="block">
-                <span class="mb-1 block text-xs font-medium text-sc-muted">Kode pos</span>
+                <span class="mb-1 block text-xs font-medium text-sc-muted">Postal code</span>
                 <input
                   class="w-full rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm"
                   type="text"
@@ -188,25 +188,25 @@
               </label>
             </div>
 
-            <p class="mt-5 text-[15px] font-semibold text-sc-ink">Metode pengiriman</p>
+            <p class="mt-5 text-[15px] font-semibold text-sc-ink">Shipping method</p>
             <div class="mt-3 space-y-2">
               <label
                 class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-accent bg-emerald-50/30 p-4"
               >
                 <input type="radio" name="ship" checked class="mt-1 h-4 w-4 accent-sc-accent" />
                 <span class="flex-1 text-sm">
-                  <span class="font-medium text-sc-ink">Reguler</span>
-                  <span class="mt-0.5 block text-sc-muted">Estimasi 3–5 hari kerja</span>
+                  <span class="font-medium text-sc-ink">Standard</span>
+                  <span class="mt-0.5 block text-sc-muted">Estimated 3–5 business days</span>
                 </span>
-                <span id="shipPriceEl" class="shrink-0 text-sm font-medium tabular-nums text-sc-ink">Gratis</span>
+                <span id="shipPriceEl" class="shrink-0 text-sm font-medium tabular-nums text-sc-ink">Free</span>
               </label>
             </div>
           </div>
 
           <!-- Payment -->
           <div class="rounded-lg border border-sc-border bg-white p-5 shadow-sc sm:p-6">
-            <h2 class="text-[15px] font-semibold text-sc-ink">Pembayaran</h2>
-            <p class="mt-1 text-sm text-sc-muted">Semua transaksi aman dan terenkripsi (demo).</p>
+            <h2 class="text-[15px] font-semibold text-sc-ink">Payment</h2>
+            <p class="mt-1 text-sm text-sc-muted">All transactions are secure and encrypted (demo).</p>
 
             <div class="mt-5 space-y-3">
               <label class="flex cursor-pointer items-start gap-3 rounded-md border-2 border-sc-accent bg-emerald-50/30 p-4">
@@ -218,7 +218,7 @@
               >
                 <input type="radio" name="pay" class="mt-1 h-4 w-4 accent-sc-accent" />
                 <span class="flex-1">
-                  <span class="text-sm font-medium text-sc-ink">Kartu kredit</span>
+                  <span class="text-sm font-medium text-sc-ink">Credit card</span>
                   <span class="mt-1 flex flex-wrap gap-1">
                     <span class="rounded border border-sc-border bg-white px-1.5 py-0.5 text-[10px] font-semibold">VISA</span>
                     <span class="rounded border border-sc-border bg-white px-1.5 py-0.5 text-[10px] font-semibold">MC</span>
@@ -229,7 +229,7 @@
 
             <div class="mt-5 grid gap-3 sm:grid-cols-2">
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-xs font-medium text-sc-muted">Nomor kartu</label>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Card number</label>
                 <div
                   class="flex items-center rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted"
                 >
@@ -237,26 +237,26 @@
                 </div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium text-sc-muted">Kadaluarsa</label>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Expiry date</label>
                 <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">12 / 28</div>
               </div>
               <div>
-                <label class="mb-1 block text-xs font-medium text-sc-muted">Kode keamanan</label>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Security code</label>
                 <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">···</div>
               </div>
               <div class="sm:col-span-2">
-                <label class="mb-1 block text-xs font-medium text-sc-muted">Nama di kartu</label>
-                <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">UAT Pembeli</div>
+                <label class="mb-1 block text-xs font-medium text-sc-muted">Name on card</label>
+                <div class="rounded-md border border-sc-border bg-sc-fieldBg px-3 py-2.5 text-sm text-sc-muted">UAT Buyer</div>
               </div>
             </div>
 
             <label class="mt-4 flex items-start gap-2 text-sm">
               <input type="checkbox" class="mt-0.5 h-4 w-4 rounded border-sc-border text-sc-accent" checked disabled />
-              <span class="text-sc-muted">Alamat penagihan sama dengan alamat pengiriman</span>
+              <span class="text-sc-muted">Billing address is the same as shipping address</span>
             </label>
 
             <div id="missingShop" class="mt-4 hidden rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-              Parameter <code class="font-mono text-xs">shop</code> wajib di URL agar webhook sandbox terpetakan ke toko.
+              The <code class="font-mono text-xs">shop</code> parameter is required in the URL so sandbox webhook can be mapped to the store.
             </div>
 
             <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -265,20 +265,20 @@
                 id="paySuccess"
                 class="inline-flex flex-1 items-center justify-center rounded-md bg-sc-accent px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sc-accentHover focus:outline-none focus:ring-2 focus:ring-sc-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Pembayaran
+                Pay now
               </button>
               <button
                 type="button"
                 id="payFailed"
                 class="inline-flex flex-1 items-center justify-center rounded-md border border-sc-border bg-white px-5 py-3.5 text-sm font-semibold text-sc-ink shadow-sm transition hover:bg-sc-page focus:outline-none focus:ring-2 focus:ring-sc-border focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Simulasi gagal (sandbox)
+                Simulate failure (sandbox)
               </button>
             </div>
           </div>
 
           <p class="text-center text-xs text-sc-muted lg:text-left">
-            Dengan melanjutkan, Anda menyetujui syarat layanan toko (demo).
+            By continuing, you agree to the store terms of service (demo).
           </p>
         </div>
       </section>
@@ -287,7 +287,7 @@
       <aside class="order-1 hidden bg-sc-page lg:order-2 lg:block">
         <div class="sticky top-0 bg-sc-page px-6 py-10">
           <div class="rounded-lg border border-sc-border bg-white p-6 shadow-sc">
-            <h2 class="text-[15px] font-semibold text-sc-ink">Ringkasan pesanan</h2>
+            <h2 class="text-[15px] font-semibold text-sc-ink">Order summary</h2>
 
             <ul id="lineItems" class="mt-4 divide-y divide-sc-border border-t border-sc-border"></ul>
 
@@ -295,7 +295,7 @@
               <label class="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Kode diskon"
+                  placeholder="Discount code"
                   class="flex-1 rounded-md border border-sc-border bg-white px-3 py-2.5 text-sm text-sc-ink shadow-sm placeholder:text-sc-muted"
                   disabled
                   value=""
@@ -305,7 +305,7 @@
                   class="rounded-md border border-sc-border bg-white px-3 text-sm font-semibold text-sc-muted"
                   disabled
                 >
-                  Terapkan
+                  Apply
                 </button>
               </label>
             </div>
@@ -316,11 +316,11 @@
                 <dd id="subtotalEl" class="tabular-nums">—</dd>
               </div>
               <div class="flex justify-between text-sc-muted">
-                <dt>Pengiriman</dt>
+                <dt>Shipping</dt>
                 <dd id="shippingEl" class="tabular-nums">—</dd>
               </div>
               <div class="flex justify-between text-sc-muted">
-                <dt>Perkiraan pajak</dt>
+                <dt>Estimated tax</dt>
                 <dd id="taxEl" class="tabular-nums">—</dd>
               </div>
               <div
@@ -343,11 +343,11 @@
     </main>
 
     <!-- <footer class="border-t border-sc-border bg-white py-8 text-center text-xs text-sc-muted">
-      <p>Halaman demo alur checkout — tidak berafiliasi dengan Shopify Inc.</p>
+      <p>Checkout flow demo page — not affiliated with Shopify Inc.</p>
       <p class="mt-1">
         UAT gateway:
         <a class="text-sc-accent underline" href="/uat/checkout">/uat/checkout</a>
-        · Versi mirip Shopify:
+        · Shopify-like version:
         <a class="text-sc-accent underline" href="/checkout/like">/checkout/like</a>
       </p>
     </footer> -->
@@ -366,7 +366,7 @@
 
         function formatMoney(value) {
           try {
-            return new Intl.NumberFormat("id-ID", {
+            return new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: currency.length === 3 ? currency : "IDR",
               minimumFractionDigits: currency === "IDR" ? 0 : 2
@@ -396,16 +396,16 @@
         const totalEl = document.getElementById("totalEl");
 
         subtotalEl.textContent = formatMoney(subtotal);
-        shippingEl.textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        shippingEl.textContent = shipping === 0 ? "Free" : formatMoney(shipping);
         taxEl.textContent = tax === 0 ? "—" : formatMoney(tax);
         totalEl.textContent = formatMoney(safeAmount);
         document.getElementById("mobileTotalBadge").textContent = formatMoney(safeAmount);
         document.getElementById("mSubtotal").textContent = formatMoney(subtotal);
-        document.getElementById("mShipping").textContent = shipping === 0 ? "Gratis" : formatMoney(shipping);
+        document.getElementById("mShipping").textContent = shipping === 0 ? "Free" : formatMoney(shipping);
         document.getElementById("mTax").textContent = tax === 0 ? "—" : formatMoney(tax);
         document.getElementById("mTotal").textContent = formatMoney(safeAmount);
 
-        const itemLabel = params.get("itemLabel") || "Produk demo";
+        const itemLabel = params.get("itemLabel") || "Demo product";
         const lineHtml = `
           <li class="flex gap-3 py-4">
             <div class="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-sc-fieldBg ring-1 ring-sc-border">
@@ -413,7 +413,7 @@
             </div>
             <div class="min-w-0 flex-1">
               <p class="font-medium leading-snug text-sc-ink">${escapeHtml(itemLabel)}</p>
-              <p class="mt-0.5 text-sm text-sc-muted">Jumlah 1</p>
+              <p class="mt-0.5 text-sm text-sc-muted">Qty 1</p>
             </div>
             <p class="shrink-0 text-sm font-medium tabular-nums text-sc-ink">${formatMoney(safeAmount)}</p>
           </li>
@@ -423,7 +423,7 @@
 
         const refEl = document.getElementById("orderRefLine");
         refEl.textContent =
-          (orderId ? "Referensi: " + orderId : "Tanpa orderId") + (shop ? " · " + shop : "");
+          (orderId ? "Reference: " + orderId : "No orderId") + (shop ? " · " + shop : "");
 
         const resultEl = document.getElementById("result");
         const missingShopEl = document.getElementById("missingShop");
@@ -442,8 +442,8 @@
           const open = mobileSummary.classList.toggle("hidden");
           toggle.setAttribute("aria-expanded", String(!open));
           toggle.querySelector("span:first-child").textContent = open
-            ? "Tampilkan ringkasan pesanan"
-            : "Sembunyikan ringkasan pesanan";
+            ? "Show order summary"
+            : "Hide order summary";
         });
 
         function escapeHtml(value) {
@@ -461,7 +461,7 @@
 
         async function createSwipeCheckout() {
           if (!shop) {
-            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            show({ ok: false, message: "Missing shop parameter in URL." });
             return;
           }
 
@@ -501,7 +501,7 @@
 
         async function sendWebhook(status) {
           if (!shop) {
-            show({ ok: false, message: "Parameter shop tidak ada di URL." });
+            show({ ok: false, message: "Missing shop parameter in URL." });
             return;
           }
 
