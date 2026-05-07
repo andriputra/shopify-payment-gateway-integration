@@ -54,6 +54,8 @@ export type PaymentRedirectRecord = {
   provider: string;
   paymentUrl: string;
   providerReference: string;
+  /** Shopify Order GID (manual payment flow), jika tersedia. */
+  shopifyOrderId?: string;
   amount: number;
   currency: string;
   status: "pending" | "paid" | "failed";
@@ -81,6 +83,7 @@ export type StorageBundle = {
   storeRepo: StoreConfigStore;
   tokenRepo: ShopifyTokenStore;
   sessionContextRepo: PaymentSessionContextStore;
+  paymentRedirectRepo: PaymentRedirectStore;
   complianceRequestRepo: ComplianceRequestStore;
 };
 
@@ -108,6 +111,7 @@ export type SystemStatus = {
     storeConfigs: number;
     shopifyTokens: number;
     paymentSessionContexts: number;
+    paymentRedirects: number;
     complianceRequests: number;
   };
   lastCompliance?: {

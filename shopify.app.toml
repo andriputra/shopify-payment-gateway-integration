@@ -16,11 +16,15 @@ compliance_topics = [
 ]
 uri = "/webhooks"
 
+[[webhooks.subscriptions]]
+topics = [ "orders/create" ]
+uri = "/webhooks/shopify/orders-create"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 # write_payment_sessions: satu-satunya scope payment session di daftar resmi (Payments Apps API). Bukan "read_…" — setelah disetujui Partner untuk Payments app.
 # Jika deploy masih gagal: scope ini "protected" — butuh proses / persetujuan Payments di Partner Dashboard.
-scopes = "write_checkouts,read_checkouts,write_inventory,read_inventory,read_orders,write_orders,read_products,write_products,write_payment_sessions"
+scopes = "write_checkouts,read_checkouts,write_inventory,read_inventory,read_orders,write_orders,read_products,write_products"
 optional_scopes = [ ]
 
 [auth]

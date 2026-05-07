@@ -16,6 +16,7 @@ import { ShopifyComplianceService } from "./services/shopify-compliance-service"
 import { PaymentService } from "./services/payment-service";
 import { ShopifyAuthService } from "./services/shopify-auth-service";
 import { ShopifyPaymentResolveService } from "./services/shopify-payment-resolve-service";
+import { ShopifyOrderService } from "./services/shopify-order-service";
 import { getStorage } from "./storage";
 
 export function createApp(): express.Application {
@@ -42,6 +43,7 @@ export function createApp(): express.Application {
   const storeRepo = storage.storeRepo;
   const paymentService = new PaymentService(storeRepo);
   const shopifyTokenRepo = storage.tokenRepo;
+  const paymentRedirectRepo = storage.paymentRedirectRepo;
   const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo);
   const sessionContextRepo = storage.sessionContextRepo;
   const complianceRequestRepo = storage.complianceRequestRepo;
@@ -52,6 +54,7 @@ export function createApp(): express.Application {
     sessionContextRepo
   );
   const shopifyPaymentResolveService = new ShopifyPaymentResolveService(shopifyTokenRepo);
+  const shopifyOrderService = new ShopifyOrderService(shopifyTokenRepo);
 
   app.get("/", (_req, res) => {
     res.type("html").send(renderIndexHtml());
@@ -185,10 +188,19 @@ export function createApp(): express.Application {
     "/webhooks",
     webhookRoutes(paymentService, {
       sessionContextRepo,
-      paymentResolve: shopifyPaymentResolveService
+      paymentResolve: shopifyPaymentResolveService,
+      paymentRedirectRepo,
+      orderService: shopifyOrderService
     })
   );
-  app.use("/webhooks", shopifyWebhookRoutes(shopifyAuthService, shopifyComplianceService));
+  app.use(
+    "/webhooks",
+    shopifyWebhookRoutes(shopifyAuthService, shopifyComplianceService, {
+      storeRepo,
+      paymentService,
+      paymentRedirectRepo
+    })
+  );
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (error instanceof ZodError) {

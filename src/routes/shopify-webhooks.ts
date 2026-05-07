@@ -1,11 +1,14 @@
 import { Request, RequestHandler, Router } from "express";
 import { ShopifyComplianceService } from "../services/shopify-compliance-service";
 import { ShopifyAuthService } from "../services/shopify-auth-service";
+import { PaymentService } from "../services/payment-service";
+import { PaymentRedirectStore, StoreConfigStore } from "../storage/contracts";
 
 type VerifiedWebhook =
   | {
       ok: true;
       topic: string;
+      shop: string;
       payload: Record<string, unknown>;
     }
   | {
@@ -16,14 +19,23 @@ type VerifiedWebhook =
 
 export function shopifyWebhookRoutes(
   authService: ShopifyAuthService,
-  complianceService: ShopifyComplianceService
+  complianceService: ShopifyComplianceService,
+  deps?: {
+    storeRepo?: StoreConfigStore;
+    paymentService?: PaymentService;
+    paymentRedirectRepo?: PaymentRedirectStore;
+  }
 ): Router {
   const router = Router();
+  const storeRepo = deps?.storeRepo;
+  const paymentService = deps?.paymentService;
+  const paymentRedirectRepo = deps?.paymentRedirectRepo;
 
   function parseVerifiedWebhook(req: Request, expectedTopic?: string): VerifiedWebhook {
     const hmac = String(req.get("x-shopify-hmac-sha256") ?? "");
     const rawBody = (req as Request & { rawBody?: Buffer }).rawBody ?? Buffer.from("");
     const topic = String(req.get("x-shopify-topic") ?? expectedTopic ?? "");
+    const shop = String(req.get("x-shopify-shop-domain") ?? "").trim().toLowerCase();
 
     if (!hmac || !authService.verifyWebhookHmac(rawBody, hmac)) {
       return {
@@ -41,9 +53,18 @@ export function shopifyWebhookRoutes(
       };
     }
 
+    if (!shop || !shop.includes(".myshopify.com")) {
+      return {
+        ok: false,
+        status: 400,
+        body: { ok: false, message: "Missing x-shopify-shop-domain header" }
+      };
+    }
+
     return {
       ok: true,
       topic,
+      shop,
       payload: JSON.parse(rawBody.toString() || "{}") as Record<string, unknown>
     };
   }
@@ -125,6 +146,72 @@ export function shopifyWebhookRoutes(
       message: "Shopify webhook verified",
       topic: verified.topic
     });
+  });
+
+  // Manual payment method: order sudah dibuat (financial_status pending). Trigger provider createCheckout di server.
+  router.post("/shopify/orders-create", async (req, res, next) => {
+    try {
+      const verified = parseVerifiedWebhook(req, "orders/create");
+      if (!verified.ok) {
+        return res.status(verified.status).json(verified.body);
+      }
+
+      if (!storeRepo || !paymentService || !paymentRedirectRepo) {
+        return res.status(500).json({ ok: false, message: "Manual payment webhook deps not configured" });
+      }
+
+      const payload = verified.payload as Record<string, unknown>;
+      const orderIdNumber = payload.id ? String(payload.id) : "";
+      const currency = payload.currency ? String(payload.currency) : "IDR";
+      const totalPrice = payload.total_price ? Number(payload.total_price) : NaN;
+      const financialStatus = payload.financial_status ? String(payload.financial_status) : "";
+
+      // Hanya proses order manual/pending.
+      if (financialStatus && financialStatus.toLowerCase() !== "pending") {
+        return res.json({ ok: true, skipped: true, reason: `financial_status=${financialStatus}` });
+      }
+      if (!orderIdNumber || !Number.isFinite(totalPrice)) {
+        return res.status(400).json({ ok: false, message: "Invalid order payload (id/total_price missing)" });
+      }
+
+      const shop = verified.shop;
+      const store = await storeRepo.get(shop);
+      if (!store) {
+        return res.status(404).json({ ok: false, message: `Store config not found for shop: ${shop}` });
+      }
+      if (store.provider !== "swipe") {
+        return res.json({ ok: true, skipped: true, reason: `provider=${store.provider}` });
+      }
+
+      const orderRef = `order_${orderIdNumber}`;
+      const orderGid = `gid://shopify/Order/${orderIdNumber}`;
+      const result = await paymentService.createCheckout({
+        shop,
+        provider: "swipe",
+        amount: totalPrice,
+        currency,
+        orderId: orderRef
+      });
+
+      const now = new Date().toISOString();
+      await paymentRedirectRepo.upsert({
+        shop,
+        orderReference: orderRef,
+        provider: "swipe",
+        paymentUrl: result.paymentUrl,
+        providerReference: result.providerReference,
+        shopifyOrderId: orderGid,
+        amount: totalPrice,
+        currency,
+        status: "pending",
+        createdAt: now,
+        updatedAt: now
+      });
+
+      return res.json({ ok: true, shop, orderRef, paymentUrl: result.paymentUrl });
+    } catch (error) {
+      next(error);
+    }
   });
 
   return router;

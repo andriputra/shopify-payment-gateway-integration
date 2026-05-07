@@ -22,6 +22,7 @@ const shopify_compliance_service_1 = require("./services/shopify-compliance-serv
 const payment_service_1 = require("./services/payment-service");
 const shopify_auth_service_1 = require("./services/shopify-auth-service");
 const shopify_payment_resolve_service_1 = require("./services/shopify-payment-resolve-service");
+const shopify_order_service_1 = require("./services/shopify-order-service");
 const storage_1 = require("./storage");
 function createApp() {
     const app = (0, express_1.default)();
@@ -41,11 +42,13 @@ function createApp() {
     const storeRepo = storage.storeRepo;
     const paymentService = new payment_service_1.PaymentService(storeRepo);
     const shopifyTokenRepo = storage.tokenRepo;
+    const paymentRedirectRepo = storage.paymentRedirectRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
     const sessionContextRepo = storage.sessionContextRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
+    const shopifyOrderService = new shopify_order_service_1.ShopifyOrderService(shopifyTokenRepo);
     app.get("/", (_req, res) => {
         res.type("html").send(renderIndexHtml());
     });
@@ -57,13 +60,60 @@ function createApp() {
         const qs = new URLSearchParams(req.query).toString();
         res.redirect(302, `/uat/checkout${qs ? `?${qs}` : ""}`);
     });
-    /** Halaman simulasi checkout (mirip alur Shopify Checkout) untuk UAT sebelum Payments Apps approved. */
     app.get("/uat/checkout", (_req, res) => {
         res.sendFile(node_path_1.default.join(publicDir, "uat-checkout.html"));
     });
     /** Demo UI checkout bergaya Shopify Checkout (layout dua kolom + ringkasan). */
     app.get("/checkout/like", (_req, res) => {
         res.sendFile(node_path_1.default.join(publicDir, "checkout-like-shopify.html"));
+    });
+    app.post("/checkout/like/swipe/create", async (req, res, next) => {
+        try {
+            const shopRaw = String(req.body?.shop ?? "").trim().toLowerCase();
+            const orderId = String(req.body?.orderId ?? "").trim();
+            const amount = Number(req.body?.amount ?? 0);
+            const currency = String(req.body?.currency ?? "IDR").trim().toUpperCase();
+            const customerEmail = req.body?.customerEmail
+                ? String(req.body.customerEmail).trim()
+                : undefined;
+            const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
+            if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
+                return res.status(400).json({
+                    ok: false,
+                    message: "Body wajib berisi shop, orderId, amount >= 0, currency."
+                });
+            }
+            const store = await storeRepo.get(shop);
+            if (!store) {
+                return res.status(404).json({
+                    ok: false,
+                    message: `Store config tidak ditemukan untuk shop: ${shop}`
+                });
+            }
+            if (store.provider !== "swipe") {
+                return res.status(409).json({
+                    ok: false,
+                    message: `Provider toko saat ini "${store.provider}". Ubah ke "swipe" agar halaman ini mengarah ke Swipe.`
+                });
+            }
+            const checkout = await paymentService.createCheckout({
+                shop,
+                provider: "swipe",
+                amount,
+                currency: currency.length === 3 ? currency : "IDR",
+                orderId,
+                customerEmail
+            });
+            return res.json({
+                ok: true,
+                channel: "swipe",
+                paymentUrl: checkout.paymentUrl,
+                providerReference: checkout.providerReference
+            });
+        }
+        catch (error) {
+            return next(error);
+        }
     });
     app.get("/pay/edc-pending", (req, res) => {
         const shop = String(req.query.shop ?? "");
@@ -115,9 +165,15 @@ function createApp() {
     }));
     app.use("/webhooks", (0, webhooks_1.webhookRoutes)(paymentService, {
         sessionContextRepo,
-        paymentResolve: shopifyPaymentResolveService
+        paymentResolve: shopifyPaymentResolveService,
+        paymentRedirectRepo,
+        orderService: shopifyOrderService
     }));
-    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService));
+    app.use("/webhooks", (0, shopify_webhooks_1.shopifyWebhookRoutes)(shopifyAuthService, shopifyComplianceService, {
+        storeRepo,
+        paymentService,
+        paymentRedirectRepo
+    }));
     app.use((error, _req, res, _next) => {
         if (error instanceof zod_1.ZodError) {
             return res.status(400).json({
