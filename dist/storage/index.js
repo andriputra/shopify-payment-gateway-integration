@@ -9,6 +9,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const env_1 = require("../config/env");
 const compliance_request_repo_1 = require("./compliance-request-repo");
 const payment_session_context_repo_1 = require("./payment-session-context-repo");
+const payment_redirect_repo_1 = require("./payment-redirect-repo");
 const shopify_token_repo_1 = require("./shopify-token-repo");
 const mysql_storage_1 = require("./mysql-storage");
 const store_config_repo_1 = require("./store-config-repo");
@@ -25,14 +26,16 @@ function createJsonStorage() {
     const storeRepo = new store_config_repo_1.StoreConfigRepository(node_path_1.default.join(env_1.env.dataDir, "store-configs.json"));
     const tokenRepo = new shopify_token_repo_1.ShopifyTokenRepository(node_path_1.default.join(env_1.env.dataDir, "shopify-tokens.json"));
     const sessionContextRepo = new payment_session_context_repo_1.PaymentSessionContextRepository(node_path_1.default.join(env_1.env.dataDir, "payment-session-contexts.json"));
+    const paymentRedirectRepo = new payment_redirect_repo_1.PaymentRedirectRepository(node_path_1.default.join(env_1.env.dataDir, "payment-redirects.json"));
     const complianceRequestRepo = new compliance_request_repo_1.ComplianceRequestRepository(node_path_1.default.join(env_1.env.dataDir, "compliance-requests.json"));
     return {
         initialize: async () => undefined,
         systemStatus: async () => {
-            const [storeConfigs, shopifyTokens, paymentSessionContexts, complianceRequests] = await Promise.all([
+            const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests] = await Promise.all([
                 storeRepo.list(),
                 tokenRepo.list(),
                 sessionContextRepo.list(),
+                paymentRedirectRepo.count(),
                 complianceRequestRepo.list()
             ]);
             const last = complianceRequests[0];
@@ -51,6 +54,7 @@ function createJsonStorage() {
                     storeConfigs: storeConfigs.length,
                     shopifyTokens: shopifyTokens.length,
                     paymentSessionContexts: paymentSessionContexts.length,
+                    paymentRedirects: paymentRedirects,
                     complianceRequests: complianceRequests.length
                 },
                 lastCompliance: last
@@ -66,6 +70,7 @@ function createJsonStorage() {
         storeRepo,
         tokenRepo,
         sessionContextRepo,
+        paymentRedirectRepo,
         complianceRequestRepo
     };
 }

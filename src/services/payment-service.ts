@@ -24,7 +24,7 @@ export class PaymentService {
     return provider.createCheckout(store, input);
   }
 
-  /** POST ke Swipe dari server (setara curl Postman); cocok untuk verifikasi credential & melihat JSON mentah. */
+  /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
   async swipeTestRequest(
     shop: string,
     amount: number,
@@ -37,7 +37,7 @@ export class PaymentService {
     }
     if (store.provider !== "swipe") {
       throw new Error(
-        `Konfigurasi toko memakai provider "${store.provider}". Set provider ke swipe dan simpan konfigurasi.`
+        `This store is configured with provider "${store.provider}". Set provider to "swipe" and save the configuration first.`
       );
     }
     return swipeTestPaymentRequest(store, {

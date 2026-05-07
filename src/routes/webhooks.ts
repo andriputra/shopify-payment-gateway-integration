@@ -1,17 +1,20 @@
 import { Response, Router } from "express";
 import { PaymentService } from "../services/payment-service";
+import { ShopifyOrderService } from "../services/shopify-order-service";
 import { ShopifyPaymentResolveService } from "../services/shopify-payment-resolve-service";
-import { PaymentSessionContextStore } from "../storage/contracts";
+import { PaymentRedirectStore, PaymentSessionContextStore } from "../storage/contracts";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
 
 export type WebhookRoutesDeps = {
   sessionContextRepo?: PaymentSessionContextStore;
+  paymentRedirectRepo?: PaymentRedirectStore;
   paymentResolve?: ShopifyPaymentResolveService;
+  orderService?: ShopifyOrderService;
 };
 
 export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps): Router {
   const router = Router();
-  const { sessionContextRepo, paymentResolve } = deps ?? {};
+  const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService } = deps ?? {};
 
   const handlePaymentWebhook = async (
     provider: string,
@@ -36,6 +39,29 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           shopifyPaymentSession.message = resolved.message;
           if (resolved.ok) {
             await sessionContextRepo.delete(orderRef);
+          }
+        }
+      }
+    }
+
+    // Manual payment method flow: resolve Shopify Order as paid when provider callback says paid.
+    if (result.paid && paymentRedirectRepo && orderService) {
+      const orderRef = webhookOrderReference(provider, body);
+      if (orderRef) {
+        const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+        if (record) {
+          await paymentRedirectRepo.markStatus(decodedShop, orderRef, "paid");
+          if (record.shopifyOrderId) {
+            const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+            // Best-effort: do not fail webhook if Shopify mark paid fails.
+            if (!marked.ok) {
+              console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
+                shop: decodedShop,
+                orderRef,
+                orderId: record.shopifyOrderId,
+                message: marked.message
+              });
+            }
           }
         }
       }

@@ -5,7 +5,7 @@ const express_1 = require("express");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 function webhookRoutes(service, deps) {
     const router = (0, express_1.Router)();
-    const { sessionContextRepo, paymentResolve } = deps ?? {};
+    const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService } = deps ?? {};
     const handlePaymentWebhook = async (provider, decodedShop, body, res) => {
         const result = await service.handleWebhook(decodedShop, provider, body);
         let shopifyPaymentSession = {
@@ -22,6 +22,28 @@ function webhookRoutes(service, deps) {
                     shopifyPaymentSession.message = resolved.message;
                     if (resolved.ok) {
                         await sessionContextRepo.delete(orderRef);
+                    }
+                }
+            }
+        }
+        // Manual payment method flow: resolve Shopify Order as paid when provider callback says paid.
+        if (result.paid && paymentRedirectRepo && orderService) {
+            const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
+            if (orderRef) {
+                const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+                if (record) {
+                    await paymentRedirectRepo.markStatus(decodedShop, orderRef, "paid");
+                    if (record.shopifyOrderId) {
+                        const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+                        // Best-effort: do not fail webhook if Shopify mark paid fails.
+                        if (!marked.ok) {
+                            console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
+                                shop: decodedShop,
+                                orderRef,
+                                orderId: record.shopifyOrderId,
+                                message: marked.message
+                            });
+                        }
                     }
                 }
             }
