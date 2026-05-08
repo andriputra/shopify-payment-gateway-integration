@@ -39,7 +39,7 @@ function shopifyPaymentSessionRoutes(deps) {
             if (!store) {
                 return res.status(400).json({
                     ok: false,
-                    message: `Belum ada konfigurasi untuk ${shop}. Simpan konfigurasi merchant (provider + credential) di halaman admin app.`
+                    message: `No configuration found for ${shop}. Save merchant configuration (provider + credentials) in the app admin page first.`
                 });
             }
             const paymentSessionGid = String(raw.id ?? raw.gid ?? "").trim();
@@ -54,7 +54,7 @@ function shopifyPaymentSessionRoutes(deps) {
                     createdAt: new Date().toISOString()
                 };
                 await sessionContextRepo.save(orderRef, ctx);
-                /** Webhook Swipe mengembalikan `invoice_number`, bukan internal orderRef — simpan keduanya. */
+                /** Swipe webhook returns `invoice_number`, not internal orderRef — store both keys. */
                 await sessionContextRepo.save((0, swipe_1.swipeInvoiceNumberForOrder)(orderRef), ctx);
             }
             const result = await paymentService.createCheckout({

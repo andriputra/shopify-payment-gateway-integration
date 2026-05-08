@@ -25,7 +25,7 @@ class ShopifyPaymentResolveService {
         if (!token) {
             return {
                 ok: false,
-                message: "Token Shopify tidak ditemukan. Install app lewat OAuth dulu."
+                message: "Shopify token not found. Install the app through OAuth first."
             };
         }
         const version = env_1.env.shopifyPaymentsApiVersion;

@@ -2,7 +2,12 @@ import { Response, Router } from "express";
 import { PaymentService } from "../services/payment-service";
 import { ShopifyOrderService } from "../services/shopify-order-service";
 import { ShopifyPaymentResolveService } from "../services/shopify-payment-resolve-service";
-import { PaymentRedirectStore, PaymentSessionContextStore } from "../storage/contracts";
+import { logSwipeTransaction, sanitizeSwipePayloadForLog } from "../services/swipe-transaction-log";
+import {
+  PaymentRedirectStore,
+  PaymentSessionContext,
+  PaymentSessionContextStore
+} from "../storage/contracts";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
 
 export type WebhookRoutesDeps = {
@@ -23,30 +28,35 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     res: Response
   ) => {
     const result = await service.handleWebhook(decodedShop, provider, body);
+    const orderRef = webhookOrderReference(provider, body);
+
+    let ctxAtCallback: PaymentSessionContext | undefined;
+    if (orderRef && sessionContextRepo) {
+      ctxAtCallback = await sessionContextRepo.get(orderRef);
+    }
+    const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === decodedShop);
 
     let shopifyPaymentSession: { attempted: boolean; ok?: boolean; message?: string } = {
       attempted: false
     };
 
     if (result.paid && sessionContextRepo && paymentResolve) {
-      const orderRef = webhookOrderReference(provider, body);
-      if (orderRef) {
-        const ctx = await sessionContextRepo.get(orderRef);
-        if (ctx && ctx.shop === decodedShop) {
-          shopifyPaymentSession.attempted = true;
-          const resolved = await paymentResolve.resolvePaymentSession(ctx.shop, ctx.paymentSessionId);
-          shopifyPaymentSession.ok = resolved.ok;
-          shopifyPaymentSession.message = resolved.message;
-          if (resolved.ok) {
-            await sessionContextRepo.delete(orderRef);
-          }
+      if (orderRef && ctxAtCallback && ctxAtCallback.shop === decodedShop) {
+        shopifyPaymentSession.attempted = true;
+        const resolved = await paymentResolve.resolvePaymentSession(
+          ctxAtCallback.shop,
+          ctxAtCallback.paymentSessionId
+        );
+        shopifyPaymentSession.ok = resolved.ok;
+        shopifyPaymentSession.message = resolved.message;
+        if (resolved.ok) {
+          await sessionContextRepo.delete(orderRef);
         }
       }
     }
 
     // Manual payment method flow: resolve Shopify Order as paid when provider callback says paid.
     if (result.paid && paymentRedirectRepo && orderService) {
-      const orderRef = webhookOrderReference(provider, body);
       if (orderRef) {
         const record = await paymentRedirectRepo.get(decodedShop, orderRef);
         if (record) {
@@ -65,6 +75,28 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           }
         }
       }
+    }
+
+    if (provider === "swipe") {
+      logSwipeTransaction({
+        phase: "edc_callback",
+        shop: decodedShop,
+        orderId: orderRef ?? "(unresolved)",
+        orderRefFromPayload: orderRef,
+        paid: result.paid,
+        outcome:
+          result.outcome ??
+          (result.paid ? "paid" : "unknown"),
+        statusRaw: result.statusRaw,
+        providerReference: result.providerReference,
+        edcCallbackReceived: true,
+        sessionContextMatched,
+        shopifyPaymentResolve: shopifyPaymentSession,
+        payloadPreview: sanitizeSwipePayloadForLog(body),
+        note: orderRef
+          ? "HTTP callback received from Swipe (EDC settlement path); compare outcome vs Shopify resolve."
+          : "Callback missing invoice_number / merchant_reference — cannot match stored payment session context."
+      });
     }
 
     res.json({ ok: true, ...result, shopifyPaymentSession });
