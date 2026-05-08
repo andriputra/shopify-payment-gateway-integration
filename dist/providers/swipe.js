@@ -10,19 +10,19 @@ const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
 const base_1 = require("./base");
-/** Ditampilkan di debug saat edge mengembalikan HTML (mis. 403) — sering bukan rejection JSON Swipe. */
-const SWIPE_EGRESS_HINT = "HTML/WAF 403: sering diblokir proxy/CDN sebelum logic API Swipe. Uji curl yang sama dari host yang sama dengan app deploy (IP egress sama), bukan dari laptop; samakan header dengan Postman yang sukses (termasuk User-Agent); minta whitelist IP egress ke Swipe jika laptop OK tapi server gagal.";
+/** Shown in debug when edge returns HTML (e.g. 403) — often not a Swipe JSON rejection. */
+const SWIPE_EGRESS_HINT = "HTML/WAF 403: often blocked by proxy/CDN before Swipe API logic. Test the same curl from the same host as the deployed app (same egress IP), not from your laptop; match headers with successful Postman requests (including User-Agent); request egress IP whitelisting from Swipe if laptop works but server fails.";
 function swipeBaseUrl(store) {
     const fromExtra = store.credentials.extra?.apiBaseUrl?.trim();
     if (fromExtra) {
         return fromExtra.replace(/\/$/, "");
     }
-    throw new Error("Swipe: isi credentials.extra.apiBaseUrl (URL API dari Swipe / dokumen onboarding). Contoh: https://api.example.swipe.co.id");
+    throw new Error("Swipe: set credentials.extra.apiBaseUrl (Swipe API URL from onboarding docs). Example: https://api.example.swipe.co.id");
 }
 function swipeCreatePath(store) {
     const path = store.credentials.extra?.createPath?.trim();
     if (!path) {
-        throw new Error("Swipe: isi credentials.extra.createPath (path create payment dari dokumentasi Swipe, mis. /v1/payments atau path dari Postman).");
+        throw new Error("Swipe: set credentials.extra.createPath (create payment path from Swipe docs, e.g. /v1/payments or the path used in Postman).");
     }
     return path.startsWith("/") ? path : `/${path}`;
 }
@@ -40,7 +40,7 @@ function swipeEndpointUrl(store) {
 function requiredSwipeExtra(store, key, label) {
     const value = store.credentials.extra?.[key]?.trim();
     if (!value) {
-        throw new Error(`Swipe: isi credentials.extra.${key} (${label}).`);
+        throw new Error(`Swipe: set credentials.extra.${key} (${label}).`);
     }
     return value;
 }
@@ -51,7 +51,7 @@ function numberFromExtra(store, key) {
     }
     const num = Number(value);
     if (!Number.isFinite(num)) {
-        throw new Error(`Swipe: credentials.extra.${key} harus angka.`);
+        throw new Error(`Swipe: credentials.extra.${key} must be a number.`);
     }
     return num;
 }
@@ -62,11 +62,11 @@ function minimumAmount(store) {
     }
     const num = Number(raw);
     if (!Number.isFinite(num) || num < 0) {
-        throw new Error("Swipe: credentials.extra.minimumAmount harus angka ≥ 0.");
+        throw new Error("Swipe: credentials.extra.minimumAmount must be a number >= 0.");
     }
     return num;
 }
-/** Respons Swipe kadang mengisi `url` dengan URL endpoint POST (path sama) — bukan redirect customer; GET ke sana = 404. */
+/** Swipe response may populate `url` with POST endpoint URL (same path) — not a customer redirect; GET there = 404. */
 function shouldIgnoreEchoApiUrl(candidate, createEndpointUrl) {
     try {
         const c = new URL(candidate);
@@ -94,7 +94,7 @@ function maskSecret(value) {
     }
     return `${value.slice(0, 4)}***${value.slice(-4)}`;
 }
-/** Root + nested shapes yang dipakai beberapa gateway (data / result). */
+/** Root + nested shapes used by some gateways (data / result). */
 function swipeResponseLayers(body) {
     const layers = [body];
     for (const key of ["data", "result"]) {
@@ -105,7 +105,7 @@ function swipeResponseLayers(body) {
     }
     return layers;
 }
-/** Redirect Shopify ke halaman instruksi EDC — pembayaran di terminal + callback Swipe. */
+/** Redirect Shopify to EDC instruction page — payment on terminal + Swipe callback. */
 function buildEdcPendingPageUrl(store, input) {
     const base = env_1.env.host.replace(/\/$/, "");
     const params = new URLSearchParams({
@@ -149,7 +149,7 @@ function pickPaymentUrl(body, store, createEndpointUrl, redirectCtx) {
     if (wsToken) {
         return buildEdcPendingPageUrl(store, redirectCtx);
     }
-    throw new Error("Swipe: response tidak berisi URL pembayaran yang dikenali (payment_url / checkout_url / redirect_url / url) atau ws_token. Sesuaikan mapping di provider jika field API lain.");
+    throw new Error("Swipe: response does not contain a recognized payment URL (payment_url / checkout_url / redirect_url / url) or ws_token. Adjust provider mapping if your API uses different fields.");
 }
 function pickProviderReference(body, fallback) {
     const layers = swipeResponseLayers(body);
@@ -197,13 +197,13 @@ function tryParseJsonObject(text) {
 function createSwipeRequestId() {
     return `ReqId-${Date.now()}`;
 }
-/** Sama dengan field `invoice_number` ke API Swipe; dipakai sebagai kunci webhook ↔ payment session. */
+/** Same value as `invoice_number` sent to Swipe API; used as webhook ↔ payment session key. */
 function swipeInvoiceNumberForOrder(orderId) {
     const sanitized = orderId.replace(/[^A-Za-z0-9]/g, "").slice(0, 24);
     return sanitized ? `INV-${sanitized}` : `INV-${Date.now()}`;
 }
-/** Headers mendekati Postman; beberapa WAF menolak UA khas bot atau request “telanjang”.
- * Pakai process.env langsung supaya kompatibel dengan deploy yang env.ts-nya belum ada field swipeOutboundUserAgent.
+/** Headers close to Postman; some WAFs reject bot-like UA or "bare" requests.
+ * Uses process.env directly for compatibility with deployments where env.ts doesn't yet include swipeOutboundUserAgent.
  */
 function swipeOutboundHeaders(apiKey) {
     const userAgent = process.env.SWIPE_OUTBOUND_USER_AGENT?.trim() || "PostmanRuntime/7.36.0";
@@ -230,7 +230,7 @@ function postJsonHttp1(endpointUrl, headers, body) {
             path: `${url.pathname}${url.search}`,
             method: "POST",
             headers: requestHeaders,
-            // Force HTTP/1.1 via ALPN (jangan kirim option `protocol`; bukan opsi standar ClientRequest).
+            // Force HTTP/1.1 via ALPN (do not send `protocol`; not a standard ClientRequest option).
             ...(isHttps ? { ALPNProtocols: ["http/1.1"] } : {})
         }, (res) => {
             const chunks = [];
@@ -255,8 +255,8 @@ exports.swipeProvider = {
         const endpointUrl = swipeEndpointUrl(store);
         const defaultNotifyUrl = `${env_1.env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
         const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
-        const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
-        const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
+        const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
+        const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
         const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
         const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
         const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
@@ -264,7 +264,7 @@ exports.swipeProvider = {
         const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
         const minAmount = minimumAmount(store);
         if (input.amount < minAmount) {
-            throw new Error(`Swipe: nominal checkout minimal ${minAmount}. Nominal saat ini ${input.amount}.`);
+            throw new Error(`Swipe: minimum checkout amount is ${minAmount}. Current amount is ${input.amount}.`);
         }
         const requestBody = {
             pos_request_type: posRequestType,
@@ -356,14 +356,14 @@ exports.swipeProvider = {
         };
     }
 };
-/** POST ke Swipe seperti create checkout, mengembalikan body mentah + percobaan resolve paymentUrl (untuk uji dari admin). */
+/** POST to Swipe like create checkout, returns raw body + paymentUrl resolution attempt (for admin testing). */
 async function swipeTestPaymentRequest(store, options) {
     const merchantId = (0, base_1.ensureApiKey)(store.credentials);
     const endpointUrl = swipeEndpointUrl(store);
     const defaultNotifyUrl = `${env_1.env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
     const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
-    const clientId = requiredSwipeExtra(store, "clientId", "Client ID dari Swipe");
-    const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User dari Swipe");
+    const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
+    const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
     const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
     const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
     const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
@@ -371,7 +371,7 @@ async function swipeTestPaymentRequest(store, options) {
     const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
     const minAmount = minimumAmount(store);
     if (options.amount < minAmount) {
-        throw new Error(`Swipe: nominal minimal ${minAmount}. Saat ini ${options.amount}. Set credentials.extra.minimumAmount ke 0 untuk uji amount 0 seperti Postman.`);
+        throw new Error(`Swipe: minimum amount is ${minAmount}. Current amount is ${options.amount}. Set credentials.extra.minimumAmount to 0 to test amount 0 like Postman.`);
     }
     const requestBody = {
         pos_request_type: posRequestType,

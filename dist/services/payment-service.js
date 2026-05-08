@@ -22,7 +22,7 @@ class PaymentService {
         const provider = (0, providers_1.getProvider)(input.provider);
         return provider.createCheckout(store, input);
     }
-    /** POST ke Swipe dari server (setara curl Postman); cocok untuk verifikasi credential & melihat JSON mentah. */
+    /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
     async swipeTestRequest(shop, amount, orderId) {
         const normalized = normalizeShopKey(shop);
         const store = await this.storeRepo.get(normalized);
@@ -30,7 +30,7 @@ class PaymentService {
             throw new Error(`Store config not found for shop: ${normalized}`);
         }
         if (store.provider !== "swipe") {
-            throw new Error(`Konfigurasi toko memakai provider "${store.provider}". Set provider ke swipe dan simpan konfigurasi.`);
+            throw new Error(`This store is configured with provider "${store.provider}". Set provider to "swipe" and save the configuration first.`);
         }
         return (0, swipe_1.swipeTestPaymentRequest)(store, {
             amount,
