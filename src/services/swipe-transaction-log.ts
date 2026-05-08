@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "../config/env";
+import { shopDomainsMatch } from "../utils/shop-domain";
 
 const LOG_PREFIX = "[SWIPE_TX]";
 
@@ -75,4 +76,93 @@ export function logSwipeTransaction(record: Record<string, unknown>): void {
   const line = { ts: nowIso(), ...record };
   console.info(LOG_PREFIX, line);
   appendJsonlLine(line);
+}
+
+const JSONL_NAME = "swipe-transaction-log.jsonl";
+const MAX_READ_BYTES = 5 * 1024 * 1024;
+
+export function swipeTransactionLogAbsolutePath(): string {
+  return path.join(env.dataDir, JSONL_NAME);
+}
+
+/**
+ * Read persisted JSONL lines for one shop (matches session token `dest`).
+ * Returns newest events first, at most `limit` entries (max 500 from HTTP route).
+ */
+export function readSwipeTransactionLogForShop(
+  shopFilter: string,
+  limit: number
+): {
+  entries: Record<string, unknown>[];
+  filePath: string;
+  fileExists: boolean;
+  totalLinesParsed: number;
+  totalMatching: number;
+  order: "newest_first";
+  truncatedFile?: boolean;
+  note?: string;
+} {
+  const filePath = swipeTransactionLogAbsolutePath();
+  if (!fs.existsSync(filePath)) {
+    return {
+      entries: [],
+      filePath,
+      fileExists: false,
+      totalLinesParsed: 0,
+      totalMatching: 0,
+      order: "newest_first"
+    };
+  }
+
+  const stat = fs.statSync(filePath);
+  let raw: string;
+  let truncatedFile = false;
+  if (stat.size > MAX_READ_BYTES) {
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const buf = Buffer.alloc(MAX_READ_BYTES);
+      const start = Math.max(0, stat.size - MAX_READ_BYTES);
+      fs.readSync(fd, buf, 0, MAX_READ_BYTES, start);
+      raw = buf.toString("utf8");
+      if (start > 0) {
+        const firstNl = raw.indexOf("\n");
+        if (firstNl >= 0) {
+          raw = raw.slice(firstNl + 1);
+        }
+      }
+      truncatedFile = true;
+    } finally {
+      fs.closeSync(fd);
+    }
+  } else {
+    raw = fs.readFileSync(filePath, "utf8");
+  }
+
+  const lines = raw.split("\n").filter((l) => l.trim());
+  const parsed: Record<string, unknown>[] = [];
+  for (const line of lines) {
+    try {
+      parsed.push(JSON.parse(line) as Record<string, unknown>);
+    } catch {
+      // skip malformed line
+    }
+  }
+
+  const matching = parsed.filter((r) => shopDomainsMatch(String(r.shop ?? ""), shopFilter));
+  const newestFirst = matching.slice(-limit).reverse();
+
+  return {
+    entries: newestFirst,
+    filePath,
+    fileExists: true,
+    totalLinesParsed: parsed.length,
+    totalMatching: matching.length,
+    order: "newest_first",
+    ...(truncatedFile
+      ? {
+          truncatedFile: true,
+          note: "Log file exceeded read cap; only the tail was scanned — oldest matching rows may be missing."
+        }
+      : {})
+  };
 }

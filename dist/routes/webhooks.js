@@ -10,20 +10,22 @@ function webhookRoutes(service, deps) {
     const handlePaymentWebhook = async (provider, decodedShop, body, res) => {
         const result = await service.handleWebhook(decodedShop, provider, body);
         const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
+        let ctxAtCallback;
+        if (orderRef && sessionContextRepo) {
+            ctxAtCallback = await sessionContextRepo.get(orderRef);
+        }
+        const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === decodedShop);
         let shopifyPaymentSession = {
             attempted: false
         };
         if (result.paid && sessionContextRepo && paymentResolve) {
-            if (orderRef) {
-                const ctx = await sessionContextRepo.get(orderRef);
-                if (ctx && ctx.shop === decodedShop) {
-                    shopifyPaymentSession.attempted = true;
-                    const resolved = await paymentResolve.resolvePaymentSession(ctx.shop, ctx.paymentSessionId);
-                    shopifyPaymentSession.ok = resolved.ok;
-                    shopifyPaymentSession.message = resolved.message;
-                    if (resolved.ok) {
-                        await sessionContextRepo.delete(orderRef);
-                    }
+            if (orderRef && ctxAtCallback && ctxAtCallback.shop === decodedShop) {
+                shopifyPaymentSession.attempted = true;
+                const resolved = await paymentResolve.resolvePaymentSession(ctxAtCallback.shop, ctxAtCallback.paymentSessionId);
+                shopifyPaymentSession.ok = resolved.ok;
+                shopifyPaymentSession.message = resolved.message;
+                if (resolved.ok) {
+                    await sessionContextRepo.delete(orderRef);
                 }
             }
         }
@@ -49,11 +51,6 @@ function webhookRoutes(service, deps) {
             }
         }
         if (provider === "swipe") {
-            let sessionContextMatched;
-            if (orderRef && sessionContextRepo) {
-                const ctx = await sessionContextRepo.get(orderRef);
-                sessionContextMatched = Boolean(ctx && ctx.shop === decodedShop);
-            }
             (0, swipe_transaction_log_1.logSwipeTransaction)({
                 phase: "edc_callback",
                 shop: decodedShop,

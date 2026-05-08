@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.paymentRoutes = paymentRoutes;
 const express_1 = require("express");
 const zod_1 = require("zod");
+const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
+const shop_domain_1 = require("../utils/shop-domain");
 const createCheckoutSchema = zod_1.z.object({
     shop: zod_1.z.string().min(3),
     provider: zod_1.z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"]),
@@ -19,6 +21,35 @@ const swipeTestRequestSchema = zod_1.z.object({
 });
 function paymentRoutes(service) {
     const router = (0, express_1.Router)();
+    /** Requires `Authorization: Bearer <session token>` (embedded app). Filtered to JWT shop domain. */
+    router.get("/swipe/transaction-log", (req, res, next) => {
+        try {
+            const session = res.locals.shopifySession;
+            const dest = session?.dest?.trim();
+            if (!dest) {
+                return res.status(401).json({ ok: false, message: "Missing embedded session shop (dest)" });
+            }
+            const limitRaw = req.query.limit;
+            const limitNum = typeof limitRaw === "string" && limitRaw.trim()
+                ? Number(limitRaw)
+                : typeof limitRaw === "number"
+                    ? limitRaw
+                    : NaN;
+            const limit = Number.isFinite(limitNum)
+                ? Math.min(500, Math.max(1, Math.floor(limitNum)))
+                : 100;
+            const log = (0, swipe_transaction_log_1.readSwipeTransactionLogForShop)(dest, limit);
+            return res.json({
+                ok: true,
+                shop: (0, shop_domain_1.normalizeShopDomain)(dest),
+                limit,
+                ...log
+            });
+        }
+        catch (error) {
+            next(error);
+        }
+    });
     router.post("/swipe/test-request", async (req, res, next) => {
         try {
             const raw = swipeTestRequestSchema.parse(req.body);
