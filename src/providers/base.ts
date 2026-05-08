@@ -2,9 +2,21 @@ import { CreateCheckoutInput, CreateCheckoutResult, ProviderCredential, StoreCon
 
 export type ProviderWebhookPayload = Record<string, unknown>;
 
+/** Normalized bucket for dashboards (Swipe EDC callback body varies by integration). */
+export type PaymentWebhookOutcome =
+  | "paid"
+  | "failed"
+  | "timeout"
+  | "cancelled"
+  | "pending"
+  | "unknown";
+
 export type ProviderWebhookResult = {
   paid: boolean;
   providerReference?: string;
+  outcome?: PaymentWebhookOutcome;
+  /** Raw status-like field from the gateway before mapping (uppercased when applicable). */
+  statusRaw?: string;
 };
 
 export interface PaymentProvider {

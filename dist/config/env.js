@@ -44,6 +44,8 @@ exports.env = {
     shopifyPaymentsApiVersion: process.env.SHOPIFY_PAYMENTS_API_VERSION ?? "2025-01",
     swipeFallbackOn403: toBool(process.env.SWIPE_FALLBACK_ON_403, false),
     swipeDebugFingerprint: toBool(process.env.SWIPE_DEBUG_FINGERPRINT, false),
+    /** Append one JSON object per line to `data/swipe-transaction-log.jsonl`. Set SWIPE_TX_LOG_JSONL=0 to disable. */
+    swipeTxLogJsonl: toBool(process.env.SWIPE_TX_LOG_JSONL, true),
     mysqlUrl: process.env.MYSQL_URL ?? process.env.DATABASE_URL,
     mysqlHost: process.env.MYSQL_HOST,
     mysqlPort: Number(process.env.MYSQL_PORT ?? 3306),

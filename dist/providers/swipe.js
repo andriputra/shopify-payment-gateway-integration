@@ -9,6 +9,7 @@ exports.swipeTestPaymentRequest = swipeTestPaymentRequest;
 const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
+const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const base_1 = require("./base");
 /** Shown in debug when edge returns HTML (e.g. 403) — often not a Swipe JSON rejection. */
 const SWIPE_EGRESS_HINT = "HTML/WAF 403: often blocked by proxy/CDN before Swipe API logic. Test the same curl from the same host as the deployed app (same egress IP), not from your laptop; match headers with successful Postman requests (including User-Agent); request egress IP whitelisting from Swipe if laptop works but server fails.";
@@ -85,6 +86,12 @@ function shouldIgnoreEchoApiUrl(candidate, createEndpointUrl) {
         return false;
     }
 }
+function truncateStr(s, max) {
+    if (s.length <= max) {
+        return s;
+    }
+    return `${s.slice(0, max)}…`;
+}
 function maskSecret(value) {
     if (!value) {
         return "";
@@ -104,6 +111,59 @@ function swipeResponseLayers(body) {
         }
     }
     return layers;
+}
+function classifySwipePaymentUrl(url) {
+    if (url.includes("/pay/edc-pending")) {
+        return "edc_pending_page";
+    }
+    if (url.includes("/sandbox/pay") || url.includes("/uat/checkout")) {
+        return "sandbox_fallback";
+    }
+    return "external_redirect";
+}
+function swipePrimaryStatus(payload) {
+    return String(payload.status ??
+        payload.payment_status ??
+        payload.transaction_status ??
+        payload.state ??
+        payload.transactionStatus ??
+        payload.paymentStatus ??
+        "").trim();
+}
+function classifySwipeGatewayOutcome(normalizedStatus) {
+    const u = normalizedStatus.trim().toUpperCase();
+    if (!u) {
+        return { paid: false, outcome: "unknown" };
+    }
+    const PAID = new Set([
+        "SUCCESS",
+        "PAID",
+        "COMPLETED",
+        "APPROVED",
+        "SETTLEMENT",
+        "CAPTURED",
+        "SUCCEEDED"
+    ]);
+    const TIMEOUT = new Set(["TIMEOUT", "EXPIRED", "EXPIRE", "SESSION_TIMEOUT"]);
+    const CANCELLED = new Set(["CANCELLED", "CANCELED", "VOID", "ABORTED"]);
+    const FAILED = new Set(["FAILED", "DECLINED", "DECLINE", "REJECTED", "FAILURE", "ERROR", "DENIED"]);
+    const PENDING = new Set(["PENDING", "PROCESSING", "WAITING", "OPEN", "IN_PROGRESS"]);
+    if (PAID.has(u)) {
+        return { paid: true, outcome: "paid" };
+    }
+    if (TIMEOUT.has(u) || /\b(TIMEOUT|EXPIRED)\b/.test(u)) {
+        return { paid: false, outcome: "timeout" };
+    }
+    if (CANCELLED.has(u)) {
+        return { paid: false, outcome: "cancelled" };
+    }
+    if (FAILED.has(u)) {
+        return { paid: false, outcome: "failed" };
+    }
+    if (PENDING.has(u)) {
+        return { paid: false, outcome: "pending" };
+    }
+    return { paid: false, outcome: "unknown" };
 }
 /** Redirect Shopify to EDC instruction page — payment on terminal + Swipe callback. */
 function buildEdcPendingPageUrl(store, input) {
@@ -292,7 +352,22 @@ exports.swipeProvider = {
                 }
             });
         }
-        const response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
+        let response;
+        try {
+            response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
+        }
+        catch (netErr) {
+            (0, swipe_transaction_log_1.logSwipeTransaction)({
+                phase: "create_network_error",
+                shop: store.shop,
+                orderId: input.orderId,
+                invoiceNumber: String(requestBody.invoice_number),
+                requestId: String(requestBody.request_id),
+                errorMessage: netErr instanceof Error ? netErr.message : String(netErr),
+                note: "No HTTP response (DNS/TLS/timeout/socket); EDC callback will not occur for this create."
+            });
+            throw netErr;
+        }
         if (!response.ok) {
             const errText = response.bodyText || "Unknown error";
             const looksLikeHtmlOr403 = response.status === 403 || /<\s*html/i.test(errText);
@@ -317,12 +392,33 @@ exports.swipeProvider = {
                 error: errText,
                 debugInfo
             });
+            (0, swipe_transaction_log_1.logSwipeTransaction)({
+                phase: "create_api_error",
+                shop: store.shop,
+                orderId: input.orderId,
+                invoiceNumber: String(requestBody.invoice_number),
+                requestId: String(requestBody.request_id),
+                httpStatus: response.status,
+                errorMessage: truncateStr(errText, 400),
+                note: looksLikeHtmlOr403 ? SWIPE_EGRESS_HINT : "Swipe create HTTP error"
+            });
             if (response.status === 403 && env_1.env.swipeFallbackOn403) {
                 const fallbackUrl = buildFallbackPaymentUrl(store, input);
                 console.warn("[SWIPE FALLBACK] 403 detected, using sandbox redirect", {
                     orderId: input.orderId,
                     shop: store.shop,
                     fallbackUrl
+                });
+                (0, swipe_transaction_log_1.logSwipeTransaction)({
+                    phase: "create_success",
+                    shop: store.shop,
+                    orderId: input.orderId,
+                    invoiceNumber: String(requestBody.invoice_number),
+                    requestId: String(requestBody.request_id),
+                    httpStatus: response.status,
+                    providerReference: `swipe-fallback-${input.orderId}`,
+                    paymentSurface: "sandbox_fallback",
+                    note: "SWIPE_FALLBACK_ON_403: returning sandbox/UAT URL; not a live Swipe EDC session."
                 });
                 return {
                     paymentUrl: fallbackUrl,
@@ -334,9 +430,39 @@ exports.swipeProvider = {
         const body = tryParseJsonObject(response.bodyText);
         if (!body) {
             const bodySnippet = (response.bodyText || "").replace(/\s+/g, " ").slice(0, 240);
+            (0, swipe_transaction_log_1.logSwipeTransaction)({
+                phase: "create_api_error",
+                shop: store.shop,
+                orderId: input.orderId,
+                invoiceNumber: String(requestBody.invoice_number),
+                requestId: String(requestBody.request_id),
+                httpStatus: response.status,
+                errorMessage: `non-JSON body: ${bodySnippet || "EMPTY"}`,
+                note: "Expected JSON from Swipe create endpoint."
+            });
             throw new Error(`Swipe API returned non-JSON success response (${response.status}). Body=${bodySnippet || "EMPTY"}`);
         }
         const paymentUrl = pickPaymentUrl(body, store, endpointUrl, input);
+        const paymentSurface = classifySwipePaymentUrl(paymentUrl);
+        const providerReference = pickProviderReference(body, input.orderId);
+        (0, swipe_transaction_log_1.logSwipeTransaction)({
+            phase: "create_success",
+            shop: store.shop,
+            orderId: input.orderId,
+            invoiceNumber: String(requestBody.invoice_number),
+            requestId: String(requestBody.request_id),
+            httpStatus: response.status,
+            providerReference,
+            paymentSurface,
+            amount: input.amount,
+            currency: input.currency,
+            callbackUrl: String(requestBody.callback_url),
+            note: paymentSurface === "edc_pending_page"
+                ? "Awaiting EDC + Swipe server callback to callback_url (edc_callback phase)."
+                : paymentSurface === "sandbox_fallback"
+                    ? "Sandbox redirect; not production EDC."
+                    : "Redirect/hop URL from Swipe response; confirm terminal flow with Swipe docs."
+        });
         console.info("[SWIPE LIVE] payment URL created", {
             orderId: input.orderId,
             shop: store.shop,
@@ -344,14 +470,16 @@ exports.swipeProvider = {
         });
         return {
             paymentUrl,
-            providerReference: pickProviderReference(body, input.orderId)
+            providerReference
         };
     },
     parseWebhook(_store, payload) {
-        const status = String(payload.status ?? payload.payment_status ?? payload.transaction_status ?? payload.state ?? "").toUpperCase();
-        const paid = ["SUCCESS", "PAID", "COMPLETED", "APPROVED", "SETTLEMENT", "CAPTURED"].includes(status);
+        const statusRaw = swipePrimaryStatus(payload);
+        const { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
         return {
             paid,
+            outcome,
+            statusRaw: statusRaw || undefined,
             providerReference: String(payload.transaction_id ?? payload.id ?? payload.payment_id ?? payload.reference ?? "")
         };
     }
