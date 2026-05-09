@@ -41,6 +41,8 @@ const goLiveWebhookShopRedact = document.getElementById("goLiveWebhookShopRedact
 
 const params = new URLSearchParams(window.location.search);
 const installBannerStorageKey = "shopifyInstallBannerState";
+/** Remember Config / System / … across full-page OAuth redirect so the UI tab is not reset to Config. */
+const ACTIVE_TAB_STORAGE_KEY = "paymentGatewayActiveTab";
 const apiKeyFromMeta = document.querySelector('meta[name="shopify-api-key"]')?.getAttribute("content") || "";
 const metaKey = apiKeyFromMeta && apiKeyFromMeta !== "__SHOPIFY_API_KEY__" ? apiKeyFromMeta : "";
 const apiKey = params.get("apiKey") || params.get("api_key") || metaKey || "";
@@ -216,6 +218,12 @@ function restoreBanner() {
 function setActiveTab(active) {
   if (!hasAdvancedTabs) {
     return;
+  }
+
+  try {
+    sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, active);
+  } catch (_e) {
+    // ignore
   }
 
   const tabs = [
@@ -598,12 +606,33 @@ async function createDemoCheckout() {
   }
 }
 
+function getPersistedTabBeforeOAuthNavigate() {
+  if (!hasAdvancedTabs || !viewSystem || !viewCompliance || !viewGoLive) {
+    return "config";
+  }
+  if (!viewSystem.classList.contains("hidden")) {
+    return "system";
+  }
+  if (!viewCompliance.classList.contains("hidden")) {
+    return "compliance";
+  }
+  if (!viewGoLive.classList.contains("hidden")) {
+    return "golive";
+  }
+  return "config";
+}
+
 function connectShopify() {
   const shop =
     oauthShopInput.value.trim() || document.getElementById("shop").value.trim() || lookupShopInput.value.trim();
   if (!shop) {
     showResult({ ok: false, message: "Please enter shop domain before Shopify OAuth install." });
     return;
+  }
+  try {
+    sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, getPersistedTabBeforeOAuthNavigate());
+  } catch (_e) {
+    // ignore
   }
   const installUrl = `/auth/shopify?shop=${encodeURIComponent(shop)}`;
   try {
@@ -842,7 +871,17 @@ if (hasAdvancedTabs) {
     copyTextFromElId(targetId);
   });
 
-  const initialTab = (new URLSearchParams(window.location.search).get("tab") || "config").toLowerCase();
+  let storedTab = null;
+  try {
+    storedTab = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+  } catch (_e) {
+    // ignore
+  }
+  const allowed = new Set(["config", "system", "compliance", "golive"]);
+  const fromQuery = new URLSearchParams(window.location.search).get("tab");
+  const candidate = (fromQuery || storedTab || "config").toLowerCase();
+  const initialTab = allowed.has(candidate) ? candidate : "config";
+
   if (initialTab === "system") {
     tabSystem.click();
   } else if (initialTab === "compliance") {
