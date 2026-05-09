@@ -29,6 +29,17 @@ export function createApp(): express.Application {
     })
   );
 
+  /** Shopify app URL is often `/app`; API lives under `/api`. Redirect mistaken `/app/api/...` browser hits to `/api/...`. */
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/app/api")) {
+      const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+      const corrected = `${req.path.replace(/^\/app\/api/, "/api")}${qs}`;
+      res.redirect(307, corrected);
+      return;
+    }
+    next();
+  });
+
   const publicDir = path.join(process.cwd(), "public");
   app.use(express.static(publicDir));
 

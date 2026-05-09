@@ -31,6 +31,16 @@ function createApp() {
             req.rawBody = Buffer.from(buf);
         }
     }));
+    /** Shopify app URL is often `/app`; API lives under `/api`. Redirect mistaken `/app/api/...` browser hits to `/api/...`. */
+    app.use((req, res, next) => {
+        if (req.path.startsWith("/app/api")) {
+            const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+            const corrected = `${req.path.replace(/^\/app\/api/, "/api")}${qs}`;
+            res.redirect(307, corrected);
+            return;
+        }
+        next();
+    });
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
     const indexHtmlTemplate = node_fs_1.default.readFileSync(node_path_1.default.join(publicDir, "index.html"), "utf8");

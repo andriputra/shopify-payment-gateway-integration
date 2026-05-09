@@ -69,6 +69,43 @@
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Runtime</p>
             <div id="systemRuntime" class="mt-2 text-xs text-slate-700">-</div>
           </div>
+
+          <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-slate-900">Swipe transaction log</p>
+                <p class="mt-1 text-xs text-slate-600">
+                  Loads <code class="rounded bg-white px-1 py-0.5 text-[11px]">GET /api/payments/swipe/transaction-log</code>
+                  with your embedded session token. Opening that URL in a new tab usually fails (no
+                  <code class="rounded bg-white px-1 py-0.5 text-[11px]">Authorization</code> header). Use this button instead.
+                </p>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <label class="grid gap-1 text-xs font-medium text-slate-700">
+                  Limit
+                  <input
+                    id="swipeTxLogLimit"
+                    type="number"
+                    value="100"
+                    min="1"
+                    max="500"
+                    class="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+                  />
+                </label>
+                <button
+                  id="refreshSwipeTxLogBtn"
+                  type="button"
+                  class="rounded-lg bg-amber-800 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-900"
+                >
+                  Load log
+                </button>
+              </div>
+            </div>
+            <pre
+              id="swipeTxLogOutput"
+              class="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-emerald-100"
+            >Click “Load log” (embedded app only).</pre>
+          </div>
         </div>
       </section>
 

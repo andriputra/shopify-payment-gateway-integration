@@ -708,6 +708,41 @@ async function swipeTestApiFromAdmin() {
 if (swipeTestApiBtn) {
   swipeTestApiBtn.addEventListener("click", swipeTestApiFromAdmin);
 }
+
+const refreshSwipeTxLogBtn = document.getElementById("refreshSwipeTxLogBtn");
+const swipeTxLogLimit = document.getElementById("swipeTxLogLimit");
+const swipeTxLogOutput = document.getElementById("swipeTxLogOutput");
+
+if (refreshSwipeTxLogBtn && swipeTxLogOutput) {
+  refreshSwipeTxLogBtn.addEventListener("click", async () => {
+    swipeTxLogOutput.textContent = "Loading…";
+    try {
+      const limitRaw = swipeTxLogLimit ? Number(swipeTxLogLimit.value) : 100;
+      const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : 100;
+      const response = await appFetch(`/api/payments/swipe/transaction-log?limit=${limit}`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        swipeTxLogOutput.textContent = JSON.stringify(
+          { ok: false, httpStatus: response.status, ...data },
+          null,
+          2
+        );
+        return;
+      }
+      swipeTxLogOutput.textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      swipeTxLogOutput.textContent = JSON.stringify(
+        { ok: false, message: error instanceof Error ? error.message : String(error) },
+        null,
+        2
+      );
+    }
+  });
+}
+
 connectShopifyBtn.addEventListener("click", connectShopify);
 installStatusBanner.addEventListener("click", (event) => {
   const target = event.target && event.target.closest ? event.target.closest("[data-banner-dismiss]") : null;
