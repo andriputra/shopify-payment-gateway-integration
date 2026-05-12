@@ -13,6 +13,7 @@ const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
+const payment_status_1 = require("./routes/payment-status");
 const shopify_auth_1 = require("./routes/shopify-auth");
 const shopify_payment_session_1 = require("./routes/shopify-payment-session");
 const shopify_webhooks_1 = require("./routes/shopify-webhooks");
@@ -162,6 +163,7 @@ function createApp() {
 </html>`;
         res.type("html").send(html);
     });
+    app.use("/api", (0, payment_status_1.paymentStatusRoutes)(paymentRedirectRepo));
     app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
     // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
     app.use("/api/system", (0, system_1.systemRoutes)(storage));

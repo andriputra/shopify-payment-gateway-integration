@@ -7,6 +7,7 @@ import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
+import { paymentStatusRoutes } from "./routes/payment-status";
 import { shopifyAuthRoutes } from "./routes/shopify-auth";
 import { shopifyPaymentSessionRoutes } from "./routes/shopify-payment-session";
 import { shopifyWebhookRoutes } from "./routes/shopify-webhooks";
@@ -181,6 +182,7 @@ export function createApp(): express.Application {
     res.type("html").send(html);
   });
 
+  app.use("/api", paymentStatusRoutes(paymentRedirectRepo));
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
   // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
   app.use("/api/system", systemRoutes(storage));

@@ -54,20 +54,41 @@ export type PaymentRedirectRecord = {
   provider: string;
   paymentUrl: string;
   providerReference: string;
-  /** Shopify Order GID (manual payment flow), jika tersedia. */
+  /** Shopify Order GID (manual payment flow), when available. */
   shopifyOrderId?: string;
   amount: number;
   currency: string;
   status: "pending" | "paid" | "failed";
   createdAt: string;
   updatedAt: string;
+  /** Swipe EDC / gateway response code from the last callback (if reported). */
+  swipeResponseCode?: string;
+  /** Vendor message for `swipeResponseCode` (from reference table or callback body). */
+  swipeResponseMessage?: string;
+  /** Raw payment_status / status string from the last Swipe callback. */
+  lastSwipeStatusRaw?: string;
 };
+
+export type PaymentRedirectMergePatch = Partial<
+  Pick<
+    PaymentRedirectRecord,
+    | "status"
+    | "swipeResponseCode"
+    | "swipeResponseMessage"
+    | "lastSwipeStatusRaw"
+    | "paymentUrl"
+    | "providerReference"
+    | "shopifyOrderId"
+  >
+>;
 
 export interface PaymentRedirectStore {
   upsert(record: PaymentRedirectRecord): Promise<PaymentRedirectRecord>;
   get(shop: string, orderReference: string): Promise<PaymentRedirectRecord | undefined>;
+  getByShopifyOrderId(shop: string, shopifyOrderId: string): Promise<PaymentRedirectRecord | undefined>;
   listByShop(shop: string, limit?: number): Promise<PaymentRedirectRecord[]>;
   markStatus(shop: string, orderReference: string, status: PaymentRedirectRecord["status"]): Promise<void>;
+  mergeUpdate(shop: string, orderReference: string, patch: PaymentRedirectMergePatch): Promise<void>;
   count(): Promise<number>;
 }
 
@@ -113,6 +134,8 @@ export type SystemStatus = {
     paymentSessionContexts: number;
     paymentRedirects: number;
     complianceRequests: number;
+    /** Rows in `swipe_response_codes` when using MySQL (reference dictionary). */
+    swipeResponseCodes?: number;
   };
   lastCompliance?: {
     id: string;

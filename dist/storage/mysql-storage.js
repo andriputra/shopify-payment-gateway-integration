@@ -6,6 +6,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMysqlStorage = createMysqlStorage;
 const promise_1 = __importDefault(require("mysql2/promise"));
 const env_1 = require("../config/env");
+const swipe_response_codes_1 = require("../data/swipe-response-codes");
+const shopify_order_id_1 = require("../utils/shopify-order-id");
 function parseJsonObject(value) {
     if (typeof value !== "string" || !value.trim()) {
         return undefined;
@@ -194,6 +196,17 @@ class MysqlComplianceRequestRepository {
         };
     }
 }
+async function ignoreDuplicateColumn(pool, sql) {
+    try {
+        await pool.execute(sql);
+    }
+    catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!/Duplicate column name/i.test(msg)) {
+            throw err;
+        }
+    }
+}
 class MysqlPaymentRedirectRepository {
     constructor(pool) {
         this.pool = pool;
@@ -201,8 +214,9 @@ class MysqlPaymentRedirectRepository {
     async upsert(record) {
         await this.pool.execute(`INSERT INTO payment_redirects (
         shop, order_reference, provider, payment_url, provider_reference, shopify_order_id,
-        amount, currency, status, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        amount, currency, status, created_at, updated_at,
+        swipe_response_code, swipe_response_message, last_swipe_status_raw
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         provider = VALUES(provider),
         payment_url = VALUES(payment_url),
@@ -211,7 +225,10 @@ class MysqlPaymentRedirectRepository {
         amount = VALUES(amount),
         currency = VALUES(currency),
         status = VALUES(status),
-        updated_at = VALUES(updated_at)`, [
+        updated_at = VALUES(updated_at),
+        swipe_response_code = VALUES(swipe_response_code),
+        swipe_response_message = VALUES(swipe_response_message),
+        last_swipe_status_raw = VALUES(last_swipe_status_raw)`, [
             record.shop,
             record.orderReference,
             record.provider,
@@ -222,7 +239,10 @@ class MysqlPaymentRedirectRepository {
             record.currency,
             record.status,
             record.createdAt,
-            record.updatedAt
+            record.updatedAt,
+            record.swipeResponseCode ?? null,
+            record.swipeResponseMessage ?? null,
+            record.lastSwipeStatusRaw ?? null
         ]);
         return record;
     }
@@ -230,12 +250,30 @@ class MysqlPaymentRedirectRepository {
         const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND order_reference = ? LIMIT 1", [shop, orderReference]);
         return rows[0] ? this.mapRow(rows[0]) : undefined;
     }
+    async getByShopifyOrderId(shop, shopifyOrderId) {
+        const want = (0, shopify_order_id_1.normalizeShopifyOrderGid)(shopifyOrderId);
+        const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND shopify_order_id = ? LIMIT 1", [shop, want]);
+        return rows[0] ? this.mapRow(rows[0]) : undefined;
+    }
     async listByShop(shop, limit = 50) {
         const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? ORDER BY updated_at DESC LIMIT ?", [shop, Math.max(1, limit)]);
         return rows.map((row) => this.mapRow(row));
     }
     async markStatus(shop, orderReference, status) {
-        await this.pool.execute("UPDATE payment_redirects SET status = ?, updated_at = ? WHERE shop = ? AND order_reference = ?", [status, new Date().toISOString(), shop, orderReference]);
+        await this.mergeUpdate(shop, orderReference, { status });
+    }
+    async mergeUpdate(shop, orderReference, patch) {
+        const existing = await this.get(shop, orderReference);
+        if (!existing) {
+            return;
+        }
+        const merged = { ...existing, updatedAt: new Date().toISOString() };
+        for (const [key, value] of Object.entries(patch)) {
+            if (value !== undefined) {
+                merged[key] = value;
+            }
+        }
+        await this.upsert(merged);
     }
     async count() {
         const [[row]] = await this.pool.query("SELECT COUNT(*) AS c FROM payment_redirects");
@@ -253,7 +291,10 @@ class MysqlPaymentRedirectRepository {
             currency: String(row.currency),
             status: row.status,
             createdAt: String(row.created_at),
-            updatedAt: String(row.updated_at)
+            updatedAt: String(row.updated_at),
+            swipeResponseCode: row.swipe_response_code != null ? String(row.swipe_response_code) : undefined,
+            swipeResponseMessage: row.swipe_response_message != null ? String(row.swipe_response_message) : undefined,
+            lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined
         };
     }
 }
@@ -352,11 +393,27 @@ function createMysqlStorage() {
           status VARCHAR(16) NOT NULL,
           created_at VARCHAR(64) NOT NULL,
           updated_at VARCHAR(64) NOT NULL,
+          swipe_response_code VARCHAR(32) NULL,
+          swipe_response_message TEXT NULL,
+          last_swipe_status_raw VARCHAR(255) NULL,
           PRIMARY KEY (shop, order_reference),
           INDEX idx_payment_redirect_shop (shop),
           INDEX idx_payment_redirect_status (status)
         )
       `);
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN swipe_response_code VARCHAR(32) NULL");
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN swipe_response_message TEXT NULL");
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN last_swipe_status_raw VARCHAR(255) NULL");
+            await pool.execute(`
+        CREATE TABLE IF NOT EXISTS swipe_response_codes (
+          code VARCHAR(16) PRIMARY KEY,
+          message TEXT NOT NULL
+        )
+      `);
+            for (const [code, message] of Object.entries(swipe_response_codes_1.SWIPE_RESPONSE_CODES)) {
+                await pool.execute(`INSERT INTO swipe_response_codes (code, message) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE message = VALUES(message)`, [code, message]);
+            }
         },
         systemStatus: async () => {
             const startedAt = Date.now();
@@ -374,6 +431,7 @@ function createMysqlStorage() {
             const [[sessionCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM payment_session_contexts");
             const [[complianceCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM compliance_requests");
             const [[redirectCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM payment_redirects");
+            const [[swipeCodesCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM swipe_response_codes");
             const [lastRows] = await pool.query("SELECT id, topic, shop, triggered_at FROM compliance_requests ORDER BY triggered_at DESC LIMIT 1");
             const last = lastRows[0];
             return {
@@ -393,7 +451,8 @@ function createMysqlStorage() {
                     shopifyTokens: Number(tokenCountRow?.c ?? 0),
                     paymentSessionContexts: Number(sessionCountRow?.c ?? 0),
                     paymentRedirects: Number(redirectCountRow?.c ?? 0),
-                    complianceRequests: Number(complianceCountRow?.c ?? 0)
+                    complianceRequests: Number(complianceCountRow?.c ?? 0),
+                    swipeResponseCodes: Number(swipeCodesCountRow?.c ?? 0)
                 },
                 lastCompliance: last
                     ? {

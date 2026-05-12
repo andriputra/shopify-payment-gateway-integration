@@ -30,6 +30,31 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     const result = await service.handleWebhook(decodedShop, provider, body);
     const orderRef = webhookOrderReference(provider, body);
 
+    if (orderRef && paymentRedirectRepo) {
+      const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+      if (record) {
+        const swipeExtras =
+          provider === "swipe"
+            ? {
+                swipeResponseCode: result.edcResponseCode,
+                swipeResponseMessage: result.edcResponseMessage,
+                lastSwipeStatusRaw: result.statusRaw
+              }
+            : {};
+        let nextStatus = record.status;
+        if (result.paid) {
+          nextStatus = "paid";
+        } else if (
+          result.outcome === "failed" ||
+          result.outcome === "cancelled" ||
+          result.outcome === "timeout"
+        ) {
+          nextStatus = "failed";
+        }
+        await paymentRedirectRepo.mergeUpdate(decodedShop, orderRef, { status: nextStatus, ...swipeExtras });
+      }
+    }
+
     let ctxAtCallback: PaymentSessionContext | undefined;
     if (orderRef && sessionContextRepo) {
       ctxAtCallback = await sessionContextRepo.get(orderRef);
@@ -59,19 +84,16 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     if (result.paid && paymentRedirectRepo && orderService) {
       if (orderRef) {
         const record = await paymentRedirectRepo.get(decodedShop, orderRef);
-        if (record) {
-          await paymentRedirectRepo.markStatus(decodedShop, orderRef, "paid");
-          if (record.shopifyOrderId) {
-            const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
-            // Best-effort: do not fail webhook if Shopify mark paid fails.
-            if (!marked.ok) {
-              console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
-                shop: decodedShop,
-                orderRef,
-                orderId: record.shopifyOrderId,
-                message: marked.message
-              });
-            }
+        if (record?.shopifyOrderId) {
+          const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+          // Best-effort: do not fail webhook if Shopify mark paid fails.
+          if (!marked.ok) {
+            console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
+              shop: decodedShop,
+              orderRef,
+              orderId: record.shopifyOrderId,
+              message: marked.message
+            });
           }
         }
       }

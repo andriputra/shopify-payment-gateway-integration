@@ -10,6 +10,7 @@ const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
+const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const base_1 = require("./base");
 /** Shown in debug when edge returns HTML (e.g. 403) — often not a Swipe JSON rejection. */
 const SWIPE_EGRESS_HINT = "HTML/WAF 403: often blocked by proxy/CDN before Swipe API logic. Test the same curl from the same host as the deployed app (same egress IP), not from your laptop; match headers with successful Postman requests (including User-Agent); request egress IP whitelisting from Swipe if laptop works but server fails.";
@@ -129,6 +130,47 @@ function swipePrimaryStatus(payload) {
         payload.transactionStatus ??
         payload.paymentStatus ??
         "").trim();
+}
+function extractSwipeEdcResponseCode(payload) {
+    const candidates = [
+        payload.response_code,
+        payload.responseCode,
+        payload.error_code,
+        payload.errorCode,
+        payload.rc,
+        payload.result_code,
+        payload.resultCode,
+        payload.edc_response_code,
+        payload.edcResponseCode,
+        payload.swipe_response_code,
+        payload.swipeResponseCode
+    ];
+    for (const c of candidates) {
+        if (c === undefined || c === null)
+            continue;
+        const s = String(c).trim();
+        if (s !== "") {
+            return s;
+        }
+    }
+    return undefined;
+}
+function swipeCallbackMessageFromPayloadOrDictionary(payload, code) {
+    const fromPayload = payload.response_message ??
+        payload.responseMessage ??
+        payload.error_message ??
+        payload.errorMessage ??
+        payload.message;
+    if (typeof fromPayload === "string" && fromPayload.trim()) {
+        return fromPayload.trim();
+    }
+    if (code) {
+        const fromDict = (0, swipe_response_codes_1.lookupSwipeResponseMessage)(code);
+        if (fromDict) {
+            return fromDict;
+        }
+    }
+    return undefined;
 }
 function classifySwipeGatewayOutcome(normalizedStatus) {
     const u = normalizedStatus.trim().toUpperCase();
@@ -475,11 +517,15 @@ exports.swipeProvider = {
     },
     parseWebhook(_store, payload) {
         const statusRaw = swipePrimaryStatus(payload);
+        const edcResponseCode = extractSwipeEdcResponseCode(payload);
+        const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
         const { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
         return {
             paid,
             outcome,
             statusRaw: statusRaw || undefined,
+            edcResponseCode,
+            edcResponseMessage,
             providerReference: String(payload.transaction_id ?? payload.id ?? payload.payment_id ?? payload.reference ?? "")
         };
     }

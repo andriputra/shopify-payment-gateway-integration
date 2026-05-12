@@ -37,3 +37,28 @@ CREATE TABLE IF NOT EXISTS compliance_requests (
   INDEX idx_compliance_shop (shop),
   INDEX idx_compliance_topic (topic)
 );
+
+CREATE TABLE IF NOT EXISTS payment_redirects (
+  shop VARCHAR(255) NOT NULL,
+  order_reference VARCHAR(255) NOT NULL,
+  provider VARCHAR(50) NOT NULL,
+  payment_url LONGTEXT NOT NULL,
+  provider_reference TEXT NOT NULL,
+  shopify_order_id TEXT NULL,
+  amount BIGINT NOT NULL,
+  currency VARCHAR(8) NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  created_at VARCHAR(64) NOT NULL,
+  updated_at VARCHAR(64) NOT NULL,
+  swipe_response_code VARCHAR(32) NULL,
+  swipe_response_message TEXT NULL,
+  last_swipe_status_raw VARCHAR(255) NULL,
+  PRIMARY KEY (shop, order_reference),
+  INDEX idx_payment_redirect_shop (shop),
+  INDEX idx_payment_redirect_status (status)
+);
+
+CREATE TABLE IF NOT EXISTS swipe_response_codes (
+  code VARCHAR(16) PRIMARY KEY,
+  message TEXT NOT NULL
+);

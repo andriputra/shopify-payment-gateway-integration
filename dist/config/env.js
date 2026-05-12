@@ -37,6 +37,8 @@ exports.env = {
     shopifyApiKey: must("SHOPIFY_API_KEY"),
     shopifyApiSecret: must("SHOPIFY_API_SECRET"),
     appSharedSecret: must("APP_SHARED_SECRET"),
+    /** Optional override for `GET /api/payment-status`; defaults to APP_SHARED_SECRET. */
+    paymentStatusApiSecret: process.env.PAYMENT_STATUS_API_SECRET?.trim() || "",
     shopifyScopes: process.env.SHOPIFY_SCOPES ??
         "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,write_payment_sessions",
     shopifyRedirectPath: process.env.SHOPIFY_REDIRECT_PATH ?? "/auth/callback",

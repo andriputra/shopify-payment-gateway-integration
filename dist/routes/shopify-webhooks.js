@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.shopifyWebhookRoutes = shopifyWebhookRoutes;
 const express_1 = require("express");
+const swipe_1 = require("../providers/swipe");
 function shopifyWebhookRoutes(authService, complianceService, deps) {
     const router = (0, express_1.Router)();
     const storeRepo = deps?.storeRepo;
@@ -134,6 +135,7 @@ function shopifyWebhookRoutes(authService, complianceService, deps) {
             }
             const orderRef = `order_${orderIdNumber}`;
             const orderGid = `gid://shopify/Order/${orderIdNumber}`;
+            const swipeOrderReference = (0, swipe_1.swipeInvoiceNumberForOrder)(orderRef);
             const result = await paymentService.createCheckout({
                 shop,
                 provider: "swipe",
@@ -144,7 +146,7 @@ function shopifyWebhookRoutes(authService, complianceService, deps) {
             const now = new Date().toISOString();
             await paymentRedirectRepo.upsert({
                 shop,
-                orderReference: orderRef,
+                orderReference: swipeOrderReference,
                 provider: "swipe",
                 paymentUrl: result.paymentUrl,
                 providerReference: result.providerReference,
@@ -155,7 +157,7 @@ function shopifyWebhookRoutes(authService, complianceService, deps) {
                 createdAt: now,
                 updatedAt: now
             });
-            return res.json({ ok: true, shop, orderRef, paymentUrl: result.paymentUrl });
+            return res.json({ ok: true, shop, orderRef, swipeOrderReference, paymentUrl: result.paymentUrl });
         }
         catch (error) {
             next(error);

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { PaymentRedirectRecord, PaymentRedirectStore } from "./contracts";
+import { normalizeShopifyOrderGid } from "../utils/shopify-order-id";
+import { PaymentRedirectMergePatch, PaymentRedirectRecord, PaymentRedirectStore } from "./contracts";
 
 type RedirectKey = string;
 type RedirectMap = Record<RedirectKey, PaymentRedirectRecord>;
@@ -28,6 +29,12 @@ export class PaymentRedirectRepository implements PaymentRedirectStore {
     return this.readAll()[keyOf(shop, orderReference)];
   }
 
+  async getByShopifyOrderId(shop: string, shopifyOrderId: string): Promise<PaymentRedirectRecord | undefined> {
+    const want = normalizeShopifyOrderGid(shopifyOrderId);
+    const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
+    return all.find((r) => r.shopifyOrderId && normalizeShopifyOrderGid(r.shopifyOrderId) === want);
+  }
+
   async listByShop(shop: string, limit = 50): Promise<PaymentRedirectRecord[]> {
     const all = Object.values(this.readAll())
       .filter((r) => r.shop === shop)
@@ -36,11 +43,21 @@ export class PaymentRedirectRepository implements PaymentRedirectStore {
   }
 
   async markStatus(shop: string, orderReference: string, status: PaymentRedirectRecord["status"]): Promise<void> {
+    await this.mergeUpdate(shop, orderReference, { status });
+  }
+
+  async mergeUpdate(shop: string, orderReference: string, patch: PaymentRedirectMergePatch): Promise<void> {
     const data = this.readAll();
     const k = keyOf(shop, orderReference);
     const existing = data[k];
     if (!existing) return;
-    data[k] = { ...existing, status, updatedAt: new Date().toISOString() };
+    const merged: PaymentRedirectRecord = { ...existing, updatedAt: new Date().toISOString() };
+    for (const [key, value] of Object.entries(patch) as [keyof PaymentRedirectMergePatch, unknown][]) {
+      if (value !== undefined) {
+        (merged as Record<string, unknown>)[key] = value;
+      }
+    }
+    data[k] = merged;
     this.writeAll(data);
   }
 

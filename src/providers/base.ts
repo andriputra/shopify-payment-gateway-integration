@@ -17,6 +17,10 @@ export type ProviderWebhookResult = {
   outcome?: PaymentWebhookOutcome;
   /** Raw status-like field from the gateway before mapping (uppercased when applicable). */
   statusRaw?: string;
+  /** Swipe EDC numeric/string response code when present on the callback payload. */
+  edcResponseCode?: string;
+  /** Resolved description for `edcResponseCode` (reference dictionary / payload). */
+  edcResponseMessage?: string;
 };
 
 export interface PaymentProvider {

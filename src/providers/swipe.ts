@@ -6,6 +6,7 @@ import {
   type SwipePaymentSurface
 } from "../services/swipe-transaction-log";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
+import { lookupSwipeResponseMessage } from "../data/swipe-response-codes";
 import {
   PaymentProvider,
   PaymentWebhookOutcome,
@@ -151,6 +152,52 @@ function swipePrimaryStatus(payload: ProviderWebhookPayload): string {
       payload.paymentStatus ??
       ""
   ).trim();
+}
+
+function extractSwipeEdcResponseCode(payload: ProviderWebhookPayload): string | undefined {
+  const candidates = [
+    payload.response_code,
+    payload.responseCode,
+    payload.error_code,
+    payload.errorCode,
+    payload.rc,
+    payload.result_code,
+    payload.resultCode,
+    payload.edc_response_code,
+    payload.edcResponseCode,
+    payload.swipe_response_code,
+    payload.swipeResponseCode
+  ];
+  for (const c of candidates) {
+    if (c === undefined || c === null) continue;
+    const s = String(c).trim();
+    if (s !== "") {
+      return s;
+    }
+  }
+  return undefined;
+}
+
+function swipeCallbackMessageFromPayloadOrDictionary(
+  payload: ProviderWebhookPayload,
+  code: string | undefined
+): string | undefined {
+  const fromPayload =
+    payload.response_message ??
+    payload.responseMessage ??
+    payload.error_message ??
+    payload.errorMessage ??
+    payload.message;
+  if (typeof fromPayload === "string" && fromPayload.trim()) {
+    return fromPayload.trim();
+  }
+  if (code) {
+    const fromDict = lookupSwipeResponseMessage(code);
+    if (fromDict) {
+      return fromDict;
+    }
+  }
+  return undefined;
 }
 
 function classifySwipeGatewayOutcome(normalizedStatus: string): {
@@ -553,11 +600,15 @@ export const swipeProvider: PaymentProvider = {
   },
   parseWebhook(_store: StoreConfig, payload: ProviderWebhookPayload) {
     const statusRaw = swipePrimaryStatus(payload);
+    const edcResponseCode = extractSwipeEdcResponseCode(payload);
+    const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
     const { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
     return {
       paid,
       outcome,
       statusRaw: statusRaw || undefined,
+      edcResponseCode,
+      edcResponseMessage,
       providerReference: String(
         payload.transaction_id ?? payload.id ?? payload.payment_id ?? payload.reference ?? ""
       )

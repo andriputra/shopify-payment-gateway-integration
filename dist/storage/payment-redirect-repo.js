@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentRedirectRepository = void 0;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const shopify_order_id_1 = require("../utils/shopify-order-id");
 function keyOf(shop, orderReference) {
     return `${shop}::${orderReference}`;
 }
@@ -23,6 +24,11 @@ class PaymentRedirectRepository {
     async get(shop, orderReference) {
         return this.readAll()[keyOf(shop, orderReference)];
     }
+    async getByShopifyOrderId(shop, shopifyOrderId) {
+        const want = (0, shopify_order_id_1.normalizeShopifyOrderGid)(shopifyOrderId);
+        const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
+        return all.find((r) => r.shopifyOrderId && (0, shopify_order_id_1.normalizeShopifyOrderGid)(r.shopifyOrderId) === want);
+    }
     async listByShop(shop, limit = 50) {
         const all = Object.values(this.readAll())
             .filter((r) => r.shop === shop)
@@ -30,12 +36,21 @@ class PaymentRedirectRepository {
         return all.slice(0, Math.max(1, limit));
     }
     async markStatus(shop, orderReference, status) {
+        await this.mergeUpdate(shop, orderReference, { status });
+    }
+    async mergeUpdate(shop, orderReference, patch) {
         const data = this.readAll();
         const k = keyOf(shop, orderReference);
         const existing = data[k];
         if (!existing)
             return;
-        data[k] = { ...existing, status, updatedAt: new Date().toISOString() };
+        const merged = { ...existing, updatedAt: new Date().toISOString() };
+        for (const [key, value] of Object.entries(patch)) {
+            if (value !== undefined) {
+                merged[key] = value;
+            }
+        }
+        data[k] = merged;
         this.writeAll(data);
     }
     async count() {
