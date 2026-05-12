@@ -121,6 +121,9 @@ const hasTabShell =
   goLiveWebhookShopRedact;
 
 function showResult(data) {
+  if (!resultEl) {
+    return;
+  }
   resultEl.textContent = JSON.stringify(data, null, 2);
 }
 
@@ -189,6 +192,10 @@ function setBanner(type, message) {
     }
   } catch (_e) {
     // Ignore storage access errors (private mode, blocked storage, etc.)
+  }
+
+  if (!installStatusBanner) {
+    return;
   }
 
   if (!message) {
@@ -651,7 +658,10 @@ function getPersistedTabBeforeOAuthNavigate() {
 
 function connectShopify() {
   const shop =
-    oauthShopInput.value.trim() || document.getElementById("shop").value.trim() || lookupShopInput.value.trim();
+    (oauthShopInput && oauthShopInput.value.trim()) ||
+    (document.getElementById("shop") && document.getElementById("shop").value.trim()) ||
+    (lookupShopInput && lookupShopInput.value.trim()) ||
+    "";
   if (!shop) {
     showResult({ ok: false, message: "Please enter shop domain before Shopify OAuth install." });
     return;
@@ -678,9 +688,16 @@ async function hydrateInstallState() {
   const error = params.get("error");
 
   if (shop) {
-    document.getElementById("shop").value = shop;
-    oauthShopInput.value = shop;
-    lookupShopInput.value = shop;
+    const shopInput = document.getElementById("shop");
+    if (shopInput) {
+      shopInput.value = shop;
+    }
+    if (oauthShopInput) {
+      oauthShopInput.value = shop;
+    }
+    if (lookupShopInput) {
+      lookupShopInput.value = shop;
+    }
   }
 
   if (error) {
@@ -720,10 +737,6 @@ async function hydrateInstallState() {
     showResult({ ok: false, shop, message });
   }
 }
-
-form.addEventListener("submit", saveConfig);
-loadBtn.addEventListener("click", loadConfig);
-createCheckoutBtn.addEventListener("click", createDemoCheckout);
 
 async function swipeTestApiFromAdmin() {
   const shop = document.getElementById("shop").value.trim();
@@ -798,15 +811,6 @@ if (refreshSwipeTxLogBtn && swipeTxLogOutput) {
     }
   });
 }
-
-connectShopifyBtn.addEventListener("click", connectShopify);
-installStatusBanner.addEventListener("click", (event) => {
-  const target = event.target && event.target.closest ? event.target.closest("[data-banner-dismiss]") : null;
-  if (!target) return;
-  setBanner("error", "");
-});
-restoreBanner();
-hydrateInstallState();
 
 if (hasTabShell) {
   tabConfig.addEventListener("click", () => setActiveTab("config"));
@@ -997,16 +1001,43 @@ if (hasTabShell) {
   }
 }
 
+if (connectShopifyBtn) {
+  connectShopifyBtn.addEventListener("click", connectShopify);
+}
+if (installStatusBanner) {
+  installStatusBanner.addEventListener("click", (event) => {
+    const target = event.target && event.target.closest ? event.target.closest("[data-banner-dismiss]") : null;
+    if (!target) return;
+    setBanner("error", "");
+  });
+}
+restoreBanner();
+hydrateInstallState();
+
+if (form) {
+  form.addEventListener("submit", saveConfig);
+}
+if (loadBtn) {
+  loadBtn.addEventListener("click", loadConfig);
+}
+if (createCheckoutBtn) {
+  createCheckoutBtn.addEventListener("click", createDemoCheckout);
+}
 
 const providerSelect = document.getElementById("provider");
 const customFields = document.getElementById("customFields");
 const swipeFields = document.getElementById("swipeFields");
 
 function syncProviderPanels() {
+  if (!providerSelect || !customFields || !swipeFields) {
+    return;
+  }
   const provider = providerSelect.value;
   customFields.classList.toggle("hidden", provider !== "custom");
   swipeFields.classList.toggle("hidden", provider !== "swipe");
 }
 
-providerSelect.addEventListener("change", syncProviderPanels);
+if (providerSelect) {
+  providerSelect.addEventListener("change", syncProviderPanels);
+}
 syncProviderPanels();
