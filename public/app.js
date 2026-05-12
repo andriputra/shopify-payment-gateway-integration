@@ -833,12 +833,16 @@ if (hasAdvancedTabs) {
     const method = (invStatusMethod.value || "GET").toUpperCase() === "POST" ? "POST" : "GET";
 
     if (!secret) {
-      invStatusOutput.textContent = JSON.stringify({ ok: false, message: "Isi Bearer secret (APP_SHARED_SECRET / INV_STATUS_API_SECRET)." }, null, 2);
+      invStatusOutput.textContent = JSON.stringify(
+        { ok: false, message: "Enter the Bearer secret (APP_SHARED_SECRET or INV_STATUS_API_SECRET)." },
+        null,
+        2
+      );
       return;
     }
     if (!shop || !invoice) {
       invStatusOutput.textContent = JSON.stringify(
-        { ok: false, message: "Isi shop (*.myshopify.com) dan invoice_number." },
+        { ok: false, message: "Enter shop (*.myshopify.com) and invoice_number." },
         null,
         2
       );

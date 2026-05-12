@@ -116,23 +116,23 @@
         <div class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 class="text-xl font-semibold text-slate-900">Swipe invoice status (<code class="text-sm font-normal">/InvStatus</code>)</h2>
           <p class="mt-2 text-sm text-slate-600">
-            Endpoint publik <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">GET</code> atau
+            The public <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">GET</code> or
             <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">POST</code>
-            <span class="font-mono text-xs">/InvStatus</span> memerlukan secret yang sama dengan server:
+            <span class="font-mono text-xs">/InvStatus</span> endpoint requires the same secret as the server:
             <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">Authorization: Bearer …</code>
-            (atau header <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">X-Inv-Status-Secret</code>, atau query/body
-            <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">secret</code>). Secret ini adalah
-            <code class="text-xs">APP_SHARED_SECRET</code> / <code class="text-xs">PAYMENT_STATUS_API_SECRET</code> / <code class="text-xs">INV_STATUS_API_SECRET</code> — <strong>bukan</strong> token sesi Shopify.
+            (or the <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">X-Inv-Status-Secret</code> header, or a
+            <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">secret</code> query/body field). That value is
+            <code class="text-xs">APP_SHARED_SECRET</code>, <code class="text-xs">PAYMENT_STATUS_API_SECRET</code>, or <code class="text-xs">INV_STATUS_API_SECRET</code> — <strong>not</strong> the Shopify session token.
           </p>
 
           <div class="mt-5 grid gap-4 md:grid-cols-2">
             <label class="grid gap-1 text-sm font-medium text-slate-700 md:col-span-2">
-              Bearer secret (disimpan hanya di browser untuk request ini)
+              Bearer secret (only used in this browser for the request below)
               <input
                 id="invStatusSecret"
                 type="password"
                 autocomplete="off"
-                placeholder="APP_SHARED_SECRET atau INV_STATUS_API_SECRET"
+                placeholder="APP_SHARED_SECRET or INV_STATUS_API_SECRET"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </label>
@@ -141,12 +141,12 @@
               <input
                 id="invStatusShop"
                 type="text"
-                placeholder="toko.myshopify.com"
+                placeholder="your-shop.myshopify.com"
                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </label>
             <label class="grid gap-1 text-sm font-medium text-slate-700">
-              Invoice number (<code class="text-xs font-normal">invoice_number</code> Swipe)
+              Invoice number (Swipe <code class="text-xs font-normal">invoice_number</code>)
               <input
                 id="invStatusInvoice"
                 type="text"
@@ -185,13 +185,13 @@
             >
               Fetch /InvStatus
             </button>
-            <p class="text-xs text-slate-500">Request memakai <code class="rounded bg-slate-100 px-1">fetch</code> + Bearer, bukan App Bridge session token.</p>
+            <p class="text-xs text-slate-500">Uses <code class="rounded bg-slate-100 px-1">fetch</code> with Bearer — not the App Bridge session token.</p>
           </div>
 
           <pre
             id="invStatusOutput"
             class="mt-4 max-h-[28rem] overflow-auto rounded-lg bg-slate-900 p-4 text-xs text-emerald-100"
-          >Isi secret, shop, invoice, lalu klik Fetch.</pre>
+          >Enter secret, shop, and invoice, then click Fetch.</pre>
         </div>
       </section>
 
