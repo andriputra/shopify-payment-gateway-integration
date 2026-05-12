@@ -80,7 +80,18 @@ function resolveAuthenticatedFetch(bridge) {
 const createApp = resolveCreateApp(AppBridgeGlobal);
 const getSessionToken = resolveGetSessionToken(AppBridgeGlobal);
 
-const hasAdvancedTabs =
+const hasInvStatusPanel = Boolean(
+  invStatusSecret &&
+    invStatusShop &&
+    invStatusInvoice &&
+    invStatusLimit &&
+    invStatusMethod &&
+    fetchInvStatusBtn &&
+    invStatusOutput
+);
+
+/** Core tab nav + System / Compliance / Go-live (must not depend on InvStatus fields). */
+const hasTabShell =
   viewConfig &&
   viewSystem &&
   viewStatus &&
@@ -94,13 +105,6 @@ const hasAdvancedTabs =
   refreshSystemBtn &&
   refreshComplianceBtn &&
   refreshGoLiveBtn &&
-  invStatusSecret &&
-  invStatusShop &&
-  invStatusInvoice &&
-  invStatusLimit &&
-  invStatusMethod &&
-  fetchInvStatusBtn &&
-  invStatusOutput &&
   systemStorage &&
   systemMysql &&
   systemCounts &&
@@ -235,7 +239,7 @@ function restoreBanner() {
 }
 
 function setActiveTab(active) {
-  if (!hasAdvancedTabs) {
+  if (!hasTabShell) {
     return;
   }
 
@@ -371,7 +375,7 @@ function copyTextFromElId(id) {
 }
 
 async function fetchComplianceList() {
-  if (!hasAdvancedTabs) {
+  if (!hasTabShell) {
     return [];
   }
 
@@ -423,7 +427,7 @@ function escapeHtml(value) {
 }
 
 function renderComplianceTable(records) {
-  if (!hasAdvancedTabs) {
+  if (!hasTabShell) {
     return;
   }
 
@@ -627,8 +631,11 @@ async function createDemoCheckout() {
 }
 
 function getPersistedTabBeforeOAuthNavigate() {
-  if (!hasAdvancedTabs || !viewSystem || !viewCompliance || !viewGoLive) {
+  if (!hasTabShell) {
     return "config";
+  }
+  if (viewStatus && !viewStatus.classList.contains("hidden")) {
+    return "status";
   }
   if (!viewSystem.classList.contains("hidden")) {
     return "system";
@@ -801,7 +808,7 @@ installStatusBanner.addEventListener("click", (event) => {
 restoreBanner();
 hydrateInstallState();
 
-if (hasAdvancedTabs) {
+if (hasTabShell) {
   tabConfig.addEventListener("click", () => setActiveTab("config"));
 
   tabSystem.addEventListener("click", async () => {
@@ -824,70 +831,72 @@ if (hasAdvancedTabs) {
     }
   });
 
-  fetchInvStatusBtn.addEventListener("click", async () => {
-    const secret = invStatusSecret.value.trim();
-    const shop = invStatusShop.value.trim();
-    const invoice = invStatusInvoice.value.trim();
-    const limitRaw = Number(invStatusLimit.value);
-    const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : 50;
-    const method = (invStatusMethod.value || "GET").toUpperCase() === "POST" ? "POST" : "GET";
+  if (hasInvStatusPanel) {
+    fetchInvStatusBtn.addEventListener("click", async () => {
+      const secret = invStatusSecret.value.trim();
+      const shop = invStatusShop.value.trim();
+      const invoice = invStatusInvoice.value.trim();
+      const limitRaw = Number(invStatusLimit.value);
+      const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : 50;
+      const method = (invStatusMethod.value || "GET").toUpperCase() === "POST" ? "POST" : "GET";
 
-    if (!secret) {
-      invStatusOutput.textContent = JSON.stringify(
-        { ok: false, message: "Enter the Bearer secret (APP_SHARED_SECRET or INV_STATUS_API_SECRET)." },
-        null,
-        2
-      );
-      return;
-    }
-    if (!shop || !invoice) {
-      invStatusOutput.textContent = JSON.stringify(
-        { ok: false, message: "Enter shop (*.myshopify.com) and invoice_number." },
-        null,
-        2
-      );
-      return;
-    }
-
-    invStatusOutput.textContent = "Loading…";
-    const headers = { Accept: "application/json", Authorization: `Bearer ${secret}` };
-
-    try {
-      let response;
-      if (method === "GET") {
-        const url = new URL("/InvStatus", window.location.origin);
-        url.searchParams.set("shop", shop);
-        url.searchParams.set("invoice_number", invoice);
-        url.searchParams.set("limit", String(limit));
-        response = await fetch(url.toString(), { method: "GET", headers });
-      } else {
-        response = await fetch(`${window.location.origin}/InvStatus`, {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ shop, invoice_number: invoice, limit })
-        });
+      if (!secret) {
+        invStatusOutput.textContent = JSON.stringify(
+          { ok: false, message: "Enter the Bearer secret (APP_SHARED_SECRET or INV_STATUS_API_SECRET)." },
+          null,
+          2
+        );
+        return;
+      }
+      if (!shop || !invoice) {
+        invStatusOutput.textContent = JSON.stringify(
+          { ok: false, message: "Enter shop (*.myshopify.com) and invoice_number." },
+          null,
+          2
+        );
+        return;
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      let body;
-      if (contentType.includes("application/json")) {
-        body = await response.json();
-      } else {
-        body = { ok: false, httpStatus: response.status, raw: (await response.text()).slice(0, 2000) };
+      invStatusOutput.textContent = "Loading…";
+      const headers = { Accept: "application/json", Authorization: `Bearer ${secret}` };
+
+      try {
+        let response;
+        if (method === "GET") {
+          const url = new URL("/InvStatus", window.location.origin);
+          url.searchParams.set("shop", shop);
+          url.searchParams.set("invoice_number", invoice);
+          url.searchParams.set("limit", String(limit));
+          response = await fetch(url.toString(), { method: "GET", headers });
+        } else {
+          response = await fetch(`${window.location.origin}/InvStatus`, {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ shop, invoice_number: invoice, limit })
+          });
+        }
+
+        const contentType = response.headers.get("content-type") || "";
+        let body;
+        if (contentType.includes("application/json")) {
+          body = await response.json();
+        } else {
+          body = { ok: false, httpStatus: response.status, raw: (await response.text()).slice(0, 2000) };
+        }
+        invStatusOutput.textContent = JSON.stringify(
+          { ok: response.ok, httpStatus: response.status, ...body },
+          null,
+          2
+        );
+      } catch (error) {
+        invStatusOutput.textContent = JSON.stringify(
+          { ok: false, message: error instanceof Error ? error.message : String(error) },
+          null,
+          2
+        );
       }
-      invStatusOutput.textContent = JSON.stringify(
-        { ok: response.ok, httpStatus: response.status, ...body },
-        null,
-        2
-      );
-    } catch (error) {
-      invStatusOutput.textContent = JSON.stringify(
-        { ok: false, message: error instanceof Error ? error.message : String(error) },
-        null,
-        2
-      );
-    }
-  });
+    });
+  }
 
   tabCompliance.addEventListener("click", async () => {
     setActiveTab("compliance");
