@@ -4,6 +4,7 @@ exports.normalizeShopDomain = normalizeShopDomain;
 exports.shopDomainAliases = shopDomainAliases;
 exports.shopDomainsMatch = shopDomainsMatch;
 exports.normalizeShopifyShopDomain = normalizeShopifyShopDomain;
+exports.normalizeShopifyOrderGid = normalizeShopifyOrderGid;
 function normalizeShopDomain(value) {
     return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/.*$/, "");
 }
@@ -24,4 +25,16 @@ function normalizeShopifyShopDomain(value) {
         return base;
     }
     return `${base}.myshopify.com`;
+}
+/** Normalize numeric order id or Admin GID to canonical `gid://shopify/Order/{id}`. */
+function normalizeShopifyOrderGid(input) {
+    const t = input.trim();
+    if (/^\d+$/.test(t)) {
+        return `gid://shopify/Order/${t}`;
+    }
+    const m = /^gid:\/\/shopify\/Order\/(\d+)$/i.exec(t);
+    if (m) {
+        return `gid://shopify/Order/${m[1]}`;
+    }
+    return t;
 }

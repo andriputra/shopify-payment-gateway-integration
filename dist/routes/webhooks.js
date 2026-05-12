@@ -2,12 +2,24 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhookRoutes = webhookRoutes;
 const express_1 = require("express");
+const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 function webhookRoutes(service, deps) {
     const router = (0, express_1.Router)();
     const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService } = deps ?? {};
     const handlePaymentWebhook = async (provider, decodedShop, body, res) => {
+        if (provider === "swipe") {
+            const earlyRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body) ||
+                String(body.invoice_number ?? body.merchant_reference ?? body.order_id ?? "__unknown__").trim();
+            await (0, swipe_payload_persist_1.persistSwipePayload)({
+                shop: decodedShop,
+                orderReference: earlyRef,
+                source: "swipe_webhook",
+                httpStatus: null,
+                bodyText: JSON.stringify(body)
+            });
+        }
         const result = await service.handleWebhook(decodedShop, provider, body);
         const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
         if (orderRef && paymentRedirectRepo) {

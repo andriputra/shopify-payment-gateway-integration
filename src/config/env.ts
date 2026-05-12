@@ -37,6 +37,8 @@ export const env = {
   appSharedSecret: must("APP_SHARED_SECRET"),
   /** Optional override for `GET /api/payment-status`; defaults to APP_SHARED_SECRET. */
   paymentStatusApiSecret: process.env.PAYMENT_STATUS_API_SECRET?.trim() || "",
+  /** Optional override for `GET|POST /InvStatus`; defaults to PAYMENT_STATUS_API_SECRET then APP_SHARED_SECRET. */
+  invStatusApiSecret: process.env.INV_STATUS_API_SECRET?.trim() || "",
   shopifyScopes:
     process.env.SHOPIFY_SCOPES ??
     "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,write_payment_sessions",

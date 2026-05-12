@@ -7,6 +7,7 @@ import { ShopifyTokenRepository } from "./shopify-token-repo";
 import { StorageBundle, SystemStatus } from "./contracts";
 import { createMysqlStorage } from "./mysql-storage";
 import { StoreConfigRepository } from "./store-config-repo";
+import { JsonlSwipePayloadRepository } from "./swipe-payload-repo";
 
 let storage: StorageBundle | undefined;
 
@@ -25,17 +26,20 @@ function createJsonStorage(): StorageBundle {
   const sessionContextRepo = new PaymentSessionContextRepository(path.join(env.dataDir, "payment-session-contexts.json"));
   const paymentRedirectRepo = new PaymentRedirectRepository(path.join(env.dataDir, "payment-redirects.json"));
   const complianceRequestRepo = new ComplianceRequestRepository(path.join(env.dataDir, "compliance-requests.json"));
+  const swipePayloadRepo = new JsonlSwipePayloadRepository(JsonlSwipePayloadRepository.defaultPath());
 
   return {
     initialize: async () => undefined,
     systemStatus: async (): Promise<SystemStatus> => {
-      const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests] = await Promise.all([
-        storeRepo.list(),
-        tokenRepo.list(),
-        sessionContextRepo.list(),
-        paymentRedirectRepo.count(),
-        complianceRequestRepo.list()
-      ]);
+      const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests, swipePayloadRecords] =
+        await Promise.all([
+          storeRepo.list(),
+          tokenRepo.list(),
+          sessionContextRepo.list(),
+          paymentRedirectRepo.count(),
+          complianceRequestRepo.list(),
+          swipePayloadRepo.count()
+        ]);
 
       const last = complianceRequests[0];
 
@@ -55,7 +59,8 @@ function createJsonStorage(): StorageBundle {
           shopifyTokens: shopifyTokens.length,
           paymentSessionContexts: paymentSessionContexts.length,
           paymentRedirects: paymentRedirects,
-          complianceRequests: complianceRequests.length
+          complianceRequests: complianceRequests.length,
+          swipePayloadRecords
         },
         lastCompliance: last
           ? {
@@ -71,7 +76,8 @@ function createJsonStorage(): StorageBundle {
     tokenRepo,
     sessionContextRepo,
     paymentRedirectRepo,
-    complianceRequestRepo
+    complianceRequestRepo,
+    swipePayloadRepo
   };
 }
 

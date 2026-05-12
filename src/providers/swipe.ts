@@ -6,6 +6,7 @@ import {
   type SwipePaymentSurface
 } from "../services/swipe-transaction-log";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
+import { persistSwipePayload } from "../services/swipe-payload-persist";
 import { lookupSwipeResponseMessage } from "../data/swipe-response-codes";
 import {
   PaymentProvider,
@@ -470,6 +471,16 @@ export const swipeProvider: PaymentProvider = {
     try {
       response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
     } catch (netErr) {
+      await persistSwipePayload({
+        shop: store.shop,
+        orderReference: String(requestBody.invoice_number),
+        source: "swipe_api_create",
+        httpStatus: null,
+        bodyText: JSON.stringify({
+          _error: "network",
+          message: netErr instanceof Error ? netErr.message : String(netErr)
+        })
+      });
       logSwipeTransaction({
         phase: "create_network_error",
         shop: store.shop,
@@ -481,6 +492,14 @@ export const swipeProvider: PaymentProvider = {
       });
       throw netErr;
     }
+
+    await persistSwipePayload({
+      shop: store.shop,
+      orderReference: String(requestBody.invoice_number),
+      source: "swipe_api_create",
+      httpStatus: response.status,
+      bodyText: response.bodyText
+    });
 
     if (!response.ok) {
       const errText = response.bodyText || "Unknown error";
@@ -669,6 +688,13 @@ export async function swipeTestPaymentRequest(
 
   const outboundHeaders = swipeOutboundHeaders(merchantId);
   const response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
+  await persistSwipePayload({
+    shop: store.shop,
+    orderReference: String(requestBody.invoice_number),
+    source: "swipe_api_create",
+    httpStatus: response.status,
+    bodyText: response.bodyText
+  });
   const parsed = tryParseJsonObject(response.bodyText);
 
   let paymentUrl: string | undefined;

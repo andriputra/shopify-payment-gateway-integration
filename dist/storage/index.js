@@ -13,6 +13,7 @@ const payment_redirect_repo_1 = require("./payment-redirect-repo");
 const shopify_token_repo_1 = require("./shopify-token-repo");
 const mysql_storage_1 = require("./mysql-storage");
 const store_config_repo_1 = require("./store-config-repo");
+const swipe_payload_repo_1 = require("./swipe-payload-repo");
 let storage;
 function buildShopifyUrls(host) {
     const base = host.replace(/\/$/, "");
@@ -28,15 +29,17 @@ function createJsonStorage() {
     const sessionContextRepo = new payment_session_context_repo_1.PaymentSessionContextRepository(node_path_1.default.join(env_1.env.dataDir, "payment-session-contexts.json"));
     const paymentRedirectRepo = new payment_redirect_repo_1.PaymentRedirectRepository(node_path_1.default.join(env_1.env.dataDir, "payment-redirects.json"));
     const complianceRequestRepo = new compliance_request_repo_1.ComplianceRequestRepository(node_path_1.default.join(env_1.env.dataDir, "compliance-requests.json"));
+    const swipePayloadRepo = new swipe_payload_repo_1.JsonlSwipePayloadRepository(swipe_payload_repo_1.JsonlSwipePayloadRepository.defaultPath());
     return {
         initialize: async () => undefined,
         systemStatus: async () => {
-            const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests] = await Promise.all([
+            const [storeConfigs, shopifyTokens, paymentSessionContexts, paymentRedirects, complianceRequests, swipePayloadRecords] = await Promise.all([
                 storeRepo.list(),
                 tokenRepo.list(),
                 sessionContextRepo.list(),
                 paymentRedirectRepo.count(),
-                complianceRequestRepo.list()
+                complianceRequestRepo.list(),
+                swipePayloadRepo.count()
             ]);
             const last = complianceRequests[0];
             return {
@@ -55,7 +58,8 @@ function createJsonStorage() {
                     shopifyTokens: shopifyTokens.length,
                     paymentSessionContexts: paymentSessionContexts.length,
                     paymentRedirects: paymentRedirects,
-                    complianceRequests: complianceRequests.length
+                    complianceRequests: complianceRequests.length,
+                    swipePayloadRecords
                 },
                 lastCompliance: last
                     ? {
@@ -71,7 +75,8 @@ function createJsonStorage() {
         tokenRepo,
         sessionContextRepo,
         paymentRedirectRepo,
-        complianceRequestRepo
+        complianceRequestRepo,
+        swipePayloadRepo
     };
 }
 function getStorage() {

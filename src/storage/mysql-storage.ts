@@ -14,10 +14,15 @@ import {
   ShopifyTokenRecord,
   ShopifyTokenStore,
   StorageBundle,
+  SwipePayloadAppendInput,
+  SwipePayloadRecord,
+  SwipePayloadSource,
+  SwipePayloadStore,
   SystemStatus,
   StoreConfigStore
 } from "./contracts";
-import { normalizeShopifyOrderGid } from "../utils/shopify-order-id";
+import { bodyTextToPayload } from "./swipe-payload-repo";
+import { normalizeShopifyOrderGid, normalizeShopifyShopDomain } from "../utils/shop-domain";
 
 function parseJsonObject(value: unknown): Record<string, string> | undefined {
   if (typeof value !== "string" || !value.trim()) {
@@ -375,6 +380,62 @@ class MysqlPaymentRedirectRepository implements PaymentRedirectStore {
   }
 }
 
+class MysqlSwipePayloadRepository implements SwipePayloadStore {
+  constructor(private readonly pool: Pool) {}
+
+  async append(input: SwipePayloadAppendInput): Promise<SwipePayloadRecord> {
+    const shop = normalizeShopifyShopDomain(input.shop);
+    const orderReference = input.orderReference.trim();
+    const createdAt = new Date().toISOString();
+    const payload = bodyTextToPayload(input.bodyText);
+    const httpStatus =
+      input.httpStatus === undefined || input.httpStatus === null ? null : Number(input.httpStatus);
+    const [result] = await this.pool.execute<ResultSetHeader>(
+      `INSERT INTO swipe_payload_records (shop, order_reference, source, http_status, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [shop, orderReference, input.source, httpStatus, JSON.stringify(payload), createdAt]
+    );
+    const id = String(result.insertId);
+    return {
+      id,
+      shop,
+      orderReference,
+      source: input.source,
+      httpStatus,
+      payload,
+      createdAt
+    };
+  }
+
+  async listByShopAndOrderReference(
+    shop: string,
+    orderReference: string,
+    limit: number
+  ): Promise<SwipePayloadRecord[]> {
+    const shopKey = normalizeShopifyShopDomain(shop);
+    const ref = orderReference.trim();
+    const cap = Math.max(1, Math.min(limit, 500));
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT * FROM swipe_payload_records WHERE shop = ? AND order_reference = ? ORDER BY id DESC LIMIT ?`,
+      [shopKey, ref, cap]
+    );
+    return rows.map((row) => ({
+      id: String(row.id),
+      shop: String(row.shop),
+      orderReference: String(row.order_reference),
+      source: String(row.source) as SwipePayloadSource,
+      httpStatus: row.http_status != null ? Number(row.http_status) : null,
+      payload: parseJsonRecord(row.payload_json),
+      createdAt: String(row.created_at)
+    }));
+  }
+
+  async count(): Promise<number> {
+    const [[row]] = await this.pool.query<RowDataPacket[]>("SELECT COUNT(*) AS c FROM swipe_payload_records");
+    return Number(row?.c ?? 0);
+  }
+}
+
 function createPoolFromEnv(): Pool {
   if (env.mysqlUrl) {
     const url = new URL(env.mysqlUrl);
@@ -515,6 +576,20 @@ export function createMysqlStorage(): StorageBundle {
           [code, message]
         );
       }
+
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS swipe_payload_records (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          shop VARCHAR(255) NOT NULL,
+          order_reference VARCHAR(255) NOT NULL,
+          source VARCHAR(32) NOT NULL,
+          http_status INT NULL,
+          payload_json LONGTEXT NOT NULL,
+          created_at VARCHAR(64) NOT NULL,
+          INDEX idx_swipe_payload_shop_ref (shop, order_reference),
+          INDEX idx_swipe_payload_created (created_at)
+        )
+      `);
     },
     systemStatus: async (): Promise<SystemStatus> => {
       const startedAt = Date.now();
@@ -546,6 +621,9 @@ export function createMysqlStorage(): StorageBundle {
       const [[swipeCodesCountRow]] = await pool.query<RowDataPacket[]>(
         "SELECT COUNT(*) AS c FROM swipe_response_codes"
       );
+      const [[swipePayloadCountRow]] = await pool.query<RowDataPacket[]>(
+        "SELECT COUNT(*) AS c FROM swipe_payload_records"
+      );
 
       const [lastRows] = await pool.query<RowDataPacket[]>(
         "SELECT id, topic, shop, triggered_at FROM compliance_requests ORDER BY triggered_at DESC LIMIT 1"
@@ -570,7 +648,8 @@ export function createMysqlStorage(): StorageBundle {
           paymentSessionContexts: Number(sessionCountRow?.c ?? 0),
           paymentRedirects: Number(redirectCountRow?.c ?? 0),
           complianceRequests: Number(complianceCountRow?.c ?? 0),
-          swipeResponseCodes: Number(swipeCodesCountRow?.c ?? 0)
+          swipeResponseCodes: Number(swipeCodesCountRow?.c ?? 0),
+          swipePayloadRecords: Number(swipePayloadCountRow?.c ?? 0)
         },
         lastCompliance: last
           ? {
@@ -586,6 +665,7 @@ export function createMysqlStorage(): StorageBundle {
     tokenRepo: new MysqlShopifyTokenRepository(pool),
     sessionContextRepo: new MysqlPaymentSessionContextRepository(pool),
     paymentRedirectRepo: new MysqlPaymentRedirectRepository(pool),
-    complianceRequestRepo: new MysqlComplianceRequestRepository(pool)
+    complianceRequestRepo: new MysqlComplianceRequestRepository(pool),
+    swipePayloadRepo: new MysqlSwipePayloadRepository(pool)
   };
 }

@@ -3,7 +3,7 @@ import { env } from "../config/env";
 import { lookupSwipeResponseMessage, SWIPE_RESPONSE_CODES } from "../data/swipe-response-codes";
 import { PaymentRedirectStore } from "../storage/contracts";
 import { normalizeShopifyShopDomain } from "../utils/shop-domain";
-import { normalizeShopifyOrderGid } from "../utils/shopify-order-id";
+import { normalizeShopifyOrderGid } from "../utils/shop-domain";
 
 function paymentStatusSecret(): string {
   return (env.paymentStatusApiSecret || env.appSharedSecret).trim();

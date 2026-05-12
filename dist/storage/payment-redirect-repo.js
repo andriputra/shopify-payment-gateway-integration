@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentRedirectRepository = void 0;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
-const shopify_order_id_1 = require("../utils/shopify-order-id");
+const shop_domain_1 = require("../utils/shop-domain");
 function keyOf(shop, orderReference) {
     return `${shop}::${orderReference}`;
 }
@@ -25,9 +25,9 @@ class PaymentRedirectRepository {
         return this.readAll()[keyOf(shop, orderReference)];
     }
     async getByShopifyOrderId(shop, shopifyOrderId) {
-        const want = (0, shopify_order_id_1.normalizeShopifyOrderGid)(shopifyOrderId);
+        const want = (0, shop_domain_1.normalizeShopifyOrderGid)(shopifyOrderId);
         const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
-        return all.find((r) => r.shopifyOrderId && (0, shopify_order_id_1.normalizeShopifyOrderGid)(r.shopifyOrderId) === want);
+        return all.find((r) => r.shopifyOrderId && (0, shop_domain_1.normalizeShopifyOrderGid)(r.shopifyOrderId) === want);
     }
     async listByShop(shop, limit = 50) {
         const all = Object.values(this.readAll())

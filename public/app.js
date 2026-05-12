@@ -10,17 +10,27 @@ const oauthShopInput = document.getElementById("oauthShop");
 const installStatusBanner = document.getElementById("installStatusBanner");
 const viewConfig = document.getElementById("viewConfig");
 const viewSystem = document.getElementById("viewSystem");
+const viewStatus = document.getElementById("viewStatus");
 const viewCompliance = document.getElementById("viewCompliance");
 const viewGoLive = document.getElementById("viewGoLive");
 
 const tabConfig = document.getElementById("tabConfig");
 const tabSystem = document.getElementById("tabSystem");
+const tabStatus = document.getElementById("tabStatus");
 const tabCompliance = document.getElementById("tabCompliance");
 const tabGoLive = document.getElementById("tabGoLive");
 
 const refreshSystemBtn = document.getElementById("refreshSystemBtn");
 const refreshComplianceBtn = document.getElementById("refreshComplianceBtn");
 const refreshGoLiveBtn = document.getElementById("refreshGoLiveBtn");
+
+const invStatusSecret = document.getElementById("invStatusSecret");
+const invStatusShop = document.getElementById("invStatusShop");
+const invStatusInvoice = document.getElementById("invStatusInvoice");
+const invStatusLimit = document.getElementById("invStatusLimit");
+const invStatusMethod = document.getElementById("invStatusMethod");
+const fetchInvStatusBtn = document.getElementById("fetchInvStatusBtn");
+const invStatusOutput = document.getElementById("invStatusOutput");
 
 const systemStorage = document.getElementById("systemStorage");
 const systemMysql = document.getElementById("systemMysql");
@@ -73,15 +83,24 @@ const getSessionToken = resolveGetSessionToken(AppBridgeGlobal);
 const hasAdvancedTabs =
   viewConfig &&
   viewSystem &&
+  viewStatus &&
   viewCompliance &&
   viewGoLive &&
   tabConfig &&
   tabSystem &&
+  tabStatus &&
   tabCompliance &&
   tabGoLive &&
   refreshSystemBtn &&
   refreshComplianceBtn &&
   refreshGoLiveBtn &&
+  invStatusSecret &&
+  invStatusShop &&
+  invStatusInvoice &&
+  invStatusLimit &&
+  invStatusMethod &&
+  fetchInvStatusBtn &&
+  invStatusOutput &&
   systemStorage &&
   systemMysql &&
   systemCounts &&
@@ -229,6 +248,7 @@ function setActiveTab(active) {
   const tabs = [
     { id: "config", btn: tabConfig, view: viewConfig },
     { id: "system", btn: tabSystem, view: viewSystem },
+    { id: "status", btn: tabStatus, view: viewStatus },
     { id: "compliance", btn: tabCompliance, view: viewCompliance },
     { id: "golive", btn: tabGoLive, view: viewGoLive }
   ];
@@ -796,6 +816,75 @@ if (hasAdvancedTabs) {
     }
   });
 
+  tabStatus.addEventListener("click", () => {
+    setActiveTab("status");
+    const mainShop = document.getElementById("shop");
+    if (mainShop && mainShop.value && invStatusShop && !invStatusShop.value.trim()) {
+      invStatusShop.value = mainShop.value.trim();
+    }
+  });
+
+  fetchInvStatusBtn.addEventListener("click", async () => {
+    const secret = invStatusSecret.value.trim();
+    const shop = invStatusShop.value.trim();
+    const invoice = invStatusInvoice.value.trim();
+    const limitRaw = Number(invStatusLimit.value);
+    const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : 50;
+    const method = (invStatusMethod.value || "GET").toUpperCase() === "POST" ? "POST" : "GET";
+
+    if (!secret) {
+      invStatusOutput.textContent = JSON.stringify({ ok: false, message: "Isi Bearer secret (APP_SHARED_SECRET / INV_STATUS_API_SECRET)." }, null, 2);
+      return;
+    }
+    if (!shop || !invoice) {
+      invStatusOutput.textContent = JSON.stringify(
+        { ok: false, message: "Isi shop (*.myshopify.com) dan invoice_number." },
+        null,
+        2
+      );
+      return;
+    }
+
+    invStatusOutput.textContent = "Loading…";
+    const headers = { Accept: "application/json", Authorization: `Bearer ${secret}` };
+
+    try {
+      let response;
+      if (method === "GET") {
+        const url = new URL("/InvStatus", window.location.origin);
+        url.searchParams.set("shop", shop);
+        url.searchParams.set("invoice_number", invoice);
+        url.searchParams.set("limit", String(limit));
+        response = await fetch(url.toString(), { method: "GET", headers });
+      } else {
+        response = await fetch(`${window.location.origin}/InvStatus`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ shop, invoice_number: invoice, limit })
+        });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      let body;
+      if (contentType.includes("application/json")) {
+        body = await response.json();
+      } else {
+        body = { ok: false, httpStatus: response.status, raw: (await response.text()).slice(0, 2000) };
+      }
+      invStatusOutput.textContent = JSON.stringify(
+        { ok: response.ok, httpStatus: response.status, ...body },
+        null,
+        2
+      );
+    } catch (error) {
+      invStatusOutput.textContent = JSON.stringify(
+        { ok: false, message: error instanceof Error ? error.message : String(error) },
+        null,
+        2
+      );
+    }
+  });
+
   tabCompliance.addEventListener("click", async () => {
     setActiveTab("compliance");
     try {
@@ -877,13 +966,15 @@ if (hasAdvancedTabs) {
   } catch (_e) {
     // ignore
   }
-  const allowed = new Set(["config", "system", "compliance", "golive"]);
+  const allowed = new Set(["config", "system", "status", "compliance", "golive"]);
   const fromQuery = new URLSearchParams(window.location.search).get("tab");
   const candidate = (fromQuery || storedTab || "config").toLowerCase();
   const initialTab = allowed.has(candidate) ? candidate : "config";
 
   if (initialTab === "system") {
     tabSystem.click();
+  } else if (initialTab === "status") {
+    tabStatus.click();
   } else if (initialTab === "compliance") {
     tabCompliance.click();
   } else if (initialTab === "golive") {

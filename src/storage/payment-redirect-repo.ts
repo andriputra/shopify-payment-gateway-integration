@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeShopifyOrderGid } from "../utils/shopify-order-id";
+import { normalizeShopifyOrderGid } from "../utils/shop-domain";
 import { PaymentRedirectMergePatch, PaymentRedirectRecord, PaymentRedirectStore } from "./contracts";
 
 type RedirectKey = string;

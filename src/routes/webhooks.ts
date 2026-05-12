@@ -1,5 +1,6 @@
 import { Response, Router } from "express";
 import { PaymentService } from "../services/payment-service";
+import { persistSwipePayload } from "../services/swipe-payload-persist";
 import { ShopifyOrderService } from "../services/shopify-order-service";
 import { ShopifyPaymentResolveService } from "../services/shopify-payment-resolve-service";
 import { logSwipeTransaction, sanitizeSwipePayloadForLog } from "../services/swipe-transaction-log";
@@ -27,6 +28,19 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     body: Record<string, unknown>,
     res: Response
   ) => {
+    if (provider === "swipe") {
+      const earlyRef =
+        webhookOrderReference(provider, body) ||
+        String(body.invoice_number ?? body.merchant_reference ?? body.order_id ?? "__unknown__").trim();
+      await persistSwipePayload({
+        shop: decodedShop,
+        orderReference: earlyRef,
+        source: "swipe_webhook",
+        httpStatus: null,
+        bodyText: JSON.stringify(body)
+      });
+    }
+
     const result = await service.handleWebhook(decodedShop, provider, body);
     const orderRef = webhookOrderReference(provider, body);
 

@@ -92,6 +92,35 @@ export interface PaymentRedirectStore {
   count(): Promise<number>;
 }
 
+/** Swipe HTTP create response or server-to-server webhook body (parsed JSON or `_raw` wrapper). */
+export type SwipePayloadSource = "swipe_api_create" | "swipe_webhook";
+
+export type SwipePayloadAppendInput = {
+  shop: string;
+  /** Same key as payment redirect / Swipe `invoice_number` when known (e.g. INV-…). */
+  orderReference: string;
+  source: SwipePayloadSource;
+  httpStatus?: number | null;
+  /** Raw body text from Swipe (JSON or non-JSON). */
+  bodyText: string;
+};
+
+export type SwipePayloadRecord = {
+  id: string;
+  shop: string;
+  orderReference: string;
+  source: SwipePayloadSource;
+  httpStatus: number | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
+};
+
+export interface SwipePayloadStore {
+  append(input: SwipePayloadAppendInput): Promise<SwipePayloadRecord>;
+  listByShopAndOrderReference(shop: string, orderReference: string, limit: number): Promise<SwipePayloadRecord[]>;
+  count(): Promise<number>;
+}
+
 export interface ComplianceRequestStore {
   append(record: ComplianceRequestRecord): Promise<ComplianceRequestRecord>;
   list(): Promise<ComplianceRequestRecord[]>;
@@ -106,6 +135,7 @@ export type StorageBundle = {
   sessionContextRepo: PaymentSessionContextStore;
   paymentRedirectRepo: PaymentRedirectStore;
   complianceRequestRepo: ComplianceRequestStore;
+  swipePayloadRepo: SwipePayloadStore;
 };
 
 export type SystemStatus = {
@@ -136,6 +166,7 @@ export type SystemStatus = {
     complianceRequests: number;
     /** Rows in `swipe_response_codes` when using MySQL (reference dictionary). */
     swipeResponseCodes?: number;
+    swipePayloadRecords?: number;
   };
   lastCompliance?: {
     id: string;

@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
+import { invStatusRoutes } from "./routes/inv-status";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
 import { paymentStatusRoutes } from "./routes/payment-status";
@@ -183,6 +184,7 @@ export function createApp(): express.Application {
   });
 
   app.use("/api", paymentStatusRoutes(paymentRedirectRepo));
+  app.use(invStatusRoutes(storage.swipePayloadRepo));
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
   // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
   app.use("/api/system", systemRoutes(storage));

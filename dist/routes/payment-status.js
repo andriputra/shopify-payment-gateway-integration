@@ -5,7 +5,7 @@ const express_1 = require("express");
 const env_1 = require("../config/env");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const shop_domain_1 = require("../utils/shop-domain");
-const shopify_order_id_1 = require("../utils/shopify-order-id");
+const shop_domain_2 = require("../utils/shop-domain");
 function paymentStatusSecret() {
     return (env_1.env.paymentStatusApiSecret || env_1.env.appSharedSecret).trim();
 }
@@ -39,7 +39,7 @@ function paymentStatusRoutes(paymentRedirectRepo) {
         }
         let record = orderRef ? await paymentRedirectRepo.get(shopKey, orderRef) : undefined;
         if (!record && orderIdQuery) {
-            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shopify_order_id_1.normalizeShopifyOrderGid)(orderIdQuery));
+            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_2.normalizeShopifyOrderGid)(orderIdQuery));
         }
         if (!record) {
             return res.status(404).json({

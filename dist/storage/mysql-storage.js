@@ -7,7 +7,8 @@ exports.createMysqlStorage = createMysqlStorage;
 const promise_1 = __importDefault(require("mysql2/promise"));
 const env_1 = require("../config/env");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
-const shopify_order_id_1 = require("../utils/shopify-order-id");
+const swipe_payload_repo_1 = require("./swipe-payload-repo");
+const shop_domain_1 = require("../utils/shop-domain");
 function parseJsonObject(value) {
     if (typeof value !== "string" || !value.trim()) {
         return undefined;
@@ -251,7 +252,7 @@ class MysqlPaymentRedirectRepository {
         return rows[0] ? this.mapRow(rows[0]) : undefined;
     }
     async getByShopifyOrderId(shop, shopifyOrderId) {
-        const want = (0, shopify_order_id_1.normalizeShopifyOrderGid)(shopifyOrderId);
+        const want = (0, shop_domain_1.normalizeShopifyOrderGid)(shopifyOrderId);
         const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND shopify_order_id = ? LIMIT 1", [shop, want]);
         return rows[0] ? this.mapRow(rows[0]) : undefined;
     }
@@ -296,6 +297,49 @@ class MysqlPaymentRedirectRepository {
             swipeResponseMessage: row.swipe_response_message != null ? String(row.swipe_response_message) : undefined,
             lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined
         };
+    }
+}
+class MysqlSwipePayloadRepository {
+    constructor(pool) {
+        this.pool = pool;
+    }
+    async append(input) {
+        const shop = (0, shop_domain_1.normalizeShopifyShopDomain)(input.shop);
+        const orderReference = input.orderReference.trim();
+        const createdAt = new Date().toISOString();
+        const payload = (0, swipe_payload_repo_1.bodyTextToPayload)(input.bodyText);
+        const httpStatus = input.httpStatus === undefined || input.httpStatus === null ? null : Number(input.httpStatus);
+        const [result] = await this.pool.execute(`INSERT INTO swipe_payload_records (shop, order_reference, source, http_status, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`, [shop, orderReference, input.source, httpStatus, JSON.stringify(payload), createdAt]);
+        const id = String(result.insertId);
+        return {
+            id,
+            shop,
+            orderReference,
+            source: input.source,
+            httpStatus,
+            payload,
+            createdAt
+        };
+    }
+    async listByShopAndOrderReference(shop, orderReference, limit) {
+        const shopKey = (0, shop_domain_1.normalizeShopifyShopDomain)(shop);
+        const ref = orderReference.trim();
+        const cap = Math.max(1, Math.min(limit, 500));
+        const [rows] = await this.pool.query(`SELECT * FROM swipe_payload_records WHERE shop = ? AND order_reference = ? ORDER BY id DESC LIMIT ?`, [shopKey, ref, cap]);
+        return rows.map((row) => ({
+            id: String(row.id),
+            shop: String(row.shop),
+            orderReference: String(row.order_reference),
+            source: String(row.source),
+            httpStatus: row.http_status != null ? Number(row.http_status) : null,
+            payload: parseJsonRecord(row.payload_json),
+            createdAt: String(row.created_at)
+        }));
+    }
+    async count() {
+        const [[row]] = await this.pool.query("SELECT COUNT(*) AS c FROM swipe_payload_records");
+        return Number(row?.c ?? 0);
     }
 }
 function createPoolFromEnv() {
@@ -414,6 +458,19 @@ function createMysqlStorage() {
                 await pool.execute(`INSERT INTO swipe_response_codes (code, message) VALUES (?, ?)
            ON DUPLICATE KEY UPDATE message = VALUES(message)`, [code, message]);
             }
+            await pool.execute(`
+        CREATE TABLE IF NOT EXISTS swipe_payload_records (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          shop VARCHAR(255) NOT NULL,
+          order_reference VARCHAR(255) NOT NULL,
+          source VARCHAR(32) NOT NULL,
+          http_status INT NULL,
+          payload_json LONGTEXT NOT NULL,
+          created_at VARCHAR(64) NOT NULL,
+          INDEX idx_swipe_payload_shop_ref (shop, order_reference),
+          INDEX idx_swipe_payload_created (created_at)
+        )
+      `);
         },
         systemStatus: async () => {
             const startedAt = Date.now();
@@ -432,6 +489,7 @@ function createMysqlStorage() {
             const [[complianceCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM compliance_requests");
             const [[redirectCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM payment_redirects");
             const [[swipeCodesCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM swipe_response_codes");
+            const [[swipePayloadCountRow]] = await pool.query("SELECT COUNT(*) AS c FROM swipe_payload_records");
             const [lastRows] = await pool.query("SELECT id, topic, shop, triggered_at FROM compliance_requests ORDER BY triggered_at DESC LIMIT 1");
             const last = lastRows[0];
             return {
@@ -452,7 +510,8 @@ function createMysqlStorage() {
                     paymentSessionContexts: Number(sessionCountRow?.c ?? 0),
                     paymentRedirects: Number(redirectCountRow?.c ?? 0),
                     complianceRequests: Number(complianceCountRow?.c ?? 0),
-                    swipeResponseCodes: Number(swipeCodesCountRow?.c ?? 0)
+                    swipeResponseCodes: Number(swipeCodesCountRow?.c ?? 0),
+                    swipePayloadRecords: Number(swipePayloadCountRow?.c ?? 0)
                 },
                 lastCompliance: last
                     ? {
@@ -468,6 +527,7 @@ function createMysqlStorage() {
         tokenRepo: new MysqlShopifyTokenRepository(pool),
         sessionContextRepo: new MysqlPaymentSessionContextRepository(pool),
         paymentRedirectRepo: new MysqlPaymentRedirectRepository(pool),
-        complianceRequestRepo: new MysqlComplianceRequestRepository(pool)
+        complianceRequestRepo: new MysqlComplianceRequestRepository(pool),
+        swipePayloadRepo: new MysqlSwipePayloadRepository(pool)
     };
 }

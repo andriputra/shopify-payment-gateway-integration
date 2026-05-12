@@ -10,6 +10,7 @@ const node_http_1 = __importDefault(require("node:http"));
 const node_https_1 = __importDefault(require("node:https"));
 const env_1 = require("../config/env");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
+const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const base_1 = require("./base");
 /** Shown in debug when edge returns HTML (e.g. 403) — often not a Swipe JSON rejection. */
@@ -399,6 +400,16 @@ exports.swipeProvider = {
             response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
         }
         catch (netErr) {
+            await (0, swipe_payload_persist_1.persistSwipePayload)({
+                shop: store.shop,
+                orderReference: String(requestBody.invoice_number),
+                source: "swipe_api_create",
+                httpStatus: null,
+                bodyText: JSON.stringify({
+                    _error: "network",
+                    message: netErr instanceof Error ? netErr.message : String(netErr)
+                })
+            });
             (0, swipe_transaction_log_1.logSwipeTransaction)({
                 phase: "create_network_error",
                 shop: store.shop,
@@ -410,6 +421,13 @@ exports.swipeProvider = {
             });
             throw netErr;
         }
+        await (0, swipe_payload_persist_1.persistSwipePayload)({
+            shop: store.shop,
+            orderReference: String(requestBody.invoice_number),
+            source: "swipe_api_create",
+            httpStatus: response.status,
+            bodyText: response.bodyText
+        });
         if (!response.ok) {
             const errText = response.bodyText || "Unknown error";
             const looksLikeHtmlOr403 = response.status === 403 || /<\s*html/i.test(errText);
@@ -564,6 +582,13 @@ async function swipeTestPaymentRequest(store, options) {
     };
     const outboundHeaders = swipeOutboundHeaders(merchantId);
     const response = await postJsonHttp1(endpointUrl, outboundHeaders, requestBody);
+    await (0, swipe_payload_persist_1.persistSwipePayload)({
+        shop: store.shop,
+        orderReference: String(requestBody.invoice_number),
+        source: "swipe_api_create",
+        httpStatus: response.status,
+        bodyText: response.bodyText
+    });
     const parsed = tryParseJsonObject(response.bodyText);
     let paymentUrl;
     let pickUrlError;
