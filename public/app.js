@@ -90,8 +90,8 @@ const hasInvStatusPanel = Boolean(
     invStatusOutput
 );
 
-/** Core tab nav + System / Compliance / Go-live (must not depend on InvStatus fields). */
-const hasTabShell =
+/** Tab buttons + section panes only — used so tab clicks always wire even if secondary widgets are missing. */
+const hasTabNavigation =
   viewConfig &&
   viewSystem &&
   viewStatus &&
@@ -101,24 +101,7 @@ const hasTabShell =
   tabSystem &&
   tabStatus &&
   tabCompliance &&
-  tabGoLive &&
-  refreshSystemBtn &&
-  refreshComplianceBtn &&
-  refreshGoLiveBtn &&
-  systemStorage &&
-  systemMysql &&
-  systemCounts &&
-  systemRuntime &&
-  systemLastCompliance &&
-  complianceShopFilter &&
-  complianceTopicFilter &&
-  complianceLimit &&
-  complianceTableBody &&
-  goLiveAppUrl &&
-  goLiveRedirectUrl &&
-  goLiveWebhookDataRequest &&
-  goLiveWebhookCustomersRedact &&
-  goLiveWebhookShopRedact;
+  tabGoLive;
 
 function showResult(data) {
   if (!resultEl) {
@@ -246,7 +229,7 @@ function restoreBanner() {
 }
 
 function setActiveTab(active) {
-  if (!hasTabShell) {
+  if (!hasTabNavigation) {
     return;
   }
 
@@ -329,6 +312,9 @@ async function fetchSystemStatus() {
 }
 
 function renderSystemStatus(status) {
+  if (!systemStorage || !systemMysql || !systemCounts || !systemRuntime || !systemLastCompliance) {
+    return;
+  }
   systemStorage.textContent = `${String(status.driver || "").toUpperCase()} (ok=${Boolean(status.ok)})`;
   if (status.driver === "mysql") {
     const mysql = status.mysql || {};
@@ -361,6 +347,15 @@ function renderSystemStatus(status) {
 }
 
 function renderGoLive(status) {
+  if (
+    !goLiveAppUrl ||
+    !goLiveRedirectUrl ||
+    !goLiveWebhookDataRequest ||
+    !goLiveWebhookCustomersRedact ||
+    !goLiveWebhookShopRedact
+  ) {
+    return;
+  }
   /** @type {Record<string, string>} */
   const origin = status.host || window.location.origin;
   const base = String(origin).replace(/\/$/, "");
@@ -382,7 +377,7 @@ function copyTextFromElId(id) {
 }
 
 async function fetchComplianceList() {
-  if (!hasTabShell) {
+  if (!complianceShopFilter || !complianceTopicFilter || !complianceLimit) {
     return [];
   }
 
@@ -434,7 +429,7 @@ function escapeHtml(value) {
 }
 
 function renderComplianceTable(records) {
-  if (!hasTabShell) {
+  if (!complianceTableBody) {
     return;
   }
 
@@ -638,7 +633,7 @@ async function createDemoCheckout() {
 }
 
 function getPersistedTabBeforeOAuthNavigate() {
-  if (!hasTabShell) {
+  if (!hasTabNavigation) {
     return "config";
   }
   if (viewStatus && !viewStatus.classList.contains("hidden")) {
@@ -812,19 +807,33 @@ if (refreshSwipeTxLogBtn && swipeTxLogOutput) {
   });
 }
 
-if (hasTabShell) {
+async function loadSystemAndGoLivePanels() {
+  try {
+    const { status, requestDebug } = await fetchSystemStatus();
+    renderSystemStatus(status);
+    renderGoLive(status);
+    showResultWithDebug({ ok: true, status }, requestDebug);
+  } catch (error) {
+    showResult({ ok: false, message: error instanceof Error ? error.message : "System status failed" });
+  }
+}
+
+async function loadCompliancePanel() {
+  try {
+    const { records, requestDebug } = await fetchComplianceList();
+    renderComplianceTable(records);
+    showResultWithDebug({ ok: true, recordsCount: records.length, records }, requestDebug);
+  } catch (error) {
+    showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance logs failed" });
+  }
+}
+
+if (hasTabNavigation) {
   tabConfig.addEventListener("click", () => setActiveTab("config"));
 
   tabSystem.addEventListener("click", async () => {
     setActiveTab("system");
-    try {
-      const { status, requestDebug } = await fetchSystemStatus();
-      renderSystemStatus(status);
-      renderGoLive(status);
-      showResultWithDebug({ ok: true, status }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "System status failed" });
-    }
+    await loadSystemAndGoLivePanels();
   });
 
   tabStatus.addEventListener("click", () => {
@@ -904,70 +913,52 @@ if (hasTabShell) {
 
   tabCompliance.addEventListener("click", async () => {
     setActiveTab("compliance");
-    try {
-      const { records, requestDebug } = await fetchComplianceList();
-      renderComplianceTable(records);
-      showResultWithDebug({ ok: true, recordsCount: records.length, records }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance logs failed" });
-    }
+    await loadCompliancePanel();
   });
 
   tabGoLive.addEventListener("click", async () => {
     setActiveTab("golive");
-    try {
-      const { status, requestDebug } = await fetchSystemStatus();
-      renderSystemStatus(status);
-      renderGoLive(status);
-      showResultWithDebug({ ok: true, status }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
-    }
+    await loadSystemAndGoLivePanels();
   });
 
-  refreshSystemBtn.addEventListener("click", async () => {
-    try {
-      const { status, requestDebug } = await fetchSystemStatus();
-      renderSystemStatus(status);
-      renderGoLive(status);
-      showResultWithDebug({ ok: true, status }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "System refresh failed" });
-    }
-  });
+  if (refreshSystemBtn) {
+    refreshSystemBtn.addEventListener("click", async () => {
+      await loadSystemAndGoLivePanels();
+    });
+  }
 
-  refreshComplianceBtn.addEventListener("click", async () => {
-    try {
-      const { records, requestDebug } = await fetchComplianceList();
-      renderComplianceTable(records);
-      showResultWithDebug({ ok: true, recordsCount: records.length, records }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance refresh failed" });
-    }
-  });
+  if (refreshComplianceBtn) {
+    refreshComplianceBtn.addEventListener("click", async () => {
+      await loadCompliancePanel();
+    });
+  }
 
-  refreshGoLiveBtn.addEventListener("click", async () => {
-    try {
-      const { status, requestDebug } = await fetchSystemStatus();
-      renderGoLive(status);
-      showResultWithDebug({ ok: true, status }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
-    }
-  });
+  if (refreshGoLiveBtn) {
+    refreshGoLiveBtn.addEventListener("click", async () => {
+      try {
+        const { status, requestDebug } = await fetchSystemStatus();
+        renderGoLive(status);
+        showResultWithDebug({ ok: true, status }, requestDebug);
+      } catch (error) {
+        showResult({ ok: false, message: error instanceof Error ? error.message : "Go-live refresh failed" });
+      }
+    });
+  }
 
-  complianceTableBody.addEventListener("click", async (event) => {
-    const btn = event.target && event.target.closest ? event.target.closest("[data-compliance-id]") : null;
-    if (!btn) return;
-    const id = btn.getAttribute("data-compliance-id");
-    if (!id) return;
-    try {
-      const { record, requestDebug } = await fetchComplianceDetail(id);
-      showResultWithDebug({ ok: true, record }, requestDebug);
-    } catch (error) {
-      showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance detail failed" });
-    }
-  });
+  if (complianceTableBody) {
+    complianceTableBody.addEventListener("click", async (event) => {
+      const btn = event.target && event.target.closest ? event.target.closest("[data-compliance-id]") : null;
+      if (!btn) return;
+      const id = btn.getAttribute("data-compliance-id");
+      if (!id) return;
+      try {
+        const { record, requestDebug } = await fetchComplianceDetail(id);
+        showResultWithDebug({ ok: true, record }, requestDebug);
+      } catch (error) {
+        showResult({ ok: false, message: error instanceof Error ? error.message : "Compliance detail failed" });
+      }
+    });
+  }
 
   document.addEventListener("click", (event) => {
     const btn = event.target && event.target.closest ? event.target.closest("[data-copy-target]") : null;
@@ -989,13 +980,20 @@ if (hasTabShell) {
   const initialTab = allowed.has(candidate) ? candidate : "config";
 
   if (initialTab === "system") {
-    tabSystem.click();
+    setActiveTab("system");
+    void loadSystemAndGoLivePanels();
   } else if (initialTab === "status") {
-    tabStatus.click();
+    setActiveTab("status");
+    const mainShop = document.getElementById("shop");
+    if (mainShop && mainShop.value && invStatusShop && !invStatusShop.value.trim()) {
+      invStatusShop.value = mainShop.value.trim();
+    }
   } else if (initialTab === "compliance") {
-    tabCompliance.click();
+    setActiveTab("compliance");
+    void loadCompliancePanel();
   } else if (initialTab === "golive") {
-    tabGoLive.click();
+    setActiveTab("golive");
+    void loadSystemAndGoLivePanels();
   } else {
     setActiveTab("config");
   }
