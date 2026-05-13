@@ -386,14 +386,32 @@
                   />
                 </label>
                 <label class="grid gap-1 text-sm font-medium text-slate-700">
-                  Payment Method
-                  <input
-                    id="swipePaymentMethod"
-                    type="text"
-                    value="CDCP"
+                  Metode pembayaran Swipe (<code class="text-xs font-normal">payment_method</code>)
+                  <select
+                    id="swipePaymentMethodPreset"
                     class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  />
+                  >
+                    <option value="CDCP" selected>CDCP (kartu / EDC)</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="__custom__">Kode lain (manual)…</option>
+                  </select>
                 </label>
+                <div id="swipePaymentMethodCustomWrap" class="grid gap-1 hidden md:col-span-2">
+                  <label class="text-xs font-medium text-slate-600">
+                    Kode untuk Swipe API
+                    <input
+                      id="swipePaymentMethodCustom"
+                      type="text"
+                      placeholder="contoh dari dokumentasi Swipe"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </label>
+                </div>
+                <p class="text-xs text-slate-500 md:col-span-2">
+                  Default toko + override per transaksi: kirim <code class="rounded bg-slate-100 px-1">swipePaymentMethod</code> di
+                  <code class="rounded bg-slate-100 px-1">POST /api/shopify/payment-sessions</code> atau atribut order
+                  <code class="rounded bg-slate-100 px-1">swipe_payment_method</code> (cart / checkout).
+                </p>
               </div>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
                 Swipe API Base URL (`credentials.extra.apiBaseUrl`)

@@ -8,6 +8,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const express_1 = require("express");
 const zod_1 = require("zod");
 const swipe_1 = require("../providers/swipe");
+const swipeMethodSchema = zod_1.z.string().trim().min(1).max(64).optional();
 const createSessionSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     gid: zod_1.z.string().optional(),
@@ -15,6 +16,8 @@ const createSessionSchema = zod_1.z.object({
     amount: zod_1.z.coerce.number().positive(),
     currency: zod_1.z.string().min(3).max(3).transform((c) => c.toUpperCase()),
     orderId: zod_1.z.string().min(1).optional(),
+    /** Swipe create body `payment_method` for this session (e.g. CDCP, QRIS). Overrides store default. */
+    swipePaymentMethod: swipeMethodSchema,
     customer: zod_1.z
         .object({
         email: zod_1.z.string().email().optional()
@@ -64,7 +67,8 @@ function shopifyPaymentSessionRoutes(deps) {
                 currency: raw.currency,
                 orderId: orderRef,
                 customerEmail: raw.customer?.email,
-                returnUrl: store.redirectUrlAfterPaid
+                returnUrl: store.redirectUrlAfterPaid,
+                swipePaymentMethod: raw.swipePaymentMethod
             });
             const sessionId = raw.id ?? `ps_${Date.now()}`;
             return res.status(201).json({

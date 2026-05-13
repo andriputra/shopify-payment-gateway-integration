@@ -136,12 +136,14 @@ function shopifyWebhookRoutes(authService, complianceService, deps) {
             const orderRef = `order_${orderIdNumber}`;
             const orderGid = `gid://shopify/Order/${orderIdNumber}`;
             const swipeOrderReference = (0, swipe_1.swipeInvoiceNumberForOrder)(orderRef);
+            const swipePaymentMethod = (0, swipe_1.swipePaymentMethodFromOrderNoteAttributes)(payload);
             const result = await paymentService.createCheckout({
                 shop,
                 provider: "swipe",
                 amount: totalPrice,
                 currency,
-                orderId: orderRef
+                orderId: orderRef,
+                swipePaymentMethod
             });
             const now = new Date().toISOString();
             await paymentRedirectRepo.upsert({

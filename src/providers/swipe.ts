@@ -84,6 +84,43 @@ function minimumAmount(store: StoreConfig): number {
   return num;
 }
 
+/** Per-request override (checkout / webhook) wins over store `credentials.extra.paymentMethod`, then CDCP. */
+export function effectiveSwipePaymentMethod(
+  store: StoreConfig,
+  perRequest?: string | null
+): string {
+  const fromRequest = typeof perRequest === "string" ? perRequest.trim() : "";
+  if (fromRequest) {
+    return fromRequest.slice(0, 64);
+  }
+  return store.credentials.extra?.paymentMethod?.trim() || "CDCP";
+}
+
+/**
+ * Shopify order `note_attributes` (from cart / checkout attributes) for per-order Swipe `payment_method`.
+ * Matched attribute names (case-insensitive): `swipe_payment_method`, `Swipe Payment Method`.
+ */
+export function swipePaymentMethodFromOrderNoteAttributes(
+  payload: Record<string, unknown>
+): string | undefined {
+  const attrs = payload.note_attributes;
+  if (!Array.isArray(attrs)) {
+    return undefined;
+  }
+  const wanted = new Set(["swipe_payment_method", "swipe payment method"]);
+  for (const entry of attrs) {
+    if (!entry || typeof entry !== "object") continue;
+    const rec = entry as Record<string, unknown>;
+    const name = String(rec.name ?? "").trim().toLowerCase();
+    const value = String(rec.value ?? "").trim();
+    if (!value) continue;
+    if (wanted.has(name)) {
+      return value.slice(0, 64);
+    }
+  }
+  return undefined;
+}
+
 /** Swipe response may populate `url` with POST endpoint URL (same path) — not a customer redirect; GET there = 404. */
 function shouldIgnoreEchoApiUrl(candidate: string, createEndpointUrl: string): boolean {
   try {
@@ -426,7 +463,7 @@ export const swipeProvider: PaymentProvider = {
     const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
     const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
     const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
-    const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
+    const paymentMethod = effectiveSwipePaymentMethod(store, input.swipePaymentMethod);
     const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
     const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
     const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");
@@ -649,7 +686,7 @@ export type SwipeTestPaymentResult = {
 /** POST to Swipe like create checkout, returns raw body + paymentUrl resolution attempt (for admin testing). */
 export async function swipeTestPaymentRequest(
   store: StoreConfig,
-  options: { amount: number; orderId: string; currency?: string }
+  options: { amount: number; orderId: string; currency?: string; swipePaymentMethod?: string }
 ): Promise<SwipeTestPaymentResult> {
   const merchantId = ensureApiKey(store.credentials);
   const endpointUrl = swipeEndpointUrl(store);
@@ -658,7 +695,7 @@ export async function swipeTestPaymentRequest(
   const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
   const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
   const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
-  const paymentMethod = store.credentials.extra?.paymentMethod?.trim() || "CDCP";
+  const paymentMethod = effectiveSwipePaymentMethod(store, options.swipePaymentMethod);
   const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
   const feeDistributorAmount = numberFromExtra(store, "feeDistributorAmount");
   const feePromotorAmount = numberFromExtra(store, "feePromotorAmount");

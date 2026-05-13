@@ -28,7 +28,8 @@ export class PaymentService {
   async swipeTestRequest(
     shop: string,
     amount: number,
-    orderId?: string
+    orderId?: string,
+    swipePaymentMethod?: string
   ): Promise<SwipeTestPaymentResult> {
     const normalized = normalizeShopKey(shop);
     const store = await this.storeRepo.get(normalized);
@@ -42,7 +43,8 @@ export class PaymentService {
     }
     return swipeTestPaymentRequest(store, {
       amount,
-      orderId: orderId?.trim() || `TEST-${Date.now()}`
+      orderId: orderId?.trim() || `TEST-${Date.now()}`,
+      swipePaymentMethod
     });
   }
 

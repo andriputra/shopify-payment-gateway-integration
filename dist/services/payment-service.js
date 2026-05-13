@@ -23,7 +23,7 @@ class PaymentService {
         return provider.createCheckout(store, input);
     }
     /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
-    async swipeTestRequest(shop, amount, orderId) {
+    async swipeTestRequest(shop, amount, orderId, swipePaymentMethod) {
         const normalized = normalizeShopKey(shop);
         const store = await this.storeRepo.get(normalized);
         if (!store) {
@@ -34,7 +34,8 @@ class PaymentService {
         }
         return (0, swipe_1.swipeTestPaymentRequest)(store, {
             amount,
-            orderId: orderId?.trim() || `TEST-${Date.now()}`
+            orderId: orderId?.trim() || `TEST-${Date.now()}`,
+            swipePaymentMethod
         });
     }
     async handleWebhook(shop, providerId, payload) {

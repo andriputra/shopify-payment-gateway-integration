@@ -259,6 +259,17 @@
               The <code class="font-mono text-xs">shop</code> parameter is required in the URL so sandbox webhook can be mapped to the store.
             </div>
 
+            <div class="mt-4">
+              <label class="block text-xs font-medium text-sc-muted" for="swipePmDemo">Swipe <code class="font-mono">payment_method</code> (demo)</label>
+              <select
+                id="swipePmDemo"
+                class="mt-1 w-full rounded-md border border-sc-border bg-white px-3 py-2 text-sm text-sc-ink shadow-sm focus:border-sc-focus focus:outline-none focus:ring-2 focus:ring-sc-focus/25"
+              >
+                <option value="CDCP">CDCP (kartu / EDC)</option>
+                <option value="QRIS">QRIS</option>
+              </select>
+            </div>
+
             <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
@@ -477,7 +488,11 @@
                 orderId: orderId || "DEMO-" + Date.now(),
                 amount: safeAmount,
                 currency,
-                customerEmail: document.getElementById("emailInput").value || undefined
+                customerEmail: document.getElementById("emailInput").value || undefined,
+                swipePaymentMethod: (function () {
+                  const el = document.getElementById("swipePmDemo");
+                  return el && "value" in el ? String(el.value).trim() : undefined;
+                })()
               })
             });
             const data = await response.json();

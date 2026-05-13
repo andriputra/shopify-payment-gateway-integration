@@ -2,7 +2,7 @@ import { Request, RequestHandler, Router } from "express";
 import { ShopifyComplianceService } from "../services/shopify-compliance-service";
 import { ShopifyAuthService } from "../services/shopify-auth-service";
 import { PaymentService } from "../services/payment-service";
-import { swipeInvoiceNumberForOrder } from "../providers/swipe";
+import { swipeInvoiceNumberForOrder, swipePaymentMethodFromOrderNoteAttributes } from "../providers/swipe";
 import { PaymentRedirectStore, StoreConfigStore } from "../storage/contracts";
 
 type VerifiedWebhook =
@@ -187,12 +187,14 @@ export function shopifyWebhookRoutes(
       const orderRef = `order_${orderIdNumber}`;
       const orderGid = `gid://shopify/Order/${orderIdNumber}`;
       const swipeOrderReference = swipeInvoiceNumberForOrder(orderRef);
+      const swipePaymentMethod = swipePaymentMethodFromOrderNoteAttributes(payload);
       const result = await paymentService.createCheckout({
         shop,
         provider: "swipe",
         amount: totalPrice,
         currency,
-        orderId: orderRef
+        orderId: orderRef,
+        swipePaymentMethod
       });
 
       const now = new Date().toISOString();

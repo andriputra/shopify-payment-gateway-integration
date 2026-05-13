@@ -88,6 +88,10 @@ function createApp() {
             const customerEmail = req.body?.customerEmail
                 ? String(req.body.customerEmail).trim()
                 : undefined;
+            const swipePaymentMethodRaw = req.body?.swipePaymentMethod;
+            const swipePaymentMethod = typeof swipePaymentMethodRaw === "string" && swipePaymentMethodRaw.trim()
+                ? swipePaymentMethodRaw.trim().slice(0, 64)
+                : undefined;
             const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
             if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
                 return res.status(400).json({
@@ -114,7 +118,8 @@ function createApp() {
                 amount,
                 currency: currency.length === 3 ? currency : "IDR",
                 orderId,
-                customerEmail
+                customerEmail,
+                swipePaymentMethod
             });
             return res.json({
                 ok: true,
