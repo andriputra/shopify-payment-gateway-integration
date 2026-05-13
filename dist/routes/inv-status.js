@@ -8,7 +8,7 @@ const shop_domain_1 = require("../utils/shop-domain");
  * Invoice / Swipe payload mirror for Shopify or internal callers.
  *
  * --- Request (choose one auth style) ---
- * GET or POST `${HOST}/InvStatus`
+ * GET or POST `${HOST}/InvStatus` (with or without trailing slash)
  *
  * Query or JSON body:
  * - `shop` (required): Shopify shop, e.g. `mystore` or `mystore.myshopify.com`
@@ -124,11 +124,15 @@ function invStatusRoutes(repo) {
             }))
         });
     };
-    router.get("/InvStatus", (req, res, next) => {
-        handle(req, res).catch(next);
-    });
-    router.post("/InvStatus", (req, res, next) => {
-        handle(req, res).catch(next);
-    });
+    const registerInvStatus = (path) => {
+        router.get(path, (req, res, next) => {
+            handle(req, res).catch(next);
+        });
+        router.post(path, (req, res, next) => {
+            handle(req, res).catch(next);
+        });
+    };
+    registerInvStatus("/InvStatus");
+    registerInvStatus("/InvStatus/");
     return router;
 }
