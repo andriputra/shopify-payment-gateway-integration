@@ -1,4 +1,6 @@
 # Shopify Payment Gateway Integration
+<img width="1920" height="919" alt="screencapture-admin-shopify-store-dynostore-ev8cih63-apps-id-o2o-multi-payment-gateway-app-2026-05-09-11_30_52" src="https://github.com/user-attachments/assets/3803a366-b392-4c83-aac9-ea93f0588054" />
+<img width="1920" height="1742" alt="FireShot Capture 207 - Shopify Payment Gateway Config -  dynapp store" src="https://github.com/user-attachments/assets/66cb83bd-2579-4ded-a701-bfa3942eb84d" />
 
 Starter backend + frontend sederhana untuk integrasi payment gateway di Shopify dengan flow:
 
