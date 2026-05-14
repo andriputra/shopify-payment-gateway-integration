@@ -23,6 +23,11 @@ export type CreateCheckoutInput = {
   orderId: string;
   customerEmail?: string;
   returnUrl?: string;
+  /**
+   * Swipe-only: sent as `payment_method` on create. When set, overrides
+   * `credentials.extra.paymentMethod` (store default). Example: `CDCP`, `QRIS`.
+   */
+  swipePaymentMethod?: string;
 };
 
 export type CreateCheckoutResult = {

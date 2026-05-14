@@ -5,6 +5,7 @@ const express_1 = require("express");
 const zod_1 = require("zod");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const shop_domain_1 = require("../utils/shop-domain");
+const swipeMethodSchema = zod_1.z.string().trim().min(1).max(64).optional();
 const createCheckoutSchema = zod_1.z.object({
     shop: zod_1.z.string().min(3),
     provider: zod_1.z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"]),
@@ -12,12 +13,14 @@ const createCheckoutSchema = zod_1.z.object({
     currency: zod_1.z.string().length(3),
     orderId: zod_1.z.string().min(1),
     customerEmail: zod_1.z.string().email().optional(),
-    returnUrl: zod_1.z.string().url().optional()
+    returnUrl: zod_1.z.string().url().optional(),
+    swipePaymentMethod: swipeMethodSchema
 });
 const swipeTestRequestSchema = zod_1.z.object({
     shop: zod_1.z.string().min(3),
     amount: zod_1.z.coerce.number().min(0).optional().default(0),
-    orderId: zod_1.z.string().min(1).optional()
+    orderId: zod_1.z.string().min(1).optional(),
+    swipePaymentMethod: swipeMethodSchema
 });
 function paymentRoutes(service) {
     const router = (0, express_1.Router)();
@@ -53,7 +56,7 @@ function paymentRoutes(service) {
     router.post("/swipe/test-request", async (req, res, next) => {
         try {
             const raw = swipeTestRequestSchema.parse(req.body);
-            const result = await service.swipeTestRequest(raw.shop, raw.amount, raw.orderId);
+            const result = await service.swipeTestRequest(raw.shop, raw.amount, raw.orderId, raw.swipePaymentMethod);
             res.json({ ok: true, swipe: result });
         }
         catch (error) {

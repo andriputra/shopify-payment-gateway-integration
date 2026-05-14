@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 const providerEnum = z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const);
 
@@ -23,8 +24,13 @@ export function configRoutes(storeRepo: StoreConfigStore): Router {
   router.post("/", async (req, res, next) => {
     try {
       const body = saveConfigSchema.parse(req.body);
+      const shopKey = normalizeMerchantShopKey(body.shop);
+      if (!shopKey || !shopKey.includes(".")) {
+        return res.status(400).json({ ok: false, message: "Invalid shop identifier." });
+      }
       const config = await storeRepo.upsert({
         ...body,
+        shop: shopKey,
         provider: body.provider as SupportedProvider,
         updatedAt: new Date().toISOString()
       });
@@ -36,11 +42,11 @@ export function configRoutes(storeRepo: StoreConfigStore): Router {
 
   router.get("/", async (req, res, next) => {
     try {
-      const shop = String(req.query.shop ?? "").trim().toLowerCase();
-      if (!shop) {
+      const shopRaw = String(req.query.shop ?? "").trim();
+      if (!shopRaw) {
         return res.status(400).json({ ok: false, message: "Missing shop query parameter" });
       }
-      const normalizedShop = shop.endsWith(".myshopify.com") ? shop : `${shop}.myshopify.com`;
+      const normalizedShop = normalizeMerchantShopKey(shopRaw);
       const config = await storeRepo.get(normalizedShop);
       if (!config) {
         return res.status(404).json({ ok: false, message: "Store config not found" });
@@ -53,7 +59,8 @@ export function configRoutes(storeRepo: StoreConfigStore): Router {
 
   router.get("/:shop", async (req, res, next) => {
     try {
-      const config = await storeRepo.get(req.params.shop);
+      const shopKey = normalizeMerchantShopKey(req.params.shop);
+      const config = await storeRepo.get(shopKey);
       if (!config) {
         return res.status(404).json({ ok: false, message: "Store config not found" });
       }

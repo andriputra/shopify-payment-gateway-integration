@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "../config/env";
-import { normalizeShopifyShopDomain } from "../utils/shop-domain";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 import type {
   SwipePayloadAppendInput,
   SwipePayloadRecord,
@@ -33,7 +33,7 @@ export class JsonlSwipePayloadRepository implements SwipePayloadStore {
   }
 
   async append(input: SwipePayloadAppendInput): Promise<SwipePayloadRecord> {
-    const shop = normalizeShopifyShopDomain(input.shop);
+    const shop = normalizeMerchantShopKey(input.shop);
     const orderReference = input.orderReference.trim();
     const createdAt = new Date().toISOString();
     const record: SwipePayloadRecord = {
@@ -58,7 +58,7 @@ export class JsonlSwipePayloadRepository implements SwipePayloadStore {
     orderReference: string,
     limit: number
   ): Promise<SwipePayloadRecord[]> {
-    const shopKey = normalizeShopifyShopDomain(shop);
+    const shopKey = normalizeMerchantShopKey(shop);
     const ref = orderReference.trim();
     const cap = Math.max(1, Math.min(limit, 500));
     if (!fs.existsSync(this.filePath)) {

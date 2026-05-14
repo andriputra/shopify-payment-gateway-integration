@@ -4,8 +4,8 @@ exports.paymentStatusRoutes = paymentStatusRoutes;
 const express_1 = require("express");
 const env_1 = require("../config/env");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
+const swipe_1 = require("../providers/swipe");
 const shop_domain_1 = require("../utils/shop-domain");
-const shop_domain_2 = require("../utils/shop-domain");
 function paymentStatusSecret() {
     return (env_1.env.paymentStatusApiSecret || env_1.env.appSharedSecret).trim();
 }
@@ -16,6 +16,36 @@ function paymentStatusAuthOk(req) {
     const qSecret = typeof req.query.secret === "string" ? req.query.secret.trim() : "";
     return bearer === configured || headerSecret === configured || qSecret === configured;
 }
+async function getPaymentRedirectByOrderReference(repo, shopKey, orderRef) {
+    const candidates = [];
+    const seen = new Set();
+    const push = (s) => {
+        const t = s.trim();
+        if (t && !seen.has(t)) {
+            seen.add(t);
+            candidates.push(t);
+        }
+    };
+    push(orderRef);
+    /** Internal order id e.g. ORDER-002 → stored key INV-ORDER002 (hyphens stripped inside Swipe invoice). */
+    if (orderRef && !/^INV-/i.test(orderRef)) {
+        push((0, swipe_1.swipeInvoiceNumberForOrder)(orderRef));
+    }
+    /** User typed INV-ORDER-002; stored key is INV-ORDER002 — derive from suffix after INV-. */
+    if (/^INV-/i.test(orderRef)) {
+        const rest = orderRef.replace(/^INV-/i, "").trim();
+        if (rest) {
+            push((0, swipe_1.swipeInvoiceNumberForOrder)(rest));
+        }
+    }
+    for (const ref of candidates) {
+        const record = await repo.get(shopKey, ref);
+        if (record) {
+            return { record, matchedReference: ref };
+        }
+    }
+    return undefined;
+}
 function paymentStatusRoutes(paymentRedirectRepo) {
     const router = (0, express_1.Router)();
     router.get("/payment-status", async (req, res) => {
@@ -25,9 +55,12 @@ function paymentStatusRoutes(paymentRedirectRepo) {
                 message: "Unauthorized. Send Authorization: Bearer <secret>, X-Payment-Status-Secret, or ?secret= (APP_SHARED_SECRET or PAYMENT_STATUS_API_SECRET)."
             });
         }
-        const shopKey = (0, shop_domain_1.normalizeShopifyShopDomain)(String(req.query.shop ?? ""));
-        if (!shopKey.includes(".myshopify.com")) {
-            return res.status(400).json({ ok: false, message: "Query shop must resolve to a *.myshopify.com domain." });
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(String(req.query.shop ?? ""));
+        if (!shopKey || !shopKey.includes(".")) {
+            return res.status(400).json({
+                ok: false,
+                message: "Provide a valid shop identifier: bare Shopify subdomain, *.myshopify.com host, or custom domain hostname (must match saved store config)."
+            });
         }
         const orderRef = String(req.query.orderReference ?? "").trim();
         const orderIdQuery = String(req.query.shopifyOrderId ?? req.query.orderId ?? "").trim();
@@ -37,9 +70,17 @@ function paymentStatusRoutes(paymentRedirectRepo) {
                 message: "Provide orderReference (Swipe invoice_number key) or shopifyOrderId (numeric id or gid://shopify/Order/...)."
             });
         }
-        let record = orderRef ? await paymentRedirectRepo.get(shopKey, orderRef) : undefined;
+        let record;
+        let matchedOrderReference;
+        if (orderRef) {
+            const found = await getPaymentRedirectByOrderReference(paymentRedirectRepo, shopKey, orderRef);
+            if (found) {
+                record = found.record;
+                matchedOrderReference = found.matchedReference;
+            }
+        }
         if (!record && orderIdQuery) {
-            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_2.normalizeShopifyOrderGid)(orderIdQuery));
+            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_1.normalizeShopifyOrderGid)(orderIdQuery));
         }
         if (!record) {
             return res.status(404).json({
@@ -50,6 +91,7 @@ function paymentStatusRoutes(paymentRedirectRepo) {
         const codeBook = record.swipeResponseCode != null ? (0, swipe_response_codes_1.lookupSwipeResponseMessage)(record.swipeResponseCode) : undefined;
         return res.json({
             ok: true,
+            matchedOrderReference: matchedOrderReference ?? record.orderReference,
             shop: record.shop,
             shopifyOrderId: record.shopifyOrderId ?? null,
             orderReference: record.orderReference,

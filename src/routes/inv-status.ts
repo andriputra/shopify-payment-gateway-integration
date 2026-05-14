@@ -1,7 +1,8 @@
 import { Request, Response, Router } from "express";
 import { env } from "../config/env";
-import type { SwipePayloadStore } from "../storage/contracts";
-import { normalizeShopifyShopDomain } from "../utils/shop-domain";
+import { swipeInvoiceNumberForOrder } from "../providers/swipe";
+import type { SwipePayloadRecord, SwipePayloadStore } from "../storage/contracts";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 /**
  * Invoice / Swipe payload mirror for Shopify or internal callers.
@@ -10,8 +11,8 @@ import { normalizeShopifyShopDomain } from "../utils/shop-domain";
  * GET or POST `${HOST}/InvStatus` (with or without trailing slash)
  *
  * Query or JSON body:
- * - `shop` (required): Shopify shop, e.g. `mystore` or `mystore.myshopify.com`
- * - `invoice_number` **or** `orderReference` **or** `merchant_reference` (required): same as Swipe `invoice_number` / webhook order ref
+ * - `shop` (required): merchant shop key — bare Shopify subdomain, `*.myshopify.com`, or custom domain hostname (must match saved config and checkout calls)
+ * - `invoice_number` **or** `orderReference` **or** `merchant_reference` (required): Swipe `invoice_number` as stored (often `INV-{alphanumericOrderId}`). If you pass an internal id like `ORDER-12346`, the handler also tries the derived Swipe invoice key `INV-ORDER12346`.
  * - `limit` (optional): history rows, default 50, max 500
  *
  * Auth (same pattern as `/api/payment-status`):
@@ -22,7 +23,7 @@ import { normalizeShopifyShopDomain } from "../utils/shop-domain";
  * --- Response 200 ---
  * {
  *   "ok": true,
- *   "shop": "mystore.myshopify.com",
+ *   "shop": "mystore.myshopify.com or custom.example.com",
  *   "invoiceNumber": "INV-…",
  *   "count": 3,
  *   "latest": { "id": "…", "source": "swipe_webhook"|"swipe_api_create", "receivedAt": "ISO-8601", "httpStatus": 200|null, "payload": { … } },
@@ -70,6 +71,29 @@ function readShop(req: Request): string {
   return String(q || b).trim();
 }
 
+async function listSwipePayloadRows(
+  repo: SwipePayloadStore,
+  shop: string,
+  invoiceRef: string,
+  limit: number
+): Promise<{ rows: SwipePayloadRecord[]; matchedReference: string }> {
+  let rows = await repo.listByShopAndOrderReference(shop, invoiceRef, limit);
+  if (rows.length) {
+    return { rows, matchedReference: invoiceRef };
+  }
+  /** Stored `order_reference` matches Swipe `invoice_number` from create/webhook — see `swipeInvoiceNumberForOrder`. */
+  if (!/^INV-/i.test(invoiceRef)) {
+    const derived = swipeInvoiceNumberForOrder(invoiceRef);
+    if (derived !== invoiceRef) {
+      rows = await repo.listByShopAndOrderReference(shop, derived, limit);
+      if (rows.length) {
+        return { rows, matchedReference: derived };
+      }
+    }
+  }
+  return { rows: [], matchedReference: invoiceRef };
+}
+
 export function invStatusRoutes(repo: SwipePayloadStore): Router {
   const router = Router();
 
@@ -82,11 +106,12 @@ export function invStatusRoutes(repo: SwipePayloadStore): Router {
       });
     }
 
-    const shop = normalizeShopifyShopDomain(readShop(req));
-    if (!shop.includes(".myshopify.com")) {
+    const shop = normalizeMerchantShopKey(readShop(req));
+    if (!shop || !shop.includes(".")) {
       return res.status(400).json({
         ok: false,
-        message: "Provide shop as *.myshopify.com (or bare subdomain); query or JSON body."
+        message:
+          "Provide a valid shop identifier: bare Shopify subdomain, *.myshopify.com host, or custom domain (query or JSON body; must match saved store config)."
       });
     }
 
@@ -107,11 +132,12 @@ export function invStatusRoutes(repo: SwipePayloadStore): Router {
           : NaN;
     const limit = Number.isFinite(limitNum) ? Math.min(500, Math.max(1, Math.floor(limitNum))) : 50;
 
-    const rows = await repo.listByShopAndOrderReference(shop, invoice, limit);
+    const { rows, matchedReference } = await listSwipePayloadRows(repo, shop, invoice, limit);
     if (!rows.length) {
       return res.status(404).json({
         ok: false,
-        message: "No stored Swipe payloads for this shop and invoice."
+        message:
+          "No stored Swipe payloads for this shop and invoice. Use the exact Swipe invoice_number stored with the payload (often INV-… derived from your order id), ensure this server received a Swipe API response or webhook for that shop, and check STORAGE_DRIVER / DB matches the environment where the payment ran."
       });
     }
 
@@ -119,7 +145,7 @@ export function invStatusRoutes(repo: SwipePayloadStore): Router {
     return res.json({
       ok: true,
       shop,
-      invoiceNumber: invoice,
+      invoiceNumber: matchedReference,
       count: rows.length,
       latest: {
         id: latest.id,

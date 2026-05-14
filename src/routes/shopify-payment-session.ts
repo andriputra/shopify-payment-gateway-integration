@@ -5,6 +5,9 @@ import { swipeInvoiceNumberForOrder } from "../providers/swipe";
 import { PaymentService } from "../services/payment-service";
 import { PaymentSessionContextStore, StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
+
+const swipeMethodSchema = z.string().trim().min(1).max(64).optional();
 
 const createSessionSchema = z.object({
   id: z.string().optional(),
@@ -13,20 +16,14 @@ const createSessionSchema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().min(3).max(3).transform((c) => c.toUpperCase()),
   orderId: z.string().min(1).optional(),
+  /** Swipe create body `payment_method` for this session (e.g. CDCP, QRIS). Overrides store default. */
+  swipePaymentMethod: swipeMethodSchema,
   customer: z
     .object({
       email: z.string().email().optional()
     })
     .optional()
 });
-
-function normalizeShop(domain: string): string {
-  let s = domain.trim().toLowerCase();
-  if (s && !s.endsWith(".myshopify.com")) {
-    s = `${s}.myshopify.com`;
-  }
-  return s;
-}
 
 export function shopifyPaymentSessionRoutes(deps: {
   paymentService: PaymentService;
@@ -39,7 +36,7 @@ export function shopifyPaymentSessionRoutes(deps: {
   router.post("/shopify/payment-sessions", async (req, res, next) => {
     try {
       const raw = createSessionSchema.parse(req.body);
-      const shop = normalizeShop(raw.shop);
+      const shop = normalizeMerchantShopKey(raw.shop);
       const store = await storeRepo.get(shop);
       if (!store) {
         return res.status(400).json({
@@ -73,7 +70,8 @@ export function shopifyPaymentSessionRoutes(deps: {
         currency: raw.currency,
         orderId: orderRef,
         customerEmail: raw.customer?.email,
-        returnUrl: store.redirectUrlAfterPaid
+        returnUrl: store.redirectUrlAfterPaid,
+        swipePaymentMethod: raw.swipePaymentMethod
       });
 
       const sessionId = raw.id ?? `ps_${Date.now()}`;

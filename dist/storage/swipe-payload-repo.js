@@ -33,7 +33,7 @@ class JsonlSwipePayloadRepository {
         return node_path_1.default.join(env_1.env.dataDir, "swipe-payload-log.jsonl");
     }
     async append(input) {
-        const shop = (0, shop_domain_1.normalizeShopifyShopDomain)(input.shop);
+        const shop = (0, shop_domain_1.normalizeMerchantShopKey)(input.shop);
         const orderReference = input.orderReference.trim();
         const createdAt = new Date().toISOString();
         const record = {
@@ -53,7 +53,7 @@ class JsonlSwipePayloadRepository {
         return record;
     }
     async listByShopAndOrderReference(shop, orderReference, limit) {
-        const shopKey = (0, shop_domain_1.normalizeShopifyShopDomain)(shop);
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(shop);
         const ref = orderReference.trim();
         const cap = Math.max(1, Math.min(limit, 500));
         if (!node_fs_1.default.existsSync(this.filePath)) {

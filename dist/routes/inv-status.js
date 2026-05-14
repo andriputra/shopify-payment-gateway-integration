@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.invStatusRoutes = invStatusRoutes;
 const express_1 = require("express");
 const env_1 = require("../config/env");
+const swipe_1 = require("../providers/swipe");
 const shop_domain_1 = require("../utils/shop-domain");
 /**
  * Invoice / Swipe payload mirror for Shopify or internal callers.
@@ -11,8 +12,8 @@ const shop_domain_1 = require("../utils/shop-domain");
  * GET or POST `${HOST}/InvStatus` (with or without trailing slash)
  *
  * Query or JSON body:
- * - `shop` (required): Shopify shop, e.g. `mystore` or `mystore.myshopify.com`
- * - `invoice_number` **or** `orderReference` **or** `merchant_reference` (required): same as Swipe `invoice_number` / webhook order ref
+ * - `shop` (required): merchant shop key — bare Shopify subdomain, `*.myshopify.com`, or custom domain hostname (must match saved config and checkout calls)
+ * - `invoice_number` **or** `orderReference` **or** `merchant_reference` (required): Swipe `invoice_number` as stored (often `INV-{alphanumericOrderId}`). If you pass an internal id like `ORDER-12346`, the handler also tries the derived Swipe invoice key `INV-ORDER12346`.
  * - `limit` (optional): history rows, default 50, max 500
  *
  * Auth (same pattern as `/api/payment-status`):
@@ -23,7 +24,7 @@ const shop_domain_1 = require("../utils/shop-domain");
  * --- Response 200 ---
  * {
  *   "ok": true,
- *   "shop": "mystore.myshopify.com",
+ *   "shop": "mystore.myshopify.com or custom.example.com",
  *   "invoiceNumber": "INV-…",
  *   "count": 3,
  *   "latest": { "id": "…", "source": "swipe_webhook"|"swipe_api_create", "receivedAt": "ISO-8601", "httpStatus": 200|null, "payload": { … } },
@@ -65,6 +66,23 @@ function readShop(req) {
     const b = typeof body.shop === "string" ? body.shop : "";
     return String(q || b).trim();
 }
+async function listSwipePayloadRows(repo, shop, invoiceRef, limit) {
+    let rows = await repo.listByShopAndOrderReference(shop, invoiceRef, limit);
+    if (rows.length) {
+        return { rows, matchedReference: invoiceRef };
+    }
+    /** Stored `order_reference` matches Swipe `invoice_number` from create/webhook — see `swipeInvoiceNumberForOrder`. */
+    if (!/^INV-/i.test(invoiceRef)) {
+        const derived = (0, swipe_1.swipeInvoiceNumberForOrder)(invoiceRef);
+        if (derived !== invoiceRef) {
+            rows = await repo.listByShopAndOrderReference(shop, derived, limit);
+            if (rows.length) {
+                return { rows, matchedReference: derived };
+            }
+        }
+    }
+    return { rows: [], matchedReference: invoiceRef };
+}
 function invStatusRoutes(repo) {
     const router = (0, express_1.Router)();
     const handle = async (req, res) => {
@@ -74,11 +92,11 @@ function invStatusRoutes(repo) {
                 message: "Unauthorized. Send Authorization: Bearer <secret>, X-Inv-Status-Secret, or secret (INV_STATUS_API_SECRET, PAYMENT_STATUS_API_SECRET, or APP_SHARED_SECRET)."
             });
         }
-        const shop = (0, shop_domain_1.normalizeShopifyShopDomain)(readShop(req));
-        if (!shop.includes(".myshopify.com")) {
+        const shop = (0, shop_domain_1.normalizeMerchantShopKey)(readShop(req));
+        if (!shop || !shop.includes(".")) {
             return res.status(400).json({
                 ok: false,
-                message: "Provide shop as *.myshopify.com (or bare subdomain); query or JSON body."
+                message: "Provide a valid shop identifier: bare Shopify subdomain, *.myshopify.com host, or custom domain (query or JSON body; must match saved store config)."
             });
         }
         const invoice = readInvoice(req);
@@ -95,18 +113,18 @@ function invStatusRoutes(repo) {
                 ? limitRaw
                 : NaN;
         const limit = Number.isFinite(limitNum) ? Math.min(500, Math.max(1, Math.floor(limitNum))) : 50;
-        const rows = await repo.listByShopAndOrderReference(shop, invoice, limit);
+        const { rows, matchedReference } = await listSwipePayloadRows(repo, shop, invoice, limit);
         if (!rows.length) {
             return res.status(404).json({
                 ok: false,
-                message: "No stored Swipe payloads for this shop and invoice."
+                message: "No stored Swipe payloads for this shop and invoice. Use the exact Swipe invoice_number stored with the payload (often INV-… derived from your order id), ensure this server received a Swipe API response or webhook for that shop, and check STORAGE_DRIVER / DB matches the environment where the payment ran."
             });
         }
         const latest = rows[0];
         return res.json({
             ok: true,
             shop,
-            invoiceNumber: invoice,
+            invoiceNumber: matchedReference,
             count: rows.length,
             latest: {
                 id: latest.id,

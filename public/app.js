@@ -32,6 +32,28 @@ const invStatusMethod = document.getElementById("invStatusMethod");
 const fetchInvStatusBtn = document.getElementById("fetchInvStatusBtn");
 const invStatusOutput = document.getElementById("invStatusOutput");
 
+function getSwipePaymentMethodFromForm() {
+  const presetEl = document.getElementById("swipePaymentMethodPreset");
+  const customEl = document.getElementById("swipePaymentMethodCustom");
+  if (!presetEl || !("value" in presetEl)) {
+    return "";
+  }
+  const preset = String(presetEl.value).trim();
+  if (preset === "__custom__") {
+    return customEl && "value" in customEl ? String(customEl.value).trim() : "";
+  }
+  return preset;
+}
+
+function syncSwipePaymentMethodCustomField() {
+  const presetEl = document.getElementById("swipePaymentMethodPreset");
+  const wrap = document.getElementById("swipePaymentMethodCustomWrap");
+  if (!presetEl || !wrap || !("value" in presetEl)) {
+    return;
+  }
+  wrap.classList.toggle("hidden", presetEl.value !== "__custom__");
+}
+
 const systemStorage = document.getElementById("systemStorage");
 const systemMysql = document.getElementById("systemMysql");
 const systemCounts = document.getElementById("systemCounts");
@@ -477,7 +499,7 @@ async function saveConfig(event) {
     const swipeClientId = valueOf("swipeClientId");
     const swipeDeviceUser = valueOf("swipeDeviceUser");
     const swipePosRequestType = valueOf("swipePosRequestType");
-    const swipePaymentMethod = valueOf("swipePaymentMethod");
+    const swipePaymentMethod = getSwipePaymentMethodFromForm();
     const swipePath = valueOf("swipeCreatePath");
     const swipeFeeAgentAmount = valueOf("swipeFeeAgentAmount");
     const swipeFeeDistributorAmount = valueOf("swipeFeeDistributorAmount");
@@ -607,6 +629,12 @@ async function createDemoCheckout() {
       currency,
       orderId
     };
+    if (provider === "swipe") {
+      const pm = getSwipePaymentMethodFromForm();
+      if (pm) {
+        payload.swipePaymentMethod = pm;
+      }
+    }
     const requestDebug = {
       method: "POST",
       url: `${window.location.origin}/api/payments/checkout/create`,
@@ -745,6 +773,10 @@ async function swipeTestApiFromAdmin() {
 
   try {
     const payload = { shop, amount };
+    const pm = getSwipePaymentMethodFromForm();
+    if (pm) {
+      payload.swipePaymentMethod = pm;
+    }
     const requestDebug = {
       method: "POST",
       url: `${window.location.origin}/api/payments/swipe/test-request`,
@@ -1039,3 +1071,9 @@ if (providerSelect) {
   providerSelect.addEventListener("change", syncProviderPanels);
 }
 syncProviderPanels();
+
+const swipePmPreset = document.getElementById("swipePaymentMethodPreset");
+if (swipePmPreset) {
+  swipePmPreset.addEventListener("change", syncSwipePaymentMethodCustomField);
+  syncSwipePaymentMethodCustomField();
+}

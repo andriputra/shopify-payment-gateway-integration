@@ -387,13 +387,31 @@
                 </label>
                 <label class="grid gap-1 text-sm font-medium text-slate-700">
                   Payment Method
-                  <input
-                    id="swipePaymentMethod"
-                    type="text"
-                    value="CDCP"
+                  <select
+                    id="swipePaymentMethodPreset"
                     class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                  />
+                  >
+                    <option value="CDCP" selected>CDCP (card / EDC)</option>
+                    <option value="QRIS">QRIS</option>
+                    <option value="__custom__">Other Code…</option>
+                  </select>
                 </label>
+                <div id="swipePaymentMethodCustomWrap" class="grid gap-1 hidden md:col-span-2">
+                  <label class="text-xs font-medium text-slate-600">
+                    Custom code for Swipe API
+                    <input
+                      id="swipePaymentMethodCustom"
+                      type="text"
+                      placeholder="As documented by Swipe"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    />
+                  </label>
+                </div>
+                <p class="text-xs text-slate-500 md:col-span-2">
+                  Store default plus per-checkout override: send <code class="rounded bg-slate-100 px-1">swipePaymentMethod</code> on
+                  <code class="rounded bg-slate-100 px-1">POST /api/shopify/payment-sessions</code>, or set the order attribute
+                  <code class="rounded bg-slate-100 px-1">swipe_payment_method</code> (cart / checkout).
+                </p>
               </div>
               <label class="grid gap-1 text-sm font-medium text-slate-700">
                 Swipe API Base URL (`credentials.extra.apiBaseUrl`)
@@ -461,12 +479,12 @@
 
             <div id="customFields" class="hidden grid gap-4">
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Base URL API
+                API base URL
                 <input id="baseUrl" type="text" placeholder="https://api.payment.com" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
               </label>
             
               <label class="grid gap-1 text-sm font-medium text-slate-700">
-                Endpoint Charge
+                Charge endpoint
                 <input id="chargeEndpoint" type="text" placeholder="/v1/charge" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
               </label>
             

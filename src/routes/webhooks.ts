@@ -10,6 +10,7 @@ import {
   PaymentSessionContextStore
 } from "../storage/contracts";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 export type WebhookRoutesDeps = {
   sessionContextRepo?: PaymentSessionContextStore;
@@ -28,12 +29,13 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     body: Record<string, unknown>,
     res: Response
   ) => {
+    const shopKey = normalizeMerchantShopKey(decodedShop);
     if (provider === "swipe") {
       const earlyRef =
         webhookOrderReference(provider, body) ||
         String(body.invoice_number ?? body.merchant_reference ?? body.order_id ?? "__unknown__").trim();
       await persistSwipePayload({
-        shop: decodedShop,
+        shop: shopKey,
         orderReference: earlyRef,
         source: "swipe_webhook",
         httpStatus: null,
@@ -41,11 +43,11 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
       });
     }
 
-    const result = await service.handleWebhook(decodedShop, provider, body);
+    const result = await service.handleWebhook(shopKey, provider, body);
     const orderRef = webhookOrderReference(provider, body);
 
     if (orderRef && paymentRedirectRepo) {
-      const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+      const record = await paymentRedirectRepo.get(shopKey, orderRef);
       if (record) {
         const swipeExtras =
           provider === "swipe"
@@ -65,7 +67,7 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
         ) {
           nextStatus = "failed";
         }
-        await paymentRedirectRepo.mergeUpdate(decodedShop, orderRef, { status: nextStatus, ...swipeExtras });
+        await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
       }
     }
 
@@ -73,14 +75,14 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     if (orderRef && sessionContextRepo) {
       ctxAtCallback = await sessionContextRepo.get(orderRef);
     }
-    const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === decodedShop);
+    const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === shopKey);
 
     let shopifyPaymentSession: { attempted: boolean; ok?: boolean; message?: string } = {
       attempted: false
     };
 
     if (result.paid && sessionContextRepo && paymentResolve) {
-      if (orderRef && ctxAtCallback && ctxAtCallback.shop === decodedShop) {
+      if (orderRef && ctxAtCallback && ctxAtCallback.shop === shopKey) {
         shopifyPaymentSession.attempted = true;
         const resolved = await paymentResolve.resolvePaymentSession(
           ctxAtCallback.shop,
@@ -97,13 +99,13 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     // Manual payment method flow: resolve Shopify Order as paid when provider callback says paid.
     if (result.paid && paymentRedirectRepo && orderService) {
       if (orderRef) {
-        const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+        const record = await paymentRedirectRepo.get(shopKey, orderRef);
         if (record?.shopifyOrderId) {
-          const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+          const marked = await orderService.markOrderPaid(shopKey, record.shopifyOrderId);
           // Best-effort: do not fail webhook if Shopify mark paid fails.
           if (!marked.ok) {
             console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
-              shop: decodedShop,
+              shop: shopKey,
               orderRef,
               orderId: record.shopifyOrderId,
               message: marked.message
@@ -116,7 +118,7 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     if (provider === "swipe") {
       logSwipeTransaction({
         phase: "edc_callback",
-        shop: decodedShop,
+        shop: shopKey,
         orderId: orderRef ?? "(unresolved)",
         orderRefFromPayload: orderRef,
         paid: result.paid,

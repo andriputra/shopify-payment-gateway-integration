@@ -5,6 +5,8 @@ import { ZodError } from "zod";
 import { env } from "./config/env";
 import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
+import { bridgeCheckoutRoutes } from "./routes/bridge-checkout";
+import { docsBridgeRoutes } from "./routes/docs-bridge";
 import { invStatusRoutes } from "./routes/inv-status";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
@@ -20,6 +22,7 @@ import { ShopifyAuthService } from "./services/shopify-auth-service";
 import { ShopifyPaymentResolveService } from "./services/shopify-payment-resolve-service";
 import { ShopifyOrderService } from "./services/shopify-order-service";
 import { getStorage } from "./storage";
+import { normalizeMerchantShopKey } from "./utils/shop-domain";
 
 export function createApp(): express.Application {
   const app = express();
@@ -42,6 +45,8 @@ export function createApp(): express.Application {
     next();
   });
 
+  app.use("/docs", docsBridgeRoutes());
+
   const publicDir = path.join(process.cwd(), "public");
   app.use(express.static(publicDir));
 
@@ -54,9 +59,9 @@ export function createApp(): express.Application {
 
   const storage = getStorage();
   const storeRepo = storage.storeRepo;
-  const paymentService = new PaymentService(storeRepo);
-  const shopifyTokenRepo = storage.tokenRepo;
   const paymentRedirectRepo = storage.paymentRedirectRepo;
+  const paymentService = new PaymentService(storeRepo, paymentRedirectRepo);
+  const shopifyTokenRepo = storage.tokenRepo;
   const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo);
   const sessionContextRepo = storage.sessionContextRepo;
   const complianceRequestRepo = storage.complianceRequestRepo;
@@ -92,16 +97,21 @@ export function createApp(): express.Application {
   });
   app.post("/checkout/like/swipe/create", async (req, res, next) => {
     try {
-      const shopRaw = String(req.body?.shop ?? "").trim().toLowerCase();
+      const shopInput = String(req.body?.shop ?? "").trim();
       const orderId = String(req.body?.orderId ?? "").trim();
       const amount = Number(req.body?.amount ?? 0);
       const currency = String(req.body?.currency ?? "IDR").trim().toUpperCase();
       const customerEmail = req.body?.customerEmail
         ? String(req.body.customerEmail).trim()
         : undefined;
+      const swipePaymentMethodRaw = req.body?.swipePaymentMethod;
+      const swipePaymentMethod =
+        typeof swipePaymentMethodRaw === "string" && swipePaymentMethodRaw.trim()
+          ? swipePaymentMethodRaw.trim().slice(0, 64)
+          : undefined;
 
-      const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
-      if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
+      const shop = normalizeMerchantShopKey(shopInput);
+      if (!shopInput || !shop || !orderId || !Number.isFinite(amount) || amount < 0) {
         return res.status(400).json({
           ok: false,
           message: "Body must include shop, orderId, amount >= 0, and currency."
@@ -128,7 +138,8 @@ export function createApp(): express.Application {
         amount,
         currency: currency.length === 3 ? currency : "IDR",
         orderId,
-        customerEmail
+        customerEmail,
+        swipePaymentMethod
       });
 
       return res.json({
@@ -185,6 +196,7 @@ export function createApp(): express.Application {
 
   app.use("/api", paymentStatusRoutes(paymentRedirectRepo));
   app.use(invStatusRoutes(storage.swipePayloadRepo));
+  app.use("/api/bridge", bridgeCheckoutRoutes(paymentService));
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
   // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
   app.use("/api/system", systemRoutes(storage));

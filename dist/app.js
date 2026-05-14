@@ -11,6 +11,8 @@ const zod_1 = require("zod");
 const env_1 = require("./config/env");
 const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
+const bridge_checkout_1 = require("./routes/bridge-checkout");
+const docs_bridge_1 = require("./routes/docs-bridge");
 const inv_status_1 = require("./routes/inv-status");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
@@ -26,6 +28,7 @@ const shopify_auth_service_1 = require("./services/shopify-auth-service");
 const shopify_payment_resolve_service_1 = require("./services/shopify-payment-resolve-service");
 const shopify_order_service_1 = require("./services/shopify-order-service");
 const storage_1 = require("./storage");
+const shop_domain_1 = require("./utils/shop-domain");
 function createApp() {
     const app = (0, express_1.default)();
     app.use(express_1.default.json({
@@ -43,6 +46,7 @@ function createApp() {
         }
         next();
     });
+    app.use("/docs", (0, docs_bridge_1.docsBridgeRoutes)());
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
     const indexHtmlTemplate = node_fs_1.default.readFileSync(node_path_1.default.join(publicDir, "index.html"), "utf8");
@@ -52,9 +56,9 @@ function createApp() {
         .replace('src="/app.js"', `src="/app.js?v=${assetVersion}"`);
     const storage = (0, storage_1.getStorage)();
     const storeRepo = storage.storeRepo;
-    const paymentService = new payment_service_1.PaymentService(storeRepo);
-    const shopifyTokenRepo = storage.tokenRepo;
     const paymentRedirectRepo = storage.paymentRedirectRepo;
+    const paymentService = new payment_service_1.PaymentService(storeRepo, paymentRedirectRepo);
+    const shopifyTokenRepo = storage.tokenRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
     const sessionContextRepo = storage.sessionContextRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
@@ -81,15 +85,19 @@ function createApp() {
     });
     app.post("/checkout/like/swipe/create", async (req, res, next) => {
         try {
-            const shopRaw = String(req.body?.shop ?? "").trim().toLowerCase();
+            const shopInput = String(req.body?.shop ?? "").trim();
             const orderId = String(req.body?.orderId ?? "").trim();
             const amount = Number(req.body?.amount ?? 0);
             const currency = String(req.body?.currency ?? "IDR").trim().toUpperCase();
             const customerEmail = req.body?.customerEmail
                 ? String(req.body.customerEmail).trim()
                 : undefined;
-            const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
-            if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
+            const swipePaymentMethodRaw = req.body?.swipePaymentMethod;
+            const swipePaymentMethod = typeof swipePaymentMethodRaw === "string" && swipePaymentMethodRaw.trim()
+                ? swipePaymentMethodRaw.trim().slice(0, 64)
+                : undefined;
+            const shop = (0, shop_domain_1.normalizeMerchantShopKey)(shopInput);
+            if (!shopInput || !shop || !orderId || !Number.isFinite(amount) || amount < 0) {
                 return res.status(400).json({
                     ok: false,
                     message: "Body must include shop, orderId, amount >= 0, and currency."
@@ -114,7 +122,8 @@ function createApp() {
                 amount,
                 currency: currency.length === 3 ? currency : "IDR",
                 orderId,
-                customerEmail
+                customerEmail,
+                swipePaymentMethod
             });
             return res.json({
                 ok: true,
@@ -166,6 +175,7 @@ function createApp() {
     });
     app.use("/api", (0, payment_status_1.paymentStatusRoutes)(paymentRedirectRepo));
     app.use((0, inv_status_1.invStatusRoutes)(storage.swipePayloadRepo));
+    app.use("/api/bridge", (0, bridge_checkout_1.bridgeCheckoutRoutes)(paymentService));
     app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
     // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
     app.use("/api/system", (0, system_1.systemRoutes)(storage));
