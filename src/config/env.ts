@@ -39,6 +39,8 @@ export const env = {
   paymentStatusApiSecret: process.env.PAYMENT_STATUS_API_SECRET?.trim() || "",
   /** Optional override for `GET|POST /InvStatus`; defaults to PAYMENT_STATUS_API_SECRET then APP_SHARED_SECRET. */
   invStatusApiSecret: process.env.INV_STATUS_API_SECRET?.trim() || "",
+  /** Optional override for `POST /api/bridge/checkout/create`; defaults to PAYMENT_STATUS_API_SECRET then APP_SHARED_SECRET. */
+  bridgeCheckoutApiSecret: process.env.BRIDGE_CHECKOUT_API_SECRET?.trim() || "",
   shopifyScopes:
     process.env.SHOPIFY_SCOPES ??
     "read_orders,write_orders,read_products,write_products,read_inventory,write_inventory,write_payment_sessions",
