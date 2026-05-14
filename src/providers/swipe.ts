@@ -658,7 +658,15 @@ export const swipeProvider: PaymentProvider = {
     const statusRaw = swipePrimaryStatus(payload);
     const edcResponseCode = extractSwipeEdcResponseCode(payload);
     const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
-    const { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
+    let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
+    /** Swipe / QRIS often send empty `status` but EDC `response_code` 00 = approved (see Swipe callback docs). */
+    if (!paid && outcome === "unknown" && !statusRaw.trim()) {
+      const c = (edcResponseCode ?? "").trim().toUpperCase();
+      if (c === "00" || c === "000") {
+        paid = true;
+        outcome = "paid";
+      }
+    }
     return {
       paid,
       outcome,
