@@ -126,7 +126,7 @@ Audit/testing result bisa dilihat di:
 - `GET /api/compliance/requests`
 - `GET /api/compliance/requests/:id`
 
-Untuk integrasi **server-to-server** (tanpa embed Shopify Admin), lihat **`docs/PUBLIC-BRIDGE-API.md`** — termasuk `POST /api/bridge/checkout/create` (shared secret, sama fungsi checkout seperti endpoint embedded).
+Untuk integrasi **server-to-server** (tanpa embed Shopify Admin), lihat **`docs/PUBLIC-BRIDGE-API.md`** — termasuk `POST /api/bridge/checkout/create` (shared secret, sama fungsi checkout seperti endpoint embedded). Versi HTML di browser: **`/docs/bridge`** (mis. `https://domain-anda.com/docs/bridge`).
 
 ## API Endpoints
 

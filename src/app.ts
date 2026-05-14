@@ -6,6 +6,7 @@ import { env } from "./config/env";
 import { complianceRoutes } from "./routes/compliance";
 import { configRoutes } from "./routes/config";
 import { bridgeCheckoutRoutes } from "./routes/bridge-checkout";
+import { docsBridgeRoutes } from "./routes/docs-bridge";
 import { invStatusRoutes } from "./routes/inv-status";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
@@ -42,6 +43,8 @@ export function createApp(): express.Application {
     }
     next();
   });
+
+  app.use("/docs", docsBridgeRoutes());
 
   const publicDir = path.join(process.cwd(), "public");
   app.use(express.static(publicDir));

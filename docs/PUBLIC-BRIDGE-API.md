@@ -1,5 +1,7 @@
 # Public and bridge-facing API endpoints
 
+**Rendered HTML:** open `{BASE}/docs/bridge` on your host (e.g. `https://dynapp.store/docs/bridge`). Requires the `docs/` folder on the server at deploy root.
+
 This document lists HTTP endpoints that **external systems** (other backends, payment providers, WordPress, custom storefronts) can use to integrate with this app as a **payment bridge**. It complements the main [README](../README.md).
 
 Replace **`{BASE}`** with your app origin (for example `https://dynapp.store` or `http://localhost:3000`).

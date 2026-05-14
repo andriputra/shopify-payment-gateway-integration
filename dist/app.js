@@ -12,6 +12,7 @@ const env_1 = require("./config/env");
 const compliance_1 = require("./routes/compliance");
 const config_1 = require("./routes/config");
 const bridge_checkout_1 = require("./routes/bridge-checkout");
+const docs_bridge_1 = require("./routes/docs-bridge");
 const inv_status_1 = require("./routes/inv-status");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
@@ -44,6 +45,7 @@ function createApp() {
         }
         next();
     });
+    app.use("/docs", (0, docs_bridge_1.docsBridgeRoutes)());
     const publicDir = node_path_1.default.join(process.cwd(), "public");
     app.use(express_1.default.static(publicDir));
     const indexHtmlTemplate = node_fs_1.default.readFileSync(node_path_1.default.join(publicDir, "index.html"), "utf8");
