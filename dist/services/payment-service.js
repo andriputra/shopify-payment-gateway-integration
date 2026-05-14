@@ -29,12 +29,11 @@ class PaymentService {
         const checkoutInput = { ...input, shop: shopKey };
         const result = await provider.createCheckout(store, checkoutInput);
         if (this.paymentRedirectRepo) {
-            const shopNorm = (0, shop_domain_1.normalizeMerchantShopKey)(store.shop);
             const providerKey = input.provider;
             const orderRef = orderReferenceForPaymentRedirect(providerKey, checkoutInput.orderId);
             const now = new Date().toISOString();
             await this.paymentRedirectRepo.upsert({
-                shop: shopNorm,
+                shop: shopKey,
                 orderReference: orderRef,
                 provider: String(input.provider),
                 paymentUrl: result.paymentUrl,
