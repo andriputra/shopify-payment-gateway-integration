@@ -5,25 +5,27 @@ const express_1 = require("express");
 const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
+const shop_domain_1 = require("../utils/shop-domain");
 function webhookRoutes(service, deps) {
     const router = (0, express_1.Router)();
     const { sessionContextRepo, paymentResolve, paymentRedirectRepo, orderService } = deps ?? {};
     const handlePaymentWebhook = async (provider, decodedShop, body, res) => {
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(decodedShop);
         if (provider === "swipe") {
             const earlyRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body) ||
                 String(body.invoice_number ?? body.merchant_reference ?? body.order_id ?? "__unknown__").trim();
             await (0, swipe_payload_persist_1.persistSwipePayload)({
-                shop: decodedShop,
+                shop: shopKey,
                 orderReference: earlyRef,
                 source: "swipe_webhook",
                 httpStatus: null,
                 bodyText: JSON.stringify(body)
             });
         }
-        const result = await service.handleWebhook(decodedShop, provider, body);
+        const result = await service.handleWebhook(shopKey, provider, body);
         const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
         if (orderRef && paymentRedirectRepo) {
-            const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+            const record = await paymentRedirectRepo.get(shopKey, orderRef);
             if (record) {
                 const swipeExtras = provider === "swipe"
                     ? {
@@ -41,19 +43,19 @@ function webhookRoutes(service, deps) {
                     result.outcome === "timeout") {
                     nextStatus = "failed";
                 }
-                await paymentRedirectRepo.mergeUpdate(decodedShop, orderRef, { status: nextStatus, ...swipeExtras });
+                await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
             }
         }
         let ctxAtCallback;
         if (orderRef && sessionContextRepo) {
             ctxAtCallback = await sessionContextRepo.get(orderRef);
         }
-        const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === decodedShop);
+        const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === shopKey);
         let shopifyPaymentSession = {
             attempted: false
         };
         if (result.paid && sessionContextRepo && paymentResolve) {
-            if (orderRef && ctxAtCallback && ctxAtCallback.shop === decodedShop) {
+            if (orderRef && ctxAtCallback && ctxAtCallback.shop === shopKey) {
                 shopifyPaymentSession.attempted = true;
                 const resolved = await paymentResolve.resolvePaymentSession(ctxAtCallback.shop, ctxAtCallback.paymentSessionId);
                 shopifyPaymentSession.ok = resolved.ok;
@@ -66,13 +68,13 @@ function webhookRoutes(service, deps) {
         // Manual payment method flow: resolve Shopify Order as paid when provider callback says paid.
         if (result.paid && paymentRedirectRepo && orderService) {
             if (orderRef) {
-                const record = await paymentRedirectRepo.get(decodedShop, orderRef);
+                const record = await paymentRedirectRepo.get(shopKey, orderRef);
                 if (record?.shopifyOrderId) {
-                    const marked = await orderService.markOrderPaid(decodedShop, record.shopifyOrderId);
+                    const marked = await orderService.markOrderPaid(shopKey, record.shopifyOrderId);
                     // Best-effort: do not fail webhook if Shopify mark paid fails.
                     if (!marked.ok) {
                         console.warn("[MANUAL PAYMENT] orderMarkAsPaid failed", {
-                            shop: decodedShop,
+                            shop: shopKey,
                             orderRef,
                             orderId: record.shopifyOrderId,
                             message: marked.message
@@ -84,7 +86,7 @@ function webhookRoutes(service, deps) {
         if (provider === "swipe") {
             (0, swipe_transaction_log_1.logSwipeTransaction)({
                 phase: "edc_callback",
-                shop: decodedShop,
+                shop: shopKey,
                 orderId: orderRef ?? "(unresolved)",
                 orderRefFromPayload: orderRef,
                 paid: result.paid,

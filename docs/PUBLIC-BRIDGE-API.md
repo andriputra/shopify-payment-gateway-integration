@@ -39,8 +39,10 @@ These endpoints are intended for **your own backends** or trusted partners. Neve
 
 **Query parameters (typical):**
 
-- `shop` — must resolve to `*.myshopify.com`
-- One of: `orderReference` (e.g. Swipe invoice key), or `shopifyOrderId` / `orderId` (numeric or `gid://shopify/Order/...`)
+- `shop` — bare Shopify subdomain, full `*.myshopify.com` host, or **custom domain** hostname (e.g. `pay.brand.co.id`). Must match the `shop` saved in store config and used in checkout / webhook URLs.
+- One of: `orderReference` (for Swipe, use the same key as Swipe `invoice_number`, usually `INV-…` from `swipeInvoiceNumberForOrder(yourOrderId)`), or `shopifyOrderId` / `orderId` (numeric or `gid://shopify/Order/...`)
+
+**When a row appears:** after a **successful** `createCheckout` (embedded `POST /api/payments/checkout/create`, `POST /api/bridge/checkout/create`, payment-sessions, or the `orders/create` manual flow), the server **upserts** a `pending` row. Provider webhooks then `mergeUpdate` status (`paid` / `failed`). If you only call Swipe from elsewhere and never hit this app’s `createCheckout`, no row exists for `/api/payment-status`.
 
 **Response:** JSON with `ok`, store payment record fields (`status`, `amount`, Swipe codes if present), etc. Returns `401` if secret missing/wrong, `404` if no record.
 

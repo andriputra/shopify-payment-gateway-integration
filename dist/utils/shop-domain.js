@@ -4,6 +4,7 @@ exports.normalizeShopDomain = normalizeShopDomain;
 exports.shopDomainAliases = shopDomainAliases;
 exports.shopDomainsMatch = shopDomainsMatch;
 exports.normalizeShopifyShopDomain = normalizeShopifyShopDomain;
+exports.normalizeMerchantShopKey = normalizeMerchantShopKey;
 exports.normalizeShopifyOrderGid = normalizeShopifyOrderGid;
 function normalizeShopDomain(value) {
     return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "").replace(/\/.*$/, "");
@@ -22,6 +23,25 @@ function normalizeShopifyShopDomain(value) {
         return "";
     }
     if (base.endsWith(".myshopify.com")) {
+        return base;
+    }
+    return `${base}.myshopify.com`;
+}
+/**
+ * Shop identifier for payment bridge storage, store config, and public status APIs.
+ * - Bare label (`mystore`) → `mystore.myshopify.com`
+ * - Already `*.myshopify.com` → unchanged (after cleanup)
+ * - Custom host (`https://www.brand.com`, `pay.store.co.id`) → lowercase hostname only; must match saved config and checkout calls
+ */
+function normalizeMerchantShopKey(value) {
+    const base = normalizeShopDomain(value).replace(/^www\./, "");
+    if (!base) {
+        return "";
+    }
+    if (base.endsWith(".myshopify.com")) {
+        return base;
+    }
+    if (base.includes(".")) {
         return base;
     }
     return `${base}.myshopify.com`;

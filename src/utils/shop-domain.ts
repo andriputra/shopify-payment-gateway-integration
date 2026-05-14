@@ -29,6 +29,26 @@ export function normalizeShopifyShopDomain(value: string): string {
   return `${base}.myshopify.com`;
 }
 
+/**
+ * Shop identifier for payment bridge storage, store config, and public status APIs.
+ * - Bare label (`mystore`) → `mystore.myshopify.com`
+ * - Already `*.myshopify.com` → unchanged (after cleanup)
+ * - Custom host (`https://www.brand.com`, `pay.store.co.id`) → lowercase hostname only; must match saved config and checkout calls
+ */
+export function normalizeMerchantShopKey(value: string): string {
+  const base = normalizeShopDomain(value).replace(/^www\./, "");
+  if (!base) {
+    return "";
+  }
+  if (base.endsWith(".myshopify.com")) {
+    return base;
+  }
+  if (base.includes(".")) {
+    return base;
+  }
+  return `${base}.myshopify.com`;
+}
+
 /** Normalize numeric order id or Admin GID to canonical `gid://shopify/Order/{id}`. */
 export function normalizeShopifyOrderGid(input: string): string {
   const t = input.trim();

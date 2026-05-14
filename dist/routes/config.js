@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.configRoutes = configRoutes;
 const express_1 = require("express");
 const zod_1 = require("zod");
+const shop_domain_1 = require("../utils/shop-domain");
 const providerEnum = zod_1.z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"]);
 const saveConfigSchema = zod_1.z.object({
     shop: zod_1.z.string().min(3),
@@ -20,8 +21,13 @@ function configRoutes(storeRepo) {
     router.post("/", async (req, res, next) => {
         try {
             const body = saveConfigSchema.parse(req.body);
+            const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(body.shop);
+            if (!shopKey || !shopKey.includes(".")) {
+                return res.status(400).json({ ok: false, message: "Invalid shop identifier." });
+            }
             const config = await storeRepo.upsert({
                 ...body,
+                shop: shopKey,
                 provider: body.provider,
                 updatedAt: new Date().toISOString()
             });
@@ -33,11 +39,11 @@ function configRoutes(storeRepo) {
     });
     router.get("/", async (req, res, next) => {
         try {
-            const shop = String(req.query.shop ?? "").trim().toLowerCase();
-            if (!shop) {
+            const shopRaw = String(req.query.shop ?? "").trim();
+            if (!shopRaw) {
                 return res.status(400).json({ ok: false, message: "Missing shop query parameter" });
             }
-            const normalizedShop = shop.endsWith(".myshopify.com") ? shop : `${shop}.myshopify.com`;
+            const normalizedShop = (0, shop_domain_1.normalizeMerchantShopKey)(shopRaw);
             const config = await storeRepo.get(normalizedShop);
             if (!config) {
                 return res.status(404).json({ ok: false, message: "Store config not found" });
@@ -50,7 +56,8 @@ function configRoutes(storeRepo) {
     });
     router.get("/:shop", async (req, res, next) => {
         try {
-            const config = await storeRepo.get(req.params.shop);
+            const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(req.params.shop);
+            const config = await storeRepo.get(shopKey);
             if (!config) {
                 return res.status(404).json({ ok: false, message: "Store config not found" });
             }

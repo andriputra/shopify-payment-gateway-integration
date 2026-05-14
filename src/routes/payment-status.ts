@@ -2,8 +2,7 @@ import { Request, Response, Router } from "express";
 import { env } from "../config/env";
 import { lookupSwipeResponseMessage, SWIPE_RESPONSE_CODES } from "../data/swipe-response-codes";
 import { PaymentRedirectStore } from "../storage/contracts";
-import { normalizeShopifyShopDomain } from "../utils/shop-domain";
-import { normalizeShopifyOrderGid } from "../utils/shop-domain";
+import { normalizeMerchantShopKey, normalizeShopifyOrderGid } from "../utils/shop-domain";
 
 function paymentStatusSecret(): string {
   return (env.paymentStatusApiSecret || env.appSharedSecret).trim();
@@ -28,9 +27,12 @@ export function paymentStatusRoutes(paymentRedirectRepo: PaymentRedirectStore): 
       });
     }
 
-    const shopKey = normalizeShopifyShopDomain(String(req.query.shop ?? ""));
-    if (!shopKey.includes(".myshopify.com")) {
-      return res.status(400).json({ ok: false, message: "Query shop must resolve to a *.myshopify.com domain." });
+    const shopKey = normalizeMerchantShopKey(String(req.query.shop ?? ""));
+    if (!shopKey || !shopKey.includes(".")) {
+      return res.status(400).json({
+        ok: false,
+        message: "Provide a valid shop identifier: bare Shopify subdomain, *.myshopify.com host, or custom domain hostname (must match saved store config)."
+      });
     }
 
     const orderRef = String(req.query.orderReference ?? "").trim();

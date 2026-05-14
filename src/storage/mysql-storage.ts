@@ -22,7 +22,7 @@ import {
   StoreConfigStore
 } from "./contracts";
 import { bodyTextToPayload } from "./swipe-payload-repo";
-import { normalizeShopifyOrderGid, normalizeShopifyShopDomain } from "../utils/shop-domain";
+import { normalizeMerchantShopKey, normalizeShopifyOrderGid } from "../utils/shop-domain";
 
 function parseJsonObject(value: unknown): Record<string, string> | undefined {
   if (typeof value !== "string" || !value.trim()) {
@@ -384,7 +384,7 @@ class MysqlSwipePayloadRepository implements SwipePayloadStore {
   constructor(private readonly pool: Pool) {}
 
   async append(input: SwipePayloadAppendInput): Promise<SwipePayloadRecord> {
-    const shop = normalizeShopifyShopDomain(input.shop);
+    const shop = normalizeMerchantShopKey(input.shop);
     const orderReference = input.orderReference.trim();
     const createdAt = new Date().toISOString();
     const payload = bodyTextToPayload(input.bodyText);
@@ -412,7 +412,7 @@ class MysqlSwipePayloadRepository implements SwipePayloadStore {
     orderReference: string,
     limit: number
   ): Promise<SwipePayloadRecord[]> {
-    const shopKey = normalizeShopifyShopDomain(shop);
+    const shopKey = normalizeMerchantShopKey(shop);
     const ref = orderReference.trim();
     const cap = Math.max(1, Math.min(limit, 500));
     const [rows] = await this.pool.query<RowDataPacket[]>(

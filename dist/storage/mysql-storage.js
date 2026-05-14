@@ -304,7 +304,7 @@ class MysqlSwipePayloadRepository {
         this.pool = pool;
     }
     async append(input) {
-        const shop = (0, shop_domain_1.normalizeShopifyShopDomain)(input.shop);
+        const shop = (0, shop_domain_1.normalizeMerchantShopKey)(input.shop);
         const orderReference = input.orderReference.trim();
         const createdAt = new Date().toISOString();
         const payload = (0, swipe_payload_repo_1.bodyTextToPayload)(input.bodyText);
@@ -323,7 +323,7 @@ class MysqlSwipePayloadRepository {
         };
     }
     async listByShopAndOrderReference(shop, orderReference, limit) {
-        const shopKey = (0, shop_domain_1.normalizeShopifyShopDomain)(shop);
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(shop);
         const ref = orderReference.trim();
         const cap = Math.max(1, Math.min(limit, 500));
         const [rows] = await this.pool.query(`SELECT * FROM swipe_payload_records WHERE shop = ? AND order_reference = ? ORDER BY id DESC LIMIT ?`, [shopKey, ref, cap]);

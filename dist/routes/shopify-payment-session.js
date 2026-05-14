@@ -8,6 +8,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const express_1 = require("express");
 const zod_1 = require("zod");
 const swipe_1 = require("../providers/swipe");
+const shop_domain_1 = require("../utils/shop-domain");
 const swipeMethodSchema = zod_1.z.string().trim().min(1).max(64).optional();
 const createSessionSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
@@ -24,20 +25,13 @@ const createSessionSchema = zod_1.z.object({
     })
         .optional()
 });
-function normalizeShop(domain) {
-    let s = domain.trim().toLowerCase();
-    if (s && !s.endsWith(".myshopify.com")) {
-        s = `${s}.myshopify.com`;
-    }
-    return s;
-}
 function shopifyPaymentSessionRoutes(deps) {
     const router = (0, express_1.Router)();
     const { paymentService, storeRepo, sessionContextRepo } = deps;
     router.post("/shopify/payment-sessions", async (req, res, next) => {
         try {
             const raw = createSessionSchema.parse(req.body);
-            const shop = normalizeShop(raw.shop);
+            const shop = (0, shop_domain_1.normalizeMerchantShopKey)(raw.shop);
             const store = await storeRepo.get(shop);
             if (!store) {
                 return res.status(400).json({

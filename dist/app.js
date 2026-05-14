@@ -28,6 +28,7 @@ const shopify_auth_service_1 = require("./services/shopify-auth-service");
 const shopify_payment_resolve_service_1 = require("./services/shopify-payment-resolve-service");
 const shopify_order_service_1 = require("./services/shopify-order-service");
 const storage_1 = require("./storage");
+const shop_domain_1 = require("./utils/shop-domain");
 function createApp() {
     const app = (0, express_1.default)();
     app.use(express_1.default.json({
@@ -55,9 +56,9 @@ function createApp() {
         .replace('src="/app.js"', `src="/app.js?v=${assetVersion}"`);
     const storage = (0, storage_1.getStorage)();
     const storeRepo = storage.storeRepo;
-    const paymentService = new payment_service_1.PaymentService(storeRepo);
-    const shopifyTokenRepo = storage.tokenRepo;
     const paymentRedirectRepo = storage.paymentRedirectRepo;
+    const paymentService = new payment_service_1.PaymentService(storeRepo, paymentRedirectRepo);
+    const shopifyTokenRepo = storage.tokenRepo;
     const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
     const sessionContextRepo = storage.sessionContextRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
@@ -84,7 +85,7 @@ function createApp() {
     });
     app.post("/checkout/like/swipe/create", async (req, res, next) => {
         try {
-            const shopRaw = String(req.body?.shop ?? "").trim().toLowerCase();
+            const shopInput = String(req.body?.shop ?? "").trim();
             const orderId = String(req.body?.orderId ?? "").trim();
             const amount = Number(req.body?.amount ?? 0);
             const currency = String(req.body?.currency ?? "IDR").trim().toUpperCase();
@@ -95,8 +96,8 @@ function createApp() {
             const swipePaymentMethod = typeof swipePaymentMethodRaw === "string" && swipePaymentMethodRaw.trim()
                 ? swipePaymentMethodRaw.trim().slice(0, 64)
                 : undefined;
-            const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
-            if (!shopRaw || !orderId || !Number.isFinite(amount) || amount < 0) {
+            const shop = (0, shop_domain_1.normalizeMerchantShopKey)(shopInput);
+            if (!shopInput || !shop || !orderId || !Number.isFinite(amount) || amount < 0) {
                 return res.status(400).json({
                     ok: false,
                     message: "Body must include shop, orderId, amount >= 0, and currency."

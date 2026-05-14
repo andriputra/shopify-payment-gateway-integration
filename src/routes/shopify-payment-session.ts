@@ -5,6 +5,7 @@ import { swipeInvoiceNumberForOrder } from "../providers/swipe";
 import { PaymentService } from "../services/payment-service";
 import { PaymentSessionContextStore, StoreConfigStore } from "../storage/contracts";
 import { SupportedProvider } from "../types";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 const swipeMethodSchema = z.string().trim().min(1).max(64).optional();
 
@@ -24,14 +25,6 @@ const createSessionSchema = z.object({
     .optional()
 });
 
-function normalizeShop(domain: string): string {
-  let s = domain.trim().toLowerCase();
-  if (s && !s.endsWith(".myshopify.com")) {
-    s = `${s}.myshopify.com`;
-  }
-  return s;
-}
-
 export function shopifyPaymentSessionRoutes(deps: {
   paymentService: PaymentService;
   storeRepo: StoreConfigStore;
@@ -43,7 +36,7 @@ export function shopifyPaymentSessionRoutes(deps: {
   router.post("/shopify/payment-sessions", async (req, res, next) => {
     try {
       const raw = createSessionSchema.parse(req.body);
-      const shop = normalizeShop(raw.shop);
+      const shop = normalizeMerchantShopKey(raw.shop);
       const store = await storeRepo.get(shop);
       if (!store) {
         return res.status(400).json({

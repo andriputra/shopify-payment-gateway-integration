@@ -1,27 +1,57 @@
 import { getProvider } from "../providers";
-import { swipeTestPaymentRequest, SwipeTestPaymentResult } from "../providers/swipe";
-import { StoreConfigStore } from "../storage/contracts";
-import { CreateCheckoutInput, CreateCheckoutResult } from "../types";
+import { swipeInvoiceNumberForOrder, swipeTestPaymentRequest, SwipeTestPaymentResult } from "../providers/swipe";
+import { PaymentRedirectStore, StoreConfigStore } from "../storage/contracts";
+import { CreateCheckoutInput, CreateCheckoutResult, SupportedProvider } from "../types";
+import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
-function normalizeShopKey(domain: string): string {
-  let s = domain.trim().toLowerCase();
-  if (s && !s.endsWith(".myshopify.com")) {
-    s = `${s}.myshopify.com`;
+/** Same key used by Swipe webhooks (`invoice_number`) and `/api/payment-status` `orderReference`. */
+function orderReferenceForPaymentRedirect(provider: SupportedProvider, orderId: string): string {
+  if (provider === "swipe") {
+    return swipeInvoiceNumberForOrder(orderId);
   }
-  return s;
+  return orderId.trim();
 }
 
 export class PaymentService {
-  constructor(private readonly storeRepo: StoreConfigStore) {}
+  constructor(
+    private readonly storeRepo: StoreConfigStore,
+    private readonly paymentRedirectRepo?: PaymentRedirectStore
+  ) {}
 
   async createCheckout(input: CreateCheckoutInput): Promise<CreateCheckoutResult> {
-    const store = await this.storeRepo.get(input.shop);
+    const shopKey = normalizeMerchantShopKey(input.shop);
+    if (!shopKey || !shopKey.includes(".")) {
+      throw new Error(`Invalid shop: ${input.shop}`);
+    }
+    const store = await this.storeRepo.get(shopKey);
     if (!store) {
-      throw new Error(`Store config not found for shop: ${input.shop}`);
+      throw new Error(`Store config not found for shop: ${shopKey}`);
     }
 
     const provider = getProvider(input.provider);
-    return provider.createCheckout(store, input);
+    const checkoutInput: CreateCheckoutInput = { ...input, shop: shopKey };
+    const result = await provider.createCheckout(store, checkoutInput);
+
+    if (this.paymentRedirectRepo) {
+      const shopNorm = normalizeMerchantShopKey(store.shop);
+      const providerKey = input.provider as SupportedProvider;
+      const orderRef = orderReferenceForPaymentRedirect(providerKey, checkoutInput.orderId);
+      const now = new Date().toISOString();
+      await this.paymentRedirectRepo.upsert({
+        shop: shopNorm,
+        orderReference: orderRef,
+        provider: String(input.provider),
+        paymentUrl: result.paymentUrl,
+        providerReference: result.providerReference,
+        amount: input.amount,
+        currency: String(input.currency ?? "").trim().toUpperCase() || "IDR",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    return result;
   }
 
   /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
@@ -31,7 +61,7 @@ export class PaymentService {
     orderId?: string,
     swipePaymentMethod?: string
   ): Promise<SwipeTestPaymentResult> {
-    const normalized = normalizeShopKey(shop);
+    const normalized = normalizeMerchantShopKey(shop);
     const store = await this.storeRepo.get(normalized);
     if (!store) {
       throw new Error(`Store config not found for shop: ${normalized}`);
@@ -49,9 +79,10 @@ export class PaymentService {
   }
 
   async handleWebhook(shop: string, providerId: string, payload: Record<string, unknown>) {
-    const store = await this.storeRepo.get(shop);
+    const shopKey = normalizeMerchantShopKey(shop);
+    const store = await this.storeRepo.get(shopKey);
     if (!store) {
-      throw new Error(`Store config not found for shop: ${shop}`);
+      throw new Error(`Store config not found for shop: ${shopKey}`);
     }
 
     const provider = getProvider(providerId);

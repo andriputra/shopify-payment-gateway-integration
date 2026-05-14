@@ -5,7 +5,6 @@ const express_1 = require("express");
 const env_1 = require("../config/env");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const shop_domain_1 = require("../utils/shop-domain");
-const shop_domain_2 = require("../utils/shop-domain");
 function paymentStatusSecret() {
     return (env_1.env.paymentStatusApiSecret || env_1.env.appSharedSecret).trim();
 }
@@ -25,9 +24,12 @@ function paymentStatusRoutes(paymentRedirectRepo) {
                 message: "Unauthorized. Send Authorization: Bearer <secret>, X-Payment-Status-Secret, or ?secret= (APP_SHARED_SECRET or PAYMENT_STATUS_API_SECRET)."
             });
         }
-        const shopKey = (0, shop_domain_1.normalizeShopifyShopDomain)(String(req.query.shop ?? ""));
-        if (!shopKey.includes(".myshopify.com")) {
-            return res.status(400).json({ ok: false, message: "Query shop must resolve to a *.myshopify.com domain." });
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(String(req.query.shop ?? ""));
+        if (!shopKey || !shopKey.includes(".")) {
+            return res.status(400).json({
+                ok: false,
+                message: "Provide a valid shop identifier: bare Shopify subdomain, *.myshopify.com host, or custom domain hostname (must match saved store config)."
+            });
         }
         const orderRef = String(req.query.orderReference ?? "").trim();
         const orderIdQuery = String(req.query.shopifyOrderId ?? req.query.orderId ?? "").trim();
@@ -39,7 +41,7 @@ function paymentStatusRoutes(paymentRedirectRepo) {
         }
         let record = orderRef ? await paymentRedirectRepo.get(shopKey, orderRef) : undefined;
         if (!record && orderIdQuery) {
-            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_2.normalizeShopifyOrderGid)(orderIdQuery));
+            record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_1.normalizeShopifyOrderGid)(orderIdQuery));
         }
         if (!record) {
             return res.status(404).json({
