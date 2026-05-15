@@ -4,6 +4,7 @@ exports.webhookRoutes = webhookRoutes;
 const express_1 = require("express");
 const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
+const payment_forward_webhook_1 = require("../services/payment-forward-webhook");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 const shop_domain_1 = require("../utils/shop-domain");
 function webhookRoutes(service, deps) {
@@ -24,8 +25,10 @@ function webhookRoutes(service, deps) {
         }
         const result = await service.handleWebhook(shopKey, provider, body);
         const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
+        let paidRedirectRecord;
         if (orderRef && paymentRedirectRepo) {
             const record = await paymentRedirectRepo.get(shopKey, orderRef);
+            paidRedirectRecord = record;
             if (record) {
                 const swipeExtras = provider === "swipe"
                     ? {
@@ -43,7 +46,14 @@ function webhookRoutes(service, deps) {
                     result.outcome === "timeout") {
                     nextStatus = "failed";
                 }
+                else if (provider === "swipe" &&
+                    (swipeExtras.swipeResponseCode === "0020" ||
+                        swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
+                        /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))) {
+                    nextStatus = "paid";
+                }
                 await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
+                paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
             }
         }
         let ctxAtCallback;
@@ -103,7 +113,39 @@ function webhookRoutes(service, deps) {
                     : "Callback missing invoice_number / merchant_reference — cannot match stored payment session context."
             });
         }
-        res.json({ ok: true, ...result, shopifyPaymentSession });
+        const redirectUrl = result.paid && paidRedirectRecord?.returnUrlAfterPaid?.trim()
+            ? paidRedirectRecord.returnUrlAfterPaid.trim()
+            : result.redirectUrl;
+        let forwardWebhook = {
+            attempted: false
+        };
+        const forwardUrl = paidRedirectRecord?.forwardWebhookUrl?.trim();
+        if (forwardUrl && orderRef) {
+            forwardWebhook.attempted = true;
+            forwardWebhook.url = forwardUrl;
+            const fwd = await (0, payment_forward_webhook_1.forwardPaymentWebhook)(forwardUrl, {
+                event: "payment.updated",
+                shop: shopKey,
+                provider,
+                orderReference: orderRef,
+                status: paidRedirectRecord?.status ?? (result.paid ? "paid" : "pending"),
+                paid: result.paid,
+                amount: paidRedirectRecord?.amount,
+                currency: paidRedirectRecord?.currency,
+                providerReference: paidRedirectRecord?.providerReference ?? result.providerReference,
+                swipeResponseCode: paidRedirectRecord?.swipeResponseCode ?? result.edcResponseCode ?? null,
+                swipeResponseMessage: paidRedirectRecord?.swipeResponseMessage ?? result.edcResponseMessage ?? null,
+                returnUrlAfterPaid: paidRedirectRecord?.returnUrlAfterPaid ?? null,
+                providerPayload: body,
+                receivedAt: new Date().toISOString()
+            }, { secret: paidRedirectRecord?.forwardWebhookSecret });
+            forwardWebhook.ok = fwd.ok;
+            if (!fwd.ok) {
+                forwardWebhook.error = fwd.error;
+                console.warn("[payment-forward-webhook]", { shop: shopKey, orderRef, forwardUrl, error: fwd.error });
+            }
+        }
+        res.json({ ok: true, ...result, redirectUrl, forwardWebhook, shopifyPaymentSession });
     };
     router.post("/payment/:provider/:shop", async (req, res, next) => {
         try {

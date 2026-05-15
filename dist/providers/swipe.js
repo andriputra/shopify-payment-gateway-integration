@@ -242,6 +242,14 @@ function classifySwipeGatewayOutcome(normalizedStatus) {
     }
     return { paid: false, outcome: "unknown" };
 }
+function effectiveReturnUrlAfterPaid(store, input) {
+    const fromRequest = input.returnUrl?.trim();
+    if (fromRequest) {
+        return fromRequest;
+    }
+    const fromStore = store.redirectUrlAfterPaid?.trim();
+    return fromStore || undefined;
+}
 /** Redirect Shopify to EDC instruction page — payment on terminal + Swipe callback. */
 function buildEdcPendingPageUrl(store, input) {
     const base = env_1.env.host.replace(/\/$/, "");
@@ -251,6 +259,10 @@ function buildEdcPendingPageUrl(store, input) {
         amount: String(input.amount),
         currency: input.currency
     });
+    const returnUrl = effectiveReturnUrlAfterPaid(store, input);
+    if (returnUrl) {
+        params.set("returnUrl", returnUrl);
+    }
     return `${base}/pay/edc-pending?${params.toString()}`;
 }
 function pickPaymentUrl(body, store, createEndpointUrl, redirectCtx) {
@@ -403,6 +415,10 @@ exports.swipeProvider = {
         if (input.amount < minAmount) {
             throw new Error(`Swipe: minimum checkout amount is ${minAmount}. Current amount is ${input.amount}.`);
         }
+        const returnUrlAfterPaid = effectiveReturnUrlAfterPaid(store, input);
+        const returnUrlField = store.credentials.extra?.returnUrlField?.trim() ||
+            store.credentials.extra?.swipeReturnUrlField?.trim() ||
+            "return_url";
         const requestBody = {
             pos_request_type: posRequestType,
             request_id: createSwipeRequestId(),
@@ -418,6 +434,9 @@ exports.swipeProvider = {
                 fee_promotor_amount: feePromotorAmount
             }
         };
+        if (returnUrlAfterPaid) {
+            requestBody[returnUrlField] = returnUrlAfterPaid;
+        }
         const outboundHeaders = swipeOutboundHeaders(merchantId);
         if (env_1.env.swipeDebugFingerprint) {
             console.info("[SWIPE DEBUG FINGERPRINT] outbound request", {
@@ -564,7 +583,8 @@ exports.swipeProvider = {
         });
         return {
             paymentUrl,
-            providerReference
+            providerReference,
+            returnUrlAfterPaid: returnUrlAfterPaid ?? undefined
         };
     },
     parseWebhook(_store, payload) {
@@ -572,13 +592,21 @@ exports.swipeProvider = {
         const edcResponseCode = extractSwipeEdcResponseCode(payload);
         const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
         let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
-        /** Swipe / QRIS often send empty `status` but EDC `response_code` 00 = approved (see Swipe callback docs). */
-        if (!paid && outcome === "unknown" && !statusRaw.trim()) {
-            const c = (edcResponseCode ?? "").trim().toUpperCase();
-            if (c === "00" || c === "000") {
-                paid = true;
-                outcome = "paid";
-            }
+        const edcCode = (edcResponseCode ?? "").trim();
+        const edcUpper = edcCode.toUpperCase();
+        const statusUpper = statusRaw.trim().toUpperCase();
+        /** Swipe EDC: 00 / 000 / 0020 = sale approved (common in QRIS/terminal callbacks). */
+        if (!paid && (edcUpper === "00" || edcUpper === "000" || edcUpper === "0020" || /^0{2,3}$/.test(edcUpper))) {
+            paid = true;
+            outcome = "paid";
+        }
+        if (!paid && statusUpper === "OK") {
+            paid = true;
+            outcome = "paid";
+        }
+        if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
+            paid = true;
+            outcome = "paid";
         }
         return {
             paid,

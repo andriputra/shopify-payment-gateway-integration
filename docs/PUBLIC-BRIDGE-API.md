@@ -74,7 +74,12 @@ Same business logic as embedded `POST /api/payments/checkout/create`, but for **
 **JSON body (same shape as embedded checkout create):**
 
 - `shop`, `provider` (`xendit` \| `midtrans` \| `swipe` \| `sandbox` \| `custom`), `amount`, `currency` (3 letters), `orderId`
-- Optional: `customerEmail`, `returnUrl`, `swipePaymentMethod` (Swipe only)
+- Optional: `customerEmail`, `returnUrl` (browser thank-you page — **not** a webhook URL), `forwardWebhookUrl` + `forwardWebhookSecret` (your backend receives a **POST** copy after Swipe hits this app), `swipePaymentMethod` (Swipe only)
+
+**Two-URL pattern (recommended):**
+
+1. Swipe → `{HOST}/webhooks/payment/swipe?shop=...` (always; updates status + `/api/payment-status`)
+2. This app → `forwardWebhookUrl` (your ERP/WP/ngrok) with JSON `{ "event": "payment.updated", ... }`
 
 **Response:** `{ "ok": true, "paymentUrl": "...", "providerReference": "..." }` on success.
 

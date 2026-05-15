@@ -14,6 +14,8 @@ const createCheckoutSchema = z.object({
   customerEmail: z.string().email().optional(),
   returnUrl: z.string().url().optional(),
   swipePaymentMethod: z.string().max(64).optional(),
+  forwardWebhookUrl: z.string().url().optional(),
+  forwardWebhookSecret: z.string().min(8).optional(),
   /** Optional auth duplicate for clients that cannot set headers. Prefer Bearer or X-Bridge-Checkout-Secret. */
   secret: z.string().optional()
 });

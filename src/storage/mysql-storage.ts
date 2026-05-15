@@ -278,8 +278,9 @@ class MysqlPaymentRedirectRepository implements PaymentRedirectStore {
       `INSERT INTO payment_redirects (
         shop, order_reference, provider, payment_url, provider_reference, shopify_order_id,
         amount, currency, status, created_at, updated_at,
-        swipe_response_code, swipe_response_message, last_swipe_status_raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        swipe_response_code, swipe_response_message, last_swipe_status_raw, return_url_after_paid,
+        forward_webhook_url, forward_webhook_secret
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         provider = VALUES(provider),
         payment_url = VALUES(payment_url),
@@ -291,7 +292,10 @@ class MysqlPaymentRedirectRepository implements PaymentRedirectStore {
         updated_at = VALUES(updated_at),
         swipe_response_code = VALUES(swipe_response_code),
         swipe_response_message = VALUES(swipe_response_message),
-        last_swipe_status_raw = VALUES(last_swipe_status_raw)`,
+        last_swipe_status_raw = VALUES(last_swipe_status_raw),
+        return_url_after_paid = VALUES(return_url_after_paid),
+        forward_webhook_url = VALUES(forward_webhook_url),
+        forward_webhook_secret = VALUES(forward_webhook_secret)`,
       [
         record.shop,
         record.orderReference,
@@ -306,7 +310,10 @@ class MysqlPaymentRedirectRepository implements PaymentRedirectStore {
         record.updatedAt,
         record.swipeResponseCode ?? null,
         record.swipeResponseMessage ?? null,
-        record.lastSwipeStatusRaw ?? null
+        record.lastSwipeStatusRaw ?? null,
+        record.returnUrlAfterPaid ?? null,
+        record.forwardWebhookUrl ?? null,
+        record.forwardWebhookSecret ?? null
       ]
     );
     return record;
@@ -375,7 +382,13 @@ class MysqlPaymentRedirectRepository implements PaymentRedirectStore {
       updatedAt: String(row.updated_at),
       swipeResponseCode: row.swipe_response_code != null ? String(row.swipe_response_code) : undefined,
       swipeResponseMessage: row.swipe_response_message != null ? String(row.swipe_response_message) : undefined,
-      lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined
+      lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined,
+      returnUrlAfterPaid:
+        row.return_url_after_paid != null ? String(row.return_url_after_paid) : undefined,
+      forwardWebhookUrl:
+        row.forward_webhook_url != null ? String(row.forward_webhook_url) : undefined,
+      forwardWebhookSecret:
+        row.forward_webhook_secret != null ? String(row.forward_webhook_secret) : undefined
     };
   }
 }
@@ -560,6 +573,18 @@ export function createMysqlStorage(): StorageBundle {
       await ignoreDuplicateColumn(
         pool,
         "ALTER TABLE payment_redirects ADD COLUMN last_swipe_status_raw VARCHAR(255) NULL"
+      );
+      await ignoreDuplicateColumn(
+        pool,
+        "ALTER TABLE payment_redirects ADD COLUMN return_url_after_paid TEXT NULL"
+      );
+      await ignoreDuplicateColumn(
+        pool,
+        "ALTER TABLE payment_redirects ADD COLUMN forward_webhook_url TEXT NULL"
+      );
+      await ignoreDuplicateColumn(
+        pool,
+        "ALTER TABLE payment_redirects ADD COLUMN forward_webhook_secret TEXT NULL"
       );
 
       await pool.execute(`

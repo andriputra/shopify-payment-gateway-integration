@@ -141,10 +141,15 @@ function createApp() {
         const orderId = String(req.query.orderId ?? "");
         const amount = String(req.query.amount ?? "0");
         const currency = String(req.query.currency ?? "IDR");
+        const returnUrl = String(req.query.returnUrl ?? "").trim();
         const safeShop = shop.replace(/"/g, "&quot;");
         const safeOrderId = orderId.replace(/"/g, "&quot;");
         const safeAmount = amount.replace(/"/g, "&quot;");
         const safeCurrency = currency.replace(/"/g, "&quot;");
+        const safeReturnUrl = returnUrl.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        const returnLinkBlock = returnUrl
+            ? `<p class="mt-4"><a href="${safeReturnUrl}" class="inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Return to store</a></p>`
+            : "";
         const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -166,7 +171,8 @@ function createApp() {
         <p><span class="font-semibold">Reference:</span> ${safeOrderId}</p>
         <p><span class="font-semibold">Amount:</span> ${safeCurrency} ${safeAmount}</p>
       </div>
-      <p class="mt-4 text-xs text-slate-500">You may close this tab after payment is completed on EDC if your store redirects back to order confirmation.</p>
+      <p class="mt-4 text-xs text-slate-500">After payment succeeds, you may use the button below if your store provided a return URL.</p>
+      ${returnLinkBlock}
     </section>
   </main>
 </body>
