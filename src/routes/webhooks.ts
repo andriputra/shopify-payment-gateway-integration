@@ -71,11 +71,16 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           result.outcome === "timeout"
         ) {
           nextStatus = "failed";
+        } else if (
+          provider === "swipe" &&
+          (swipeExtras.swipeResponseCode === "0020" ||
+            swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
+            /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))
+        ) {
+          nextStatus = "paid";
         }
         await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
-        if (result.paid) {
-          paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
-        }
+        paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
       }
     }
 

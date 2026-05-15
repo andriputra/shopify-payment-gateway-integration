@@ -682,13 +682,22 @@ export const swipeProvider: PaymentProvider = {
     const edcResponseCode = extractSwipeEdcResponseCode(payload);
     const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
     let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
-    /** Swipe / QRIS often send empty `status` but EDC `response_code` 00 = approved (see Swipe callback docs). */
-    if (!paid && outcome === "unknown" && !statusRaw.trim()) {
-      const c = (edcResponseCode ?? "").trim().toUpperCase();
-      if (c === "00" || c === "000") {
-        paid = true;
-        outcome = "paid";
-      }
+    const edcCode = (edcResponseCode ?? "").trim();
+    const edcUpper = edcCode.toUpperCase();
+    const statusUpper = statusRaw.trim().toUpperCase();
+
+    /** Swipe EDC: 00 / 000 / 0020 = sale approved (common in QRIS/terminal callbacks). */
+    if (!paid && (edcUpper === "00" || edcUpper === "000" || edcUpper === "0020" || /^0{2,3}$/.test(edcUpper))) {
+      paid = true;
+      outcome = "paid";
+    }
+    if (!paid && statusUpper === "OK") {
+      paid = true;
+      outcome = "paid";
+    }
+    if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
+      paid = true;
+      outcome = "paid";
     }
     return {
       paid,

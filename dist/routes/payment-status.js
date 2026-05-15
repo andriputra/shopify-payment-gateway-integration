@@ -105,6 +105,7 @@ function paymentStatusRoutes(paymentRedirectRepo) {
             swipeResponseCodeBookMessage: codeBook ?? null,
             lastSwipeStatusRaw: record.lastSwipeStatusRaw ?? null,
             returnUrlAfterPaid: record.returnUrlAfterPaid ?? null,
+            forwardWebhookUrl: record.forwardWebhookUrl ?? null,
             createdAt: record.createdAt,
             updatedAt: record.updatedAt
         });

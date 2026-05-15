@@ -46,10 +46,14 @@ function webhookRoutes(service, deps) {
                     result.outcome === "timeout") {
                     nextStatus = "failed";
                 }
-                await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
-                if (result.paid) {
-                    paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
+                else if (provider === "swipe" &&
+                    (swipeExtras.swipeResponseCode === "0020" ||
+                        swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
+                        /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))) {
+                    nextStatus = "paid";
                 }
+                await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
+                paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
             }
         }
         let ctxAtCallback;
