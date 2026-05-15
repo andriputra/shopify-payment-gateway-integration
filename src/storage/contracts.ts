@@ -69,6 +69,9 @@ export type PaymentRedirectRecord = {
   lastSwipeStatusRaw?: string;
   /** Per-checkout browser redirect (from bridge `returnUrl`); falls back to store config when absent. */
   returnUrlAfterPaid?: string;
+  /** Merchant backend URL — app POSTs normalized event after provider webhook is processed. */
+  forwardWebhookUrl?: string;
+  forwardWebhookSecret?: string;
 };
 
 export type PaymentRedirectMergePatch = Partial<
@@ -82,6 +85,8 @@ export type PaymentRedirectMergePatch = Partial<
     | "providerReference"
     | "shopifyOrderId"
     | "returnUrlAfterPaid"
+    | "forwardWebhookUrl"
+    | "forwardWebhookSecret"
   >
 >;
 

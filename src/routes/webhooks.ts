@@ -10,6 +10,7 @@ import {
   PaymentSessionContext,
   PaymentSessionContextStore
 } from "../storage/contracts";
+import { forwardPaymentWebhook } from "../services/payment-forward-webhook";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
 import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
@@ -149,7 +150,41 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
         ? paidRedirectRecord.returnUrlAfterPaid.trim()
         : result.redirectUrl;
 
-    res.json({ ok: true, ...result, redirectUrl, shopifyPaymentSession });
+    let forwardWebhook: { attempted: boolean; ok?: boolean; url?: string; error?: string } = {
+      attempted: false
+    };
+    const forwardUrl = paidRedirectRecord?.forwardWebhookUrl?.trim();
+    if (forwardUrl && orderRef) {
+      forwardWebhook.attempted = true;
+      forwardWebhook.url = forwardUrl;
+      const fwd = await forwardPaymentWebhook(
+        forwardUrl,
+        {
+          event: "payment.updated",
+          shop: shopKey,
+          provider,
+          orderReference: orderRef,
+          status: paidRedirectRecord?.status ?? (result.paid ? "paid" : "pending"),
+          paid: result.paid,
+          amount: paidRedirectRecord?.amount,
+          currency: paidRedirectRecord?.currency,
+          providerReference: paidRedirectRecord?.providerReference ?? result.providerReference,
+          swipeResponseCode: paidRedirectRecord?.swipeResponseCode ?? result.edcResponseCode ?? null,
+          swipeResponseMessage: paidRedirectRecord?.swipeResponseMessage ?? result.edcResponseMessage ?? null,
+          returnUrlAfterPaid: paidRedirectRecord?.returnUrlAfterPaid ?? null,
+          providerPayload: body,
+          receivedAt: new Date().toISOString()
+        },
+        { secret: paidRedirectRecord?.forwardWebhookSecret }
+      );
+      forwardWebhook.ok = fwd.ok;
+      if (!fwd.ok) {
+        forwardWebhook.error = fwd.error;
+        console.warn("[payment-forward-webhook]", { shop: shopKey, orderRef, forwardUrl, error: fwd.error });
+      }
+    }
+
+    res.json({ ok: true, ...result, redirectUrl, forwardWebhook, shopifyPaymentSession });
   };
 
   router.post("/payment/:provider/:shop", async (req, res, next) => {

@@ -44,10 +44,16 @@ class PaymentService {
                 status: "pending",
                 createdAt: now,
                 updatedAt: now,
-                returnUrlAfterPaid
+                returnUrlAfterPaid,
+                forwardWebhookUrl: checkoutInput.forwardWebhookUrl?.trim() || undefined,
+                forwardWebhookSecret: checkoutInput.forwardWebhookSecret?.trim() || undefined
             });
         }
-        return { ...result, returnUrlAfterPaid };
+        return {
+            ...result,
+            returnUrlAfterPaid,
+            forwardWebhookUrl: checkoutInput.forwardWebhookUrl?.trim() || undefined
+        };
     }
     /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
     async swipeTestRequest(shop, amount, orderId, swipePaymentMethod) {

@@ -17,6 +17,8 @@ const createCheckoutSchema = zod_1.z.object({
     customerEmail: zod_1.z.string().email().optional(),
     returnUrl: zod_1.z.string().url().optional(),
     swipePaymentMethod: zod_1.z.string().max(64).optional(),
+    forwardWebhookUrl: zod_1.z.string().url().optional(),
+    forwardWebhookSecret: zod_1.z.string().min(8).optional(),
     /** Optional auth duplicate for clients that cannot set headers. Prefer Bearer or X-Bridge-Checkout-Secret. */
     secret: zod_1.z.string().optional()
 });
