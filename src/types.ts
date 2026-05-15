@@ -33,4 +33,6 @@ export type CreateCheckoutInput = {
 export type CreateCheckoutResult = {
   paymentUrl: string;
   providerReference: string;
+  /** Browser redirect after paid (from request `returnUrl` or store config). Swipe: stored + echoed; sent to Swipe as `return_url` when provided. */
+  returnUrlAfterPaid?: string;
 };

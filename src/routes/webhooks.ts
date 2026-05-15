@@ -5,6 +5,7 @@ import { ShopifyOrderService } from "../services/shopify-order-service";
 import { ShopifyPaymentResolveService } from "../services/shopify-payment-resolve-service";
 import { logSwipeTransaction, sanitizeSwipePayloadForLog } from "../services/swipe-transaction-log";
 import {
+  PaymentRedirectRecord,
   PaymentRedirectStore,
   PaymentSessionContext,
   PaymentSessionContextStore
@@ -46,8 +47,11 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     const result = await service.handleWebhook(shopKey, provider, body);
     const orderRef = webhookOrderReference(provider, body);
 
+    let paidRedirectRecord: PaymentRedirectRecord | undefined;
+
     if (orderRef && paymentRedirectRepo) {
       const record = await paymentRedirectRepo.get(shopKey, orderRef);
+      paidRedirectRecord = record;
       if (record) {
         const swipeExtras =
           provider === "swipe"
@@ -68,6 +72,9 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           nextStatus = "failed";
         }
         await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
+        if (result.paid) {
+          paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
+        }
       }
     }
 
@@ -137,7 +144,12 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
       });
     }
 
-    res.json({ ok: true, ...result, shopifyPaymentSession });
+    const redirectUrl =
+      result.paid && paidRedirectRecord?.returnUrlAfterPaid?.trim()
+        ? paidRedirectRecord.returnUrlAfterPaid.trim()
+        : result.redirectUrl;
+
+    res.json({ ok: true, ...result, redirectUrl, shopifyPaymentSession });
   };
 
   router.post("/payment/:provider/:shop", async (req, res, next) => {

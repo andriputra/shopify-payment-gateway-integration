@@ -74,7 +74,7 @@ Same business logic as embedded `POST /api/payments/checkout/create`, but for **
 **JSON body (same shape as embedded checkout create):**
 
 - `shop`, `provider` (`xendit` \| `midtrans` \| `swipe` \| `sandbox` \| `custom`), `amount`, `currency` (3 letters), `orderId`
-- Optional: `customerEmail`, `returnUrl`, `swipePaymentMethod` (Swipe only)
+- Optional: `customerEmail`, `returnUrl` (Swipe: stored per checkout, sent to Swipe as `return_url` when supported, echoed in response as `returnUrlAfterPaid`, used in webhook `redirectUrl` when paid), `swipePaymentMethod` (Swipe only)
 
 **Response:** `{ "ok": true, "paymentUrl": "...", "providerReference": "..." }` on success.
 

@@ -242,6 +242,14 @@ function classifySwipeGatewayOutcome(normalizedStatus) {
     }
     return { paid: false, outcome: "unknown" };
 }
+function effectiveReturnUrlAfterPaid(store, input) {
+    const fromRequest = input.returnUrl?.trim();
+    if (fromRequest) {
+        return fromRequest;
+    }
+    const fromStore = store.redirectUrlAfterPaid?.trim();
+    return fromStore || undefined;
+}
 /** Redirect Shopify to EDC instruction page — payment on terminal + Swipe callback. */
 function buildEdcPendingPageUrl(store, input) {
     const base = env_1.env.host.replace(/\/$/, "");
@@ -251,6 +259,10 @@ function buildEdcPendingPageUrl(store, input) {
         amount: String(input.amount),
         currency: input.currency
     });
+    const returnUrl = effectiveReturnUrlAfterPaid(store, input);
+    if (returnUrl) {
+        params.set("returnUrl", returnUrl);
+    }
     return `${base}/pay/edc-pending?${params.toString()}`;
 }
 function pickPaymentUrl(body, store, createEndpointUrl, redirectCtx) {
@@ -403,6 +415,10 @@ exports.swipeProvider = {
         if (input.amount < minAmount) {
             throw new Error(`Swipe: minimum checkout amount is ${minAmount}. Current amount is ${input.amount}.`);
         }
+        const returnUrlAfterPaid = effectiveReturnUrlAfterPaid(store, input);
+        const returnUrlField = store.credentials.extra?.returnUrlField?.trim() ||
+            store.credentials.extra?.swipeReturnUrlField?.trim() ||
+            "return_url";
         const requestBody = {
             pos_request_type: posRequestType,
             request_id: createSwipeRequestId(),
@@ -418,6 +434,9 @@ exports.swipeProvider = {
                 fee_promotor_amount: feePromotorAmount
             }
         };
+        if (returnUrlAfterPaid) {
+            requestBody[returnUrlField] = returnUrlAfterPaid;
+        }
         const outboundHeaders = swipeOutboundHeaders(merchantId);
         if (env_1.env.swipeDebugFingerprint) {
             console.info("[SWIPE DEBUG FINGERPRINT] outbound request", {
@@ -564,7 +583,8 @@ exports.swipeProvider = {
         });
         return {
             paymentUrl,
-            providerReference
+            providerReference,
+            returnUrlAfterPaid: returnUrlAfterPaid ?? undefined
         };
     },
     parseWebhook(_store, payload) {

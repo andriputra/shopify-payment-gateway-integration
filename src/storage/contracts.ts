@@ -67,6 +67,8 @@ export type PaymentRedirectRecord = {
   swipeResponseMessage?: string;
   /** Raw payment_status / status string from the last Swipe callback. */
   lastSwipeStatusRaw?: string;
+  /** Per-checkout browser redirect (from bridge `returnUrl`); falls back to store config when absent. */
+  returnUrlAfterPaid?: string;
 };
 
 export type PaymentRedirectMergePatch = Partial<
@@ -79,6 +81,7 @@ export type PaymentRedirectMergePatch = Partial<
     | "paymentUrl"
     | "providerReference"
     | "shopifyOrderId"
+    | "returnUrlAfterPaid"
   >
 >;
 

@@ -119,6 +119,7 @@ export function paymentStatusRoutes(paymentRedirectRepo: PaymentRedirectStore): 
       swipeResponseMessage: record.swipeResponseMessage ?? null,
       swipeResponseCodeBookMessage: codeBook ?? null,
       lastSwipeStatusRaw: record.lastSwipeStatusRaw ?? null,
+      returnUrlAfterPaid: record.returnUrlAfterPaid ?? null,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt
     });

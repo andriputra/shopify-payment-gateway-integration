@@ -28,6 +28,7 @@ class PaymentService {
         const provider = (0, providers_1.getProvider)(input.provider);
         const checkoutInput = { ...input, shop: shopKey };
         const result = await provider.createCheckout(store, checkoutInput);
+        const returnUrlAfterPaid = checkoutInput.returnUrl?.trim() || store.redirectUrlAfterPaid?.trim() || undefined;
         if (this.paymentRedirectRepo) {
             const providerKey = input.provider;
             const orderRef = orderReferenceForPaymentRedirect(providerKey, checkoutInput.orderId);
@@ -42,10 +43,11 @@ class PaymentService {
                 currency: String(input.currency ?? "").trim().toUpperCase() || "IDR",
                 status: "pending",
                 createdAt: now,
-                updatedAt: now
+                updatedAt: now,
+                returnUrlAfterPaid
             });
         }
-        return result;
+        return { ...result, returnUrlAfterPaid };
     }
     /** POST to Swipe from server (equivalent to Postman curl); useful for credential verification and raw JSON inspection. */
     async swipeTestRequest(shop, amount, orderId, swipePaymentMethod) {
@@ -75,6 +77,22 @@ class PaymentService {
             ...result,
             redirectUrl: result.paid ? store.redirectUrlAfterPaid : undefined
         };
+    }
+    /** Browser redirect URL for a paid checkout (per-request returnUrl wins over store default). */
+    async resolveReturnUrlAfterPaid(shop, orderReference) {
+        const shopKey = (0, shop_domain_1.normalizeMerchantShopKey)(shop);
+        const store = await this.storeRepo.get(shopKey);
+        if (!store) {
+            return undefined;
+        }
+        const ref = orderReference.trim();
+        if (this.paymentRedirectRepo && ref) {
+            const record = await this.paymentRedirectRepo.get(shopKey, ref);
+            if (record?.returnUrlAfterPaid?.trim()) {
+                return record.returnUrlAfterPaid.trim();
+            }
+        }
+        return store.redirectUrlAfterPaid?.trim() || undefined;
     }
 }
 exports.PaymentService = PaymentService;

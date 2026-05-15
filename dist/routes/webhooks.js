@@ -24,8 +24,10 @@ function webhookRoutes(service, deps) {
         }
         const result = await service.handleWebhook(shopKey, provider, body);
         const orderRef = (0, webhook_order_ref_1.webhookOrderReference)(provider, body);
+        let paidRedirectRecord;
         if (orderRef && paymentRedirectRepo) {
             const record = await paymentRedirectRepo.get(shopKey, orderRef);
+            paidRedirectRecord = record;
             if (record) {
                 const swipeExtras = provider === "swipe"
                     ? {
@@ -44,6 +46,9 @@ function webhookRoutes(service, deps) {
                     nextStatus = "failed";
                 }
                 await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
+                if (result.paid) {
+                    paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };
+                }
             }
         }
         let ctxAtCallback;
@@ -103,7 +108,10 @@ function webhookRoutes(service, deps) {
                     : "Callback missing invoice_number / merchant_reference — cannot match stored payment session context."
             });
         }
-        res.json({ ok: true, ...result, shopifyPaymentSession });
+        const redirectUrl = result.paid && paidRedirectRecord?.returnUrlAfterPaid?.trim()
+            ? paidRedirectRecord.returnUrlAfterPaid.trim()
+            : result.redirectUrl;
+        res.json({ ok: true, ...result, redirectUrl, shopifyPaymentSession });
     };
     router.post("/payment/:provider/:shop", async (req, res, next) => {
         try {

@@ -216,8 +216,8 @@ class MysqlPaymentRedirectRepository {
         await this.pool.execute(`INSERT INTO payment_redirects (
         shop, order_reference, provider, payment_url, provider_reference, shopify_order_id,
         amount, currency, status, created_at, updated_at,
-        swipe_response_code, swipe_response_message, last_swipe_status_raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        swipe_response_code, swipe_response_message, last_swipe_status_raw, return_url_after_paid
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         provider = VALUES(provider),
         payment_url = VALUES(payment_url),
@@ -229,7 +229,8 @@ class MysqlPaymentRedirectRepository {
         updated_at = VALUES(updated_at),
         swipe_response_code = VALUES(swipe_response_code),
         swipe_response_message = VALUES(swipe_response_message),
-        last_swipe_status_raw = VALUES(last_swipe_status_raw)`, [
+        last_swipe_status_raw = VALUES(last_swipe_status_raw),
+        return_url_after_paid = VALUES(return_url_after_paid)`, [
             record.shop,
             record.orderReference,
             record.provider,
@@ -243,7 +244,8 @@ class MysqlPaymentRedirectRepository {
             record.updatedAt,
             record.swipeResponseCode ?? null,
             record.swipeResponseMessage ?? null,
-            record.lastSwipeStatusRaw ?? null
+            record.lastSwipeStatusRaw ?? null,
+            record.returnUrlAfterPaid ?? null
         ]);
         return record;
     }
@@ -295,7 +297,8 @@ class MysqlPaymentRedirectRepository {
             updatedAt: String(row.updated_at),
             swipeResponseCode: row.swipe_response_code != null ? String(row.swipe_response_code) : undefined,
             swipeResponseMessage: row.swipe_response_message != null ? String(row.swipe_response_message) : undefined,
-            lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined
+            lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined,
+            returnUrlAfterPaid: row.return_url_after_paid != null ? String(row.return_url_after_paid) : undefined
         };
     }
 }
@@ -448,6 +451,7 @@ function createMysqlStorage() {
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN swipe_response_code VARCHAR(32) NULL");
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN swipe_response_message TEXT NULL");
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN last_swipe_status_raw VARCHAR(255) NULL");
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN return_url_after_paid TEXT NULL");
             await pool.execute(`
         CREATE TABLE IF NOT EXISTS swipe_response_codes (
           code VARCHAR(16) PRIMARY KEY,
