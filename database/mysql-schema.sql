@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS shopify_tokens (
   updated_at VARCHAR(64) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS oauth_states (
+  shop VARCHAR(255) PRIMARY KEY,
+  state VARCHAR(64) NOT NULL,
+  created_at VARCHAR(64) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS payment_session_contexts (
   order_reference VARCHAR(255) PRIMARY KEY,
   shop VARCHAR(255) NOT NULL,

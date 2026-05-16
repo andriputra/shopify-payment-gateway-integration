@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import { env } from "../config/env";
+import { OAuthStateStore } from "../storage/oauth-state-store";
 import { ShopifyTokenStore } from "../storage/contracts";
 
-const stateStore = new Map<string, string>();
+const OAUTH_STATE_MAX_AGE_MS = 15 * 60 * 1000;
 
 type OAuthCallbackPayload = {
   shop: string;
@@ -14,15 +15,31 @@ type OAuthCallbackPayload = {
 };
 
 export class ShopifyAuthService {
-  constructor(private readonly tokenRepo: ShopifyTokenStore) {}
+  constructor(
+    private readonly tokenRepo: ShopifyTokenStore,
+    private readonly oauthStateRepo: OAuthStateStore
+  ) {}
 
   validateShop(shop: string): boolean {
     return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
   }
 
-  startOAuth(shop: string): string {
+  normalizeShop(shopParam: string): string | null {
+    const trimmed = shopParam.trim().toLowerCase();
+    if (!trimmed) {
+      return null;
+    }
+    const shop = trimmed.endsWith(".myshopify.com") ? trimmed : `${trimmed}.myshopify.com`;
+    return this.validateShop(shop) ? shop : null;
+  }
+
+  async startOAuth(shop: string): Promise<string> {
     const state = crypto.randomBytes(16).toString("hex");
-    stateStore.set(shop, state);
+    await this.oauthStateRepo.save({
+      shop,
+      state,
+      createdAt: new Date().toISOString()
+    });
     return this.buildInstallUrl(shop, state);
   }
 
@@ -66,10 +83,36 @@ export class ShopifyAuthService {
     return `${appPath}?${search.toString()}`;
   }
 
+  async getInstallStatus(shopParam: string) {
+    const shop = this.normalizeShop(shopParam);
+    if (!shop) {
+      return { ok: false as const, message: "Invalid shop domain" };
+    }
+
+    const token = await this.tokenRepo.get(shop);
+    if (!token) {
+      return {
+        ok: true as const,
+        installed: false as const,
+        shop,
+        oauthRequired: true as const
+      };
+    }
+
+    return {
+      ok: true as const,
+      installed: true as const,
+      shop: token.shop,
+      scope: token.scope,
+      installedAt: token.installedAt,
+      oauthRequired: false as const
+    };
+  }
+
   async handleOAuthCallback(payload: OAuthCallbackPayload) {
-    const expectedState = stateStore.get(payload.shop);
-    if (!expectedState || expectedState !== payload.state) {
-      throw new Error("Invalid OAuth state");
+    const stateValid = await this.oauthStateRepo.consume(payload.shop, payload.state, OAUTH_STATE_MAX_AGE_MS);
+    if (!stateValid) {
+      throw new Error("Invalid or expired OAuth state");
     }
 
     const hmacValid =
@@ -105,7 +148,7 @@ export class ShopifyAuthService {
       installedAt: new Date().toISOString()
     });
 
-    stateStore.delete(payload.shop);
+    await this.oauthStateRepo.delete(payload.shop);
     return saved;
   }
 

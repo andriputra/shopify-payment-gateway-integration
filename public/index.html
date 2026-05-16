@@ -553,8 +553,11 @@
 
         <aside class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <h2 class="mb-4 text-lg font-semibold text-slate-900">Shopify App Install</h2>
-          <div class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-            After OAuth, the app redirects to <code class="rounded bg-white px-1 py-0.5 text-slate-800">/app</code>.
+          <div
+            id="installOAuthHint"
+            class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"
+          >
+            After OAuth, the app redirects to /app.
           </div>
           <div class="mb-6 grid gap-3">
             <input

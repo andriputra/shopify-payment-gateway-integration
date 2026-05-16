@@ -8,6 +8,7 @@ const promise_1 = __importDefault(require("mysql2/promise"));
 const env_1 = require("../config/env");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const swipe_payload_repo_1 = require("./swipe-payload-repo");
+const oauth_state_store_1 = require("./oauth-state-store");
 const shop_domain_1 = require("../utils/shop-domain");
 function parseJsonObject(value) {
     if (typeof value !== "string" || !value.trim()) {
@@ -412,6 +413,13 @@ function createMysqlStorage() {
         )
       `);
             await pool.execute(`
+        CREATE TABLE IF NOT EXISTS oauth_states (
+          shop VARCHAR(255) PRIMARY KEY,
+          state VARCHAR(64) NOT NULL,
+          created_at VARCHAR(64) NOT NULL
+        )
+      `);
+            await pool.execute(`
         CREATE TABLE IF NOT EXISTS payment_session_contexts (
           order_reference VARCHAR(255) PRIMARY KEY,
           shop VARCHAR(255) NOT NULL,
@@ -538,6 +546,7 @@ function createMysqlStorage() {
         },
         storeRepo: new MysqlStoreConfigRepository(pool),
         tokenRepo: new MysqlShopifyTokenRepository(pool),
+        oauthStateRepo: new oauth_state_store_1.MysqlOAuthStateStore(pool),
         sessionContextRepo: new MysqlPaymentSessionContextRepository(pool),
         paymentRedirectRepo: new MysqlPaymentRedirectRepository(pool),
         complianceRequestRepo: new MysqlComplianceRequestRepository(pool),

@@ -11,6 +11,7 @@ import { invStatusRoutes } from "./routes/inv-status";
 import { verifyShopifySessionToken } from "./middlewares/verify-shopify-session-token";
 import { paymentRoutes } from "./routes/payments";
 import { paymentStatusRoutes } from "./routes/payment-status";
+import { appEmbeddedRoutes } from "./routes/app-embedded";
 import { shopifyAuthRoutes } from "./routes/shopify-auth";
 import { shopifyPaymentSessionRoutes } from "./routes/shopify-payment-session";
 import { shopifyWebhookRoutes } from "./routes/shopify-webhooks";
@@ -62,7 +63,7 @@ export function createApp(): express.Application {
   const paymentRedirectRepo = storage.paymentRedirectRepo;
   const paymentService = new PaymentService(storeRepo, paymentRedirectRepo);
   const shopifyTokenRepo = storage.tokenRepo;
-  const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo);
+  const shopifyAuthService = new ShopifyAuthService(shopifyTokenRepo, storage.oauthStateRepo);
   const sessionContextRepo = storage.sessionContextRepo;
   const complianceRequestRepo = storage.complianceRequestRepo;
   const shopifyComplianceService = new ShopifyComplianceService(
@@ -204,11 +205,12 @@ export function createApp(): express.Application {
   app.use(invStatusRoutes(storage.swipePayloadRepo));
   app.use("/api/bridge", bridgeCheckoutRoutes(paymentService));
   app.use("/api/config", verifyShopifySessionToken, configRoutes(storeRepo));
+  app.use("/api/app", verifyShopifySessionToken, appEmbeddedRoutes());
   // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
   app.use("/api/system", systemRoutes(storage));
   app.use("/api/compliance", verifyShopifySessionToken, complianceRoutes(shopifyComplianceService));
   app.use("/api/payments", verifyShopifySessionToken, paymentRoutes(paymentService));
-  app.use("/auth", shopifyAuthRoutes(shopifyAuthService, shopifyTokenRepo));
+  app.use("/auth", shopifyAuthRoutes(shopifyAuthService));
   app.use(
     "/api",
     shopifyPaymentSessionRoutes({

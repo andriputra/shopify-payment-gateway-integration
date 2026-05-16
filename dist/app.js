@@ -17,6 +17,7 @@ const inv_status_1 = require("./routes/inv-status");
 const verify_shopify_session_token_1 = require("./middlewares/verify-shopify-session-token");
 const payments_1 = require("./routes/payments");
 const payment_status_1 = require("./routes/payment-status");
+const app_embedded_1 = require("./routes/app-embedded");
 const shopify_auth_1 = require("./routes/shopify-auth");
 const shopify_payment_session_1 = require("./routes/shopify-payment-session");
 const shopify_webhooks_1 = require("./routes/shopify-webhooks");
@@ -59,7 +60,7 @@ function createApp() {
     const paymentRedirectRepo = storage.paymentRedirectRepo;
     const paymentService = new payment_service_1.PaymentService(storeRepo, paymentRedirectRepo);
     const shopifyTokenRepo = storage.tokenRepo;
-    const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo);
+    const shopifyAuthService = new shopify_auth_service_1.ShopifyAuthService(shopifyTokenRepo, storage.oauthStateRepo);
     const sessionContextRepo = storage.sessionContextRepo;
     const complianceRequestRepo = storage.complianceRequestRepo;
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
@@ -183,11 +184,12 @@ function createApp() {
     app.use((0, inv_status_1.invStatusRoutes)(storage.swipePayloadRepo));
     app.use("/api/bridge", (0, bridge_checkout_1.bridgeCheckoutRoutes)(paymentService));
     app.use("/api/config", verify_shopify_session_token_1.verifyShopifySessionToken, (0, config_1.configRoutes)(storeRepo));
+    app.use("/api/app", verify_shopify_session_token_1.verifyShopifySessionToken, (0, app_embedded_1.appEmbeddedRoutes)());
     // System status is safe read-only metadata; session tokens from App Bridge often omit Bearer on same-origin GET.
     app.use("/api/system", (0, system_1.systemRoutes)(storage));
     app.use("/api/compliance", verify_shopify_session_token_1.verifyShopifySessionToken, (0, compliance_1.complianceRoutes)(shopifyComplianceService));
     app.use("/api/payments", verify_shopify_session_token_1.verifyShopifySessionToken, (0, payments_1.paymentRoutes)(paymentService));
-    app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService, shopifyTokenRepo));
+    app.use("/auth", (0, shopify_auth_1.shopifyAuthRoutes)(shopifyAuthService));
     app.use("/api", (0, shopify_payment_session_1.shopifyPaymentSessionRoutes)({
         paymentService,
         storeRepo,

@@ -8,6 +8,7 @@ import { StorageBundle, SystemStatus } from "./contracts";
 import { createMysqlStorage } from "./mysql-storage";
 import { StoreConfigRepository } from "./store-config-repo";
 import { JsonlSwipePayloadRepository } from "./swipe-payload-repo";
+import { JsonOAuthStateStore } from "./oauth-state-store";
 
 let storage: StorageBundle | undefined;
 
@@ -27,6 +28,7 @@ function createJsonStorage(): StorageBundle {
   const paymentRedirectRepo = new PaymentRedirectRepository(path.join(env.dataDir, "payment-redirects.json"));
   const complianceRequestRepo = new ComplianceRequestRepository(path.join(env.dataDir, "compliance-requests.json"));
   const swipePayloadRepo = new JsonlSwipePayloadRepository(JsonlSwipePayloadRepository.defaultPath());
+  const oauthStateRepo = new JsonOAuthStateStore(path.join(env.dataDir, "oauth-states.json"));
 
   return {
     initialize: async () => undefined,
@@ -74,6 +76,7 @@ function createJsonStorage(): StorageBundle {
     },
     storeRepo,
     tokenRepo,
+    oauthStateRepo,
     sessionContextRepo,
     paymentRedirectRepo,
     complianceRequestRepo,

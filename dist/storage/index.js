@@ -14,6 +14,7 @@ const shopify_token_repo_1 = require("./shopify-token-repo");
 const mysql_storage_1 = require("./mysql-storage");
 const store_config_repo_1 = require("./store-config-repo");
 const swipe_payload_repo_1 = require("./swipe-payload-repo");
+const oauth_state_store_1 = require("./oauth-state-store");
 let storage;
 function buildShopifyUrls(host) {
     const base = host.replace(/\/$/, "");
@@ -30,6 +31,7 @@ function createJsonStorage() {
     const paymentRedirectRepo = new payment_redirect_repo_1.PaymentRedirectRepository(node_path_1.default.join(env_1.env.dataDir, "payment-redirects.json"));
     const complianceRequestRepo = new compliance_request_repo_1.ComplianceRequestRepository(node_path_1.default.join(env_1.env.dataDir, "compliance-requests.json"));
     const swipePayloadRepo = new swipe_payload_repo_1.JsonlSwipePayloadRepository(swipe_payload_repo_1.JsonlSwipePayloadRepository.defaultPath());
+    const oauthStateRepo = new oauth_state_store_1.JsonOAuthStateStore(node_path_1.default.join(env_1.env.dataDir, "oauth-states.json"));
     return {
         initialize: async () => undefined,
         systemStatus: async () => {
@@ -73,6 +75,7 @@ function createJsonStorage() {
         },
         storeRepo,
         tokenRepo,
+        oauthStateRepo,
         sessionContextRepo,
         paymentRedirectRepo,
         complianceRequestRepo,

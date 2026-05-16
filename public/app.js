@@ -75,6 +75,7 @@ const params = new URLSearchParams(window.location.search);
 const installBannerStorageKey = "shopifyInstallBannerState";
 /** Remember Config / System / … across full-page OAuth redirect so the UI tab is not reset to Config. */
 const ACTIVE_TAB_STORAGE_KEY = "paymentGatewayActiveTab";
+const LAST_SHOP_STORAGE_KEY = "paymentGatewayLastShop";
 const apiKeyFromMeta = document.querySelector('meta[name="shopify-api-key"]')?.getAttribute("content") || "";
 const metaKey = apiKeyFromMeta && apiKeyFromMeta !== "__SHOPIFY_API_KEY__" ? apiKeyFromMeta : "";
 const apiKey = params.get("apiKey") || params.get("api_key") || metaKey || "";
@@ -278,17 +279,108 @@ function setActiveTab(active) {
   }
 }
 let shopifyApp = null;
-try {
-  if (createApp && apiKey && host) {
-    shopifyApp = createApp({ apiKey, host });
+let authenticatedFetch = null;
+
+function normalizeShopInput(raw) {
+  const trimmed = String(raw || "").trim().toLowerCase();
+  if (!trimmed) {
+    return "";
   }
-} catch (_e) {
-  shopifyApp = null;
+  if (trimmed.endsWith(".myshopify.com")) {
+    return trimmed;
+  }
+  return `${trimmed}.myshopify.com`;
 }
 
-const makeAuthenticatedFetch = resolveAuthenticatedFetch(AppBridgeGlobal);
-const authenticatedFetch =
-  shopifyApp && makeAuthenticatedFetch ? makeAuthenticatedFetch(shopifyApp) : null;
+function deriveHostFromShop(shop) {
+  if (!shop) {
+    return "";
+  }
+  try {
+    const bytes = new TextEncoder().encode(`${shop}/admin`);
+    let binary = "";
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  } catch (_e) {
+    return "";
+  }
+}
+
+function resolveShopDomain() {
+  const fromQuery = params.get("shop");
+  if (fromQuery) {
+    return normalizeShopInput(fromQuery);
+  }
+  try {
+    const stored = sessionStorage.getItem(LAST_SHOP_STORAGE_KEY);
+    if (stored) {
+      return normalizeShopInput(stored);
+    }
+  } catch (_e) {
+    // ignore
+  }
+  const oauth = oauthShopInput && "value" in oauthShopInput ? oauthShopInput.value : "";
+  if (oauth.trim()) {
+    return normalizeShopInput(oauth);
+  }
+  const mainShop = document.getElementById("shop");
+  if (mainShop && "value" in mainShop && mainShop.value.trim()) {
+    return normalizeShopInput(mainShop.value);
+  }
+  if (lookupShopInput && lookupShopInput.value.trim()) {
+    return normalizeShopInput(lookupShopInput.value);
+  }
+  return "";
+}
+
+function applyShopToFields(shop) {
+  if (!shop) {
+    return;
+  }
+  const shopInput = document.getElementById("shop");
+  if (shopInput && "value" in shopInput) {
+    shopInput.value = shop;
+  }
+  if (oauthShopInput && "value" in oauthShopInput) {
+    oauthShopInput.value = shop;
+  }
+  if (lookupShopInput && "value" in lookupShopInput) {
+    lookupShopInput.value = shop;
+  }
+  if (invStatusShop && "value" in invStatusShop && !invStatusShop.value.trim()) {
+    invStatusShop.value = shop;
+  }
+  try {
+    sessionStorage.setItem(LAST_SHOP_STORAGE_KEY, shop);
+  } catch (_e) {
+    // ignore
+  }
+}
+
+function ensureShopifyApp() {
+  const shop = resolveShopDomain();
+  const effectiveHost = host || deriveHostFromShop(shop);
+  if (!createApp || !apiKey || !effectiveHost) {
+    return null;
+  }
+  try {
+    if (!shopifyApp) {
+      shopifyApp = createApp({ apiKey, host: effectiveHost });
+      const makeAuthenticatedFetch = resolveAuthenticatedFetch(AppBridgeGlobal);
+      authenticatedFetch =
+        shopifyApp && makeAuthenticatedFetch ? makeAuthenticatedFetch(shopifyApp) : null;
+    }
+    return shopifyApp;
+  } catch (_e) {
+    shopifyApp = null;
+    authenticatedFetch = null;
+    return null;
+  }
+}
+
+ensureShopifyApp();
 
 async function appFetch(input, init = {}) {
   const headers = new Headers(init.headers || {});
@@ -296,10 +388,12 @@ async function appFetch(input, init = {}) {
     headers.set("Accept", "application/json");
   }
 
+  const app = ensureShopifyApp();
+
   // Backend routes use verifyShopifySessionToken (JWT in Authorization). Prefer explicit
   // getSessionToken + fetch: App Bridge authenticatedFetch often omits Bearer on same-origin POST.
-  if (getSessionToken && shopifyApp) {
-    const token = await getSessionToken(shopifyApp);
+  if (getSessionToken && app) {
+    const token = await getSessionToken(app);
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -311,6 +405,97 @@ async function appFetch(input, init = {}) {
   }
 
   return fetch(input, { ...init, headers });
+}
+
+async function probeEmbeddedSession() {
+  const app = ensureShopifyApp();
+  if (!getSessionToken || !app) {
+    return { sessionTokenOk: false, shopFromSession: null };
+  }
+  try {
+    const token = await getSessionToken(app);
+    if (!token) {
+      return { sessionTokenOk: false, shopFromSession: null };
+    }
+    const response = await appFetch("/api/app/embedded-session", {
+      method: "GET",
+      headers: { Accept: "application/json" }
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      return { sessionTokenOk: false, shopFromSession: null };
+    }
+    return { sessionTokenOk: true, shopFromSession: data.shop || null };
+  } catch (_e) {
+    return { sessionTokenOk: false, shopFromSession: null };
+  }
+}
+
+async function fetchInstallStatus(shop) {
+  const normalized = normalizeShopInput(shop);
+  if (!normalized) {
+    return null;
+  }
+  const response = await fetch(`/auth/shopify/status?shop=${encodeURIComponent(normalized)}`, {
+    headers: { Accept: "application/json" }
+  });
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(`Install status returned non-JSON (${response.status})`);
+  }
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.message || "Install status check failed");
+  }
+  return data;
+}
+
+function updateOAuthInstallUi(installStatus, sessionProbe) {
+  const hintEl = document.getElementById("installOAuthHint");
+  const installed = Boolean(installStatus && installStatus.installed);
+  const sessionOk = Boolean(sessionProbe && sessionProbe.sessionTokenOk);
+  const inIframe = window.self !== window.top;
+
+  if (connectShopifyBtn) {
+    connectShopifyBtn.textContent = installed ? "Re-authorize Shopify (OAuth)" : "Connect Shopify (OAuth)";
+  }
+
+  if (!hintEl) {
+    return;
+  }
+
+  if (!installStatus) {
+    hintEl.innerHTML =
+      "Masukkan domain toko, lalu klik <strong>Connect Shopify (OAuth)</strong> sekali untuk install.";
+    return;
+  }
+
+  if (!installed) {
+    hintEl.innerHTML =
+      "Toko belum terinstall. Klik <strong>Connect Shopify (OAuth)</strong> sekali — token disimpan di database server.";
+    return;
+  }
+
+  if (sessionOk) {
+    hintEl.innerHTML = `Terinstall untuk <code class="rounded bg-white px-1">${installStatus.shop}</code>. Sesi Admin aktif — cukup <strong>refresh</strong> halaman ini, OAuth tidak perlu diulang.`;
+    if (!params.get("installed")) {
+      setBanner(
+        "success",
+        `Shopify terhubung untuk ${installStatus.shop}. Sesi embedded aktif — tidak perlu OAuth lagi.`
+      );
+    }
+    return;
+  }
+
+  hintEl.innerHTML = `Terinstall untuk <code class="rounded bg-white px-1">${installStatus.shop}</code>, tetapi <strong>session token</strong> belum aktif. Buka app dari <strong>Shopify Admin → Apps</strong> lalu refresh${
+    inIframe ? "" : " (jangan buka URL app langsung di tab baru)"
+  } — OAuth ulang biasanya tidak diperlukan.`;
+  if (!params.get("installed")) {
+    setBanner(
+      "error",
+      `OAuth sudah tersimpan untuk ${installStatus.shop}, tetapi session Admin belum aktif. Buka dari Apps di Shopify Admin, lalu refresh.`
+    );
+  }
 }
 
 async function fetchSystemStatus() {
@@ -679,16 +864,27 @@ function getPersistedTabBeforeOAuthNavigate() {
   return "config";
 }
 
-function connectShopify() {
-  const shop =
-    (oauthShopInput && oauthShopInput.value.trim()) ||
-    (document.getElementById("shop") && document.getElementById("shop").value.trim()) ||
-    (lookupShopInput && lookupShopInput.value.trim()) ||
-    "";
+async function connectShopify() {
+  const shop = resolveShopDomain();
   if (!shop) {
     showResult({ ok: false, message: "Please enter shop domain before Shopify OAuth install." });
     return;
   }
+
+  try {
+    const status = await fetchInstallStatus(shop);
+    if (status && status.installed) {
+      const proceed = window.confirm(
+        `App sudah terinstall untuk ${shop}.\n\nOAuth ulang hanya perlu jika token dicabut atau scope berubah. Untuk penggunaan harian cukup buka app dari Shopify Admin → Apps lalu refresh.\n\nLanjutkan re-authorize?`
+      );
+      if (!proceed) {
+        return;
+      }
+    }
+  } catch (_e) {
+    // Continue to OAuth if status endpoint unavailable
+  }
+
   try {
     sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, getPersistedTabBeforeOAuthNavigate());
   } catch (_e) {
@@ -705,60 +901,63 @@ function connectShopify() {
 }
 
 async function hydrateInstallState() {
-  const params = new URLSearchParams(window.location.search);
-  const shop = params.get("shop") || "";
-  const installed = params.get("installed");
-  const error = params.get("error");
+  const urlParams = new URLSearchParams(window.location.search);
+  const shopFromUrl = urlParams.get("shop") || "";
+  const installed = urlParams.get("installed");
+  const error = urlParams.get("error");
 
-  if (shop) {
-    const shopInput = document.getElementById("shop");
-    if (shopInput) {
-      shopInput.value = shop;
-    }
-    if (oauthShopInput) {
-      oauthShopInput.value = shop;
-    }
-    if (lookupShopInput) {
-      lookupShopInput.value = shop;
-    }
+  if (shopFromUrl) {
+    applyShopToFields(normalizeShopInput(shopFromUrl));
   }
 
   if (error) {
-    setBanner("error", `Shopify install failed for ${shop || "this shop"}: ${error}`);
-    showResult({ ok: false, shop, message: error });
+    setBanner("error", `Shopify install failed for ${shopFromUrl || "this shop"}: ${error}`);
+    showResult({ ok: false, shop: shopFromUrl, message: error });
     return;
   }
 
-  if (installed !== "1" || !shop) {
+  if (installed !== "1" || !shopFromUrl) {
     return;
   }
 
   try {
-    const response = await fetch(`/auth/shopify/status?shop=${encodeURIComponent(shop)}`, {
-      headers: { Accept: "application/json" }
-    });
-    const contentType = response.headers.get("content-type") || "";
-    let data;
-    if (contentType.includes("application/json")) {
-      data = await response.json();
-    } else {
-      const body = await response.text();
-      const shortBody = body.replace(/\s+/g, " ").slice(0, 180);
-      throw new Error(
-        `Status endpoint returned non-JSON (${response.status}). ${shortBody || "Empty response"}`
-      );
-    }
-    if (!response.ok || !data.ok) {
-      throw new Error(data.message || "Install status check failed");
-    }
-
-    setBanner("success", `Shopify app installed and authenticated successfully for ${shop}.`);
+    const data = await fetchInstallStatus(shopFromUrl);
+    setBanner("success", `Shopify app installed and authenticated successfully for ${data.shop}.`);
     showResult(data);
   } catch (installError) {
     const message = installError instanceof Error ? installError.message : "Install status check failed";
     setBanner("error", `Install completed, but install status could not be read yet: ${message}`);
-    showResult({ ok: false, shop, message });
+    showResult({ ok: false, shop: shopFromUrl, message });
   }
+}
+
+async function bootstrapEmbeddedApp() {
+  ensureShopifyApp();
+
+  let shop = resolveShopDomain();
+  const sessionProbe = await probeEmbeddedSession();
+  if (sessionProbe.shopFromSession) {
+    shop = sessionProbe.shopFromSession;
+  }
+  if (shop) {
+    applyShopToFields(shop);
+  }
+
+  let installStatus = null;
+  if (shop) {
+    try {
+      installStatus = await fetchInstallStatus(shop);
+    } catch (bootstrapError) {
+      const message =
+        bootstrapError instanceof Error ? bootstrapError.message : "Install status check failed";
+      if (!params.get("installed")) {
+        setBanner("error", `Could not verify install status: ${message}`);
+      }
+    }
+  }
+
+  updateOAuthInstallUi(installStatus, sessionProbe);
+  await hydrateInstallState();
 }
 
 async function swipeTestApiFromAdmin() {
@@ -1042,7 +1241,7 @@ if (installStatusBanner) {
   });
 }
 restoreBanner();
-hydrateInstallState();
+void bootstrapEmbeddedApp();
 
 if (form) {
   form.addEventListener("submit", saveConfig);

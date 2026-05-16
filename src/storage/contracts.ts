@@ -1,4 +1,5 @@
 import { StoreConfig } from "../types";
+import type { OAuthStateStore } from "./oauth-state-store";
 
 export type ShopifyTokenRecord = {
   shop: string;
@@ -39,6 +40,7 @@ export interface ShopifyTokenStore {
   upsert(record: ShopifyTokenRecord): Promise<ShopifyTokenRecord>;
   delete(shop: string): Promise<boolean>;
 }
+
 
 export interface PaymentSessionContextStore {
   save(orderReference: string, ctx: PaymentSessionContext): Promise<void>;
@@ -140,6 +142,7 @@ export type StorageBundle = {
   systemStatus: () => Promise<SystemStatus>;
   storeRepo: StoreConfigStore;
   tokenRepo: ShopifyTokenStore;
+  oauthStateRepo: OAuthStateStore;
   sessionContextRepo: PaymentSessionContextStore;
   paymentRedirectRepo: PaymentRedirectStore;
   complianceRequestRepo: ComplianceRequestStore;

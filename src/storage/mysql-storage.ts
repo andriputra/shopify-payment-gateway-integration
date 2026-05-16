@@ -22,6 +22,7 @@ import {
   StoreConfigStore
 } from "./contracts";
 import { bodyTextToPayload } from "./swipe-payload-repo";
+import { MysqlOAuthStateStore } from "./oauth-state-store";
 import { normalizeMerchantShopKey, normalizeShopifyOrderGid } from "../utils/shop-domain";
 
 function parseJsonObject(value: unknown): Record<string, string> | undefined {
@@ -516,6 +517,14 @@ export function createMysqlStorage(): StorageBundle {
       `);
 
       await pool.execute(`
+        CREATE TABLE IF NOT EXISTS oauth_states (
+          shop VARCHAR(255) PRIMARY KEY,
+          state VARCHAR(64) NOT NULL,
+          created_at VARCHAR(64) NOT NULL
+        )
+      `);
+
+      await pool.execute(`
         CREATE TABLE IF NOT EXISTS payment_session_contexts (
           order_reference VARCHAR(255) PRIMARY KEY,
           shop VARCHAR(255) NOT NULL,
@@ -688,6 +697,7 @@ export function createMysqlStorage(): StorageBundle {
     },
     storeRepo: new MysqlStoreConfigRepository(pool),
     tokenRepo: new MysqlShopifyTokenRepository(pool),
+    oauthStateRepo: new MysqlOAuthStateStore(pool),
     sessionContextRepo: new MysqlPaymentSessionContextRepository(pool),
     paymentRedirectRepo: new MysqlPaymentRedirectRepository(pool),
     complianceRequestRepo: new MysqlComplianceRequestRepository(pool),

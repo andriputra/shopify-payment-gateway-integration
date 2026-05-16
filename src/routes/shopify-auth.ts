@@ -1,6 +1,5 @@
 import { RequestHandler, Router } from "express";
 import { ShopifyAuthService } from "../services/shopify-auth-service";
-import { ShopifyTokenStore } from "../storage/contracts";
 
 function encodeHostParam(shop: string): string {
   const raw = `${shop}/admin`;
@@ -35,23 +34,21 @@ function parseOAuthCallbackQuery(req: { url?: string; originalUrl?: string }): R
   return data;
 }
 
-export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: ShopifyTokenStore): Router {
+export function shopifyAuthRoutes(service: ShopifyAuthService): Router {
   const router = Router();
 
-  router.get("/shopify", (req, res) => {
-    let shop = String(req.query.shop ?? "").trim().toLowerCase();
+  router.get("/shopify", async (req, res, next) => {
+    try {
+      const shop = service.normalizeShop(String(req.query.shop ?? ""));
+      if (!shop) {
+        return res.status(400).json({ ok: false, message: "Invalid shop domain" });
+      }
 
-    if (shop && !shop.endsWith(".myshopify.com")) {
-      shop = `${shop}.myshopify.com`;
+      const installUrl = await service.startOAuth(shop);
+      return res.redirect(installUrl);
+    } catch (error) {
+      return next(error);
     }
-
-    if (!service.validateShop(shop)) {
-      return res.status(400).json({ ok: false, message: "Invalid shop domain" });
-    }
-
-    const installUrl = service.startOAuth(shop);
-
-    return res.redirect(installUrl);
   });
 
   const handleCallback: RequestHandler = async (req, res, next) => {
@@ -114,22 +111,12 @@ export function shopifyAuthRoutes(service: ShopifyAuthService, tokenRepo: Shopif
 
   const getInstallStatus: RequestHandler = async (req, res, next) => {
     try {
-      const shopParam = String(req.params.shop ?? req.query.shop ?? "").trim().toLowerCase();
-      if (!shopParam) {
-        return res.status(400).json({ ok: false, message: "Missing shop parameter" });
+      const shopParam = String(req.params.shop ?? req.query.shop ?? "").trim();
+      const status = await service.getInstallStatus(shopParam);
+      if (!status.ok) {
+        return res.status(400).json(status);
       }
-
-      const shop = shopParam.endsWith(".myshopify.com") ? shopParam : `${shopParam}.myshopify.com`;
-      const token = await tokenRepo.get(shop);
-      if (!token) {
-        return res.status(404).json({ ok: false, message: "App not installed on this shop" });
-      }
-      return res.json({
-        ok: true,
-        shop: token.shop,
-        scope: token.scope,
-        installedAt: token.installedAt
-      });
+      return res.json(status);
     } catch (error) {
       next(error);
     }
