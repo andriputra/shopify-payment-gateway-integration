@@ -112,6 +112,16 @@ Jika `STORAGE_DRIVER=mysql`, data utama akan disimpan di tabel MySQL:
 - `payment_session_contexts`
 - `compliance_requests`
 
+## Shopify App Store — testing credentials (Partner Dashboard)
+
+Saat submit review, isi **App testing information** dengan login **development store** (bukan login terpisah di app).
+
+Panduan lengkap (copy/paste untuk Username / Password / Account description):
+
+**[`docs/SHOPIFY-PARTNER-TESTING.md`](docs/SHOPIFY-PARTNER-TESTING.md)**
+
+Ringkas: buat staff account di dev store (tanpa 2FA / tanpa Google SSO), install app, berikan email+password staff tersebut, dan arahkan reviewer buka **Admin → Apps → ID O2O Multi Payment Gateway**.
+
 ## Mandatory Shopify App URLs
 
 Untuk review/app approval Shopify, siapkan URL berikut:

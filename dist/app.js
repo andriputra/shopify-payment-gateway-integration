@@ -65,12 +65,27 @@ function createApp() {
     const shopifyComplianceService = new shopify_compliance_service_1.ShopifyComplianceService(complianceRequestRepo, storeRepo, shopifyTokenRepo, sessionContextRepo);
     const shopifyPaymentResolveService = new shopify_payment_resolve_service_1.ShopifyPaymentResolveService(shopifyTokenRepo);
     const shopifyOrderService = new shopify_order_service_1.ShopifyOrderService(shopifyTokenRepo);
-    app.get("/", (_req, res) => {
-        res.type("html").send(renderIndexHtml());
-    });
-    app.get("/app", (_req, res) => {
-        res.type("html").send(renderIndexHtml());
-    });
+    const renderEmbeddedAppPage = async (req, res, next) => {
+        try {
+            const shopRaw = String(req.query.shop ?? "").trim().toLowerCase();
+            if (shopRaw) {
+                const shop = shopRaw.endsWith(".myshopify.com") ? shopRaw : `${shopRaw}.myshopify.com`;
+                if (/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
+                    const token = await shopifyTokenRepo.get(shop);
+                    if (!token) {
+                        res.redirect(302, `/auth/shopify?shop=${encodeURIComponent(shop)}`);
+                        return;
+                    }
+                }
+            }
+            res.type("html").send(renderIndexHtml());
+        }
+        catch (error) {
+            next(error);
+        }
+    };
+    app.get("/", renderEmbeddedAppPage);
+    app.get("/app", renderEmbeddedAppPage);
     /** Legacy sandbox URL — points to the UAT checkout simulation page. */
     app.get("/sandbox/pay", (req, res) => {
         const qs = new URLSearchParams(req.query).toString();
