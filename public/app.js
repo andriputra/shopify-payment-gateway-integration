@@ -466,34 +466,34 @@ function updateOAuthInstallUi(installStatus, sessionProbe) {
 
   if (!installStatus) {
     hintEl.innerHTML =
-      "Masukkan domain toko, lalu klik <strong>Connect Shopify (OAuth)</strong> sekali untuk install.";
+      "Enter your shop domain, then click <strong>Connect Shopify (OAuth)</strong> once to install.";
     return;
   }
 
   if (!installed) {
     hintEl.innerHTML =
-      "Toko belum terinstall. Klik <strong>Connect Shopify (OAuth)</strong> sekali — token disimpan di database server.";
+      "This shop is not installed yet. Click <strong>Connect Shopify (OAuth)</strong> once — the access token is stored on the server.";
     return;
   }
 
   if (sessionOk) {
-    hintEl.innerHTML = `Terinstall untuk <code class="rounded bg-white px-1">${installStatus.shop}</code>. Sesi Admin aktif — cukup <strong>refresh</strong> halaman ini, OAuth tidak perlu diulang.`;
+    hintEl.innerHTML = `Installed for <code class="rounded bg-white px-1">${installStatus.shop}</code>. Admin session is active — just <strong>refresh</strong> this page; you do not need to run OAuth again.`;
     if (!params.get("installed")) {
       setBanner(
         "success",
-        `Shopify terhubung untuk ${installStatus.shop}. Sesi embedded aktif — tidak perlu OAuth lagi.`
+        `Shopify connected for ${installStatus.shop}. Embedded session is active — OAuth is not required again.`
       );
     }
     return;
   }
 
-  hintEl.innerHTML = `Terinstall untuk <code class="rounded bg-white px-1">${installStatus.shop}</code>, tetapi <strong>session token</strong> belum aktif. Buka app dari <strong>Shopify Admin → Apps</strong> lalu refresh${
-    inIframe ? "" : " (jangan buka URL app langsung di tab baru)"
-  } — OAuth ulang biasanya tidak diperlukan.`;
+  hintEl.innerHTML = `Installed for <code class="rounded bg-white px-1">${installStatus.shop}</code>, but the <strong>session token</strong> is not active yet. Open the app from <strong>Shopify Admin → Apps</strong>, then refresh${
+    inIframe ? "" : " (do not open the app URL directly in a new tab)"
+  } — re-running OAuth is usually not required.`;
   if (!params.get("installed")) {
     setBanner(
       "error",
-      `OAuth sudah tersimpan untuk ${installStatus.shop}, tetapi session Admin belum aktif. Buka dari Apps di Shopify Admin, lalu refresh.`
+      `OAuth is saved for ${installStatus.shop}, but the Admin session is not active yet. Open the app from Shopify Admin → Apps, then refresh.`
     );
   }
 }
@@ -875,7 +875,7 @@ async function connectShopify() {
     const status = await fetchInstallStatus(shop);
     if (status && status.installed) {
       const proceed = window.confirm(
-        `App sudah terinstall untuk ${shop}.\n\nOAuth ulang hanya perlu jika token dicabut atau scope berubah. Untuk penggunaan harian cukup buka app dari Shopify Admin → Apps lalu refresh.\n\nLanjutkan re-authorize?`
+        `The app is already installed for ${shop}.\n\nRe-authorize OAuth only if the token was revoked or scopes changed. For daily use, open the app from Shopify Admin → Apps and refresh.\n\nContinue with re-authorize?`
       );
       if (!proceed) {
         return;
