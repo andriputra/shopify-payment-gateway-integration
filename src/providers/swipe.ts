@@ -96,6 +96,18 @@ export function effectiveSwipePaymentMethod(
   return store.credentials.extra?.paymentMethod?.trim() || "CDCP";
 }
 
+/** Per-request override wins over store `credentials.extra.deviceUser`. */
+export function effectiveSwipeDeviceUser(
+  store: StoreConfig,
+  perRequest?: string | null
+): string {
+  const fromRequest = typeof perRequest === "string" ? perRequest.trim() : "";
+  if (fromRequest) {
+    return fromRequest.slice(0, 128);
+  }
+  return requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
+}
+
 /**
  * Shopify order `note_attributes` (from cart / checkout attributes) for per-order Swipe `payment_method`.
  * Matched attribute names (case-insensitive): `swipe_payment_method`, `Swipe Payment Method`.
@@ -474,7 +486,7 @@ export const swipeProvider: PaymentProvider = {
     const defaultNotifyUrl = `${env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
     const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
     const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
-    const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
+    const deviceUser = effectiveSwipeDeviceUser(store, input.swipeDeviceUser);
     const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
     const paymentMethod = effectiveSwipePaymentMethod(store, input.swipePaymentMethod);
     const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");
@@ -726,14 +738,20 @@ export type SwipeTestPaymentResult = {
 /** POST to Swipe like create checkout, returns raw body + paymentUrl resolution attempt (for admin testing). */
 export async function swipeTestPaymentRequest(
   store: StoreConfig,
-  options: { amount: number; orderId: string; currency?: string; swipePaymentMethod?: string }
+  options: {
+    amount: number;
+    orderId: string;
+    currency?: string;
+    swipePaymentMethod?: string;
+    swipeDeviceUser?: string;
+  }
 ): Promise<SwipeTestPaymentResult> {
   const merchantId = ensureApiKey(store.credentials);
   const endpointUrl = swipeEndpointUrl(store);
   const defaultNotifyUrl = `${env.host.replace(/\/$/, "")}/webhooks/payment/swipe?shop=${encodeURIComponent(store.shop)}`;
   const notifyUrl = store.webhookUrlAfterPaid?.trim() || defaultNotifyUrl;
   const clientId = requiredSwipeExtra(store, "clientId", "Client ID from Swipe");
-  const deviceUser = requiredSwipeExtra(store, "deviceUser", "Device User from Swipe");
+  const deviceUser = effectiveSwipeDeviceUser(store, options.swipeDeviceUser);
   const posRequestType = store.credentials.extra?.posRequestType?.trim() || "Postman";
   const paymentMethod = effectiveSwipePaymentMethod(store, options.swipePaymentMethod);
   const feeAgentAmount = numberFromExtra(store, "feeAgentAmount");

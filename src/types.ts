@@ -29,6 +29,11 @@ export type CreateCheckoutInput = {
    */
   swipePaymentMethod?: string;
   /**
+   * Swipe-only: sent as `device_user` on create. When set, overrides
+   * `credentials.extra.deviceUser` (store default). Recorded as registered store ID at Swipe.
+   */
+  swipeDeviceUser?: string;
+  /**
    * After this app processes Swipe/provider webhook, POST a normalized JSON copy here (your backend).
    * Not the same as `returnUrl` (browser). Swipe still callbacks to this app first.
    */

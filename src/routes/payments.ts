@@ -6,23 +6,33 @@ import { SupportedProvider } from "../types";
 import { normalizeShopDomain } from "../utils/shop-domain";
 
 const swipeMethodSchema = z.string().trim().min(1).max(64).optional();
+const swipeDeviceUserSchema = z.string().trim().min(1).max(128).optional();
 
-const createCheckoutSchema = z.object({
-  shop: z.string().min(3),
-  provider: z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const),
-  amount: z.coerce.number().min(0),
-  currency: z.string().length(3),
-  orderId: z.string().min(1),
-  customerEmail: z.string().email().optional(),
-  returnUrl: z.string().url().optional(),
-  swipePaymentMethod: swipeMethodSchema
-});
+const createCheckoutSchema = z
+  .object({
+    shop: z.string().min(3),
+    provider: z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const),
+    amount: z.coerce.number().min(0),
+    currency: z.string().length(3),
+    orderId: z.string().min(1),
+    customerEmail: z.string().email().optional(),
+    returnUrl: z.string().url().optional(),
+    swipePaymentMethod: swipeMethodSchema,
+    swipeDeviceUser: swipeDeviceUserSchema,
+    /** Alias Swipe API field name; same as `swipeDeviceUser`. */
+    device_user: swipeDeviceUserSchema
+  })
+  .transform(({ device_user, swipeDeviceUser, ...rest }) => ({
+    ...rest,
+    swipeDeviceUser: swipeDeviceUser ?? device_user
+  }));
 
 const swipeTestRequestSchema = z.object({
   shop: z.string().min(3),
   amount: z.coerce.number().min(0).optional().default(0),
   orderId: z.string().min(1).optional(),
-  swipePaymentMethod: swipeMethodSchema
+  swipePaymentMethod: swipeMethodSchema,
+  swipeDeviceUser: swipeDeviceUserSchema
 });
 
 type ShopifySessionLocals = { dest?: string };
@@ -68,7 +78,8 @@ export function paymentRoutes(service: PaymentService): Router {
         raw.shop,
         raw.amount,
         raw.orderId,
-        raw.swipePaymentMethod
+        raw.swipePaymentMethod,
+        raw.swipeDeviceUser
       );
       res.json({ ok: true, swipe: result });
     } catch (error) {

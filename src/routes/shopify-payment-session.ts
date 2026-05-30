@@ -8,6 +8,7 @@ import { SupportedProvider } from "../types";
 import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 const swipeMethodSchema = z.string().trim().min(1).max(64).optional();
+const swipeDeviceUserSchema = z.string().trim().min(1).max(128).optional();
 
 const createSessionSchema = z.object({
   id: z.string().optional(),
@@ -18,6 +19,8 @@ const createSessionSchema = z.object({
   orderId: z.string().min(1).optional(),
   /** Swipe create body `payment_method` for this session (e.g. CDCP, QRIS). Overrides store default. */
   swipePaymentMethod: swipeMethodSchema,
+  /** Swipe create body `device_user` — registered store ID at Swipe. Overrides store default. */
+  swipeDeviceUser: swipeDeviceUserSchema,
   customer: z
     .object({
       email: z.string().email().optional()
@@ -71,7 +74,8 @@ export function shopifyPaymentSessionRoutes(deps: {
         orderId: orderRef,
         customerEmail: raw.customer?.email,
         returnUrl: store.redirectUrlAfterPaid,
-        swipePaymentMethod: raw.swipePaymentMethod
+        swipePaymentMethod: raw.swipePaymentMethod,
+        swipeDeviceUser: raw.swipeDeviceUser
       });
 
       const sessionId = raw.id ?? `ps_${Date.now()}`;

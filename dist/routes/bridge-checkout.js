@@ -8,7 +8,8 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const express_1 = require("express");
 const zod_1 = require("zod");
 const env_1 = require("../config/env");
-const createCheckoutSchema = zod_1.z.object({
+const createCheckoutSchema = zod_1.z
+    .object({
     shop: zod_1.z.string().min(3),
     provider: zod_1.z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"]),
     amount: zod_1.z.coerce.number().min(0),
@@ -17,11 +18,17 @@ const createCheckoutSchema = zod_1.z.object({
     customerEmail: zod_1.z.string().email().optional(),
     returnUrl: zod_1.z.string().url().optional(),
     swipePaymentMethod: zod_1.z.string().max(64).optional(),
+    swipeDeviceUser: zod_1.z.string().trim().min(1).max(128).optional(),
+    device_user: zod_1.z.string().trim().min(1).max(128).optional(),
     forwardWebhookUrl: zod_1.z.string().url().optional(),
     forwardWebhookSecret: zod_1.z.string().min(8).optional(),
     /** Optional auth duplicate for clients that cannot set headers. Prefer Bearer or X-Bridge-Checkout-Secret. */
     secret: zod_1.z.string().optional()
-});
+})
+    .transform(({ device_user, swipeDeviceUser, ...rest }) => ({
+    ...rest,
+    swipeDeviceUser: swipeDeviceUser ?? device_user
+}));
 function bridgeCheckoutSecret() {
     return (env_1.env.bridgeCheckoutApiSecret || env_1.env.paymentStatusApiSecret || env_1.env.appSharedSecret).trim();
 }

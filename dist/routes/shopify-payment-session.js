@@ -10,6 +10,7 @@ const zod_1 = require("zod");
 const swipe_1 = require("../providers/swipe");
 const shop_domain_1 = require("../utils/shop-domain");
 const swipeMethodSchema = zod_1.z.string().trim().min(1).max(64).optional();
+const swipeDeviceUserSchema = zod_1.z.string().trim().min(1).max(128).optional();
 const createSessionSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     gid: zod_1.z.string().optional(),
@@ -19,6 +20,8 @@ const createSessionSchema = zod_1.z.object({
     orderId: zod_1.z.string().min(1).optional(),
     /** Swipe create body `payment_method` for this session (e.g. CDCP, QRIS). Overrides store default. */
     swipePaymentMethod: swipeMethodSchema,
+    /** Swipe create body `device_user` — registered store ID at Swipe. Overrides store default. */
+    swipeDeviceUser: swipeDeviceUserSchema,
     customer: zod_1.z
         .object({
         email: zod_1.z.string().email().optional()
@@ -62,7 +65,8 @@ function shopifyPaymentSessionRoutes(deps) {
                 orderId: orderRef,
                 customerEmail: raw.customer?.email,
                 returnUrl: store.redirectUrlAfterPaid,
-                swipePaymentMethod: raw.swipePaymentMethod
+                swipePaymentMethod: raw.swipePaymentMethod,
+                swipeDeviceUser: raw.swipeDeviceUser
             });
             const sessionId = raw.id ?? `ps_${Date.now()}`;
             return res.status(201).json({
