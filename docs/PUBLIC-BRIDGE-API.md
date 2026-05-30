@@ -73,8 +73,55 @@ Same business logic as embedded `POST /api/payments/checkout/create`, but for **
 
 **JSON body (same shape as embedded checkout create):**
 
-- `shop`, `provider` (`xendit` \| `midtrans` \| `swipe` \| `sandbox` \| `custom`), `amount`, `currency` (3 letters), `orderId`
-- Optional: `customerEmail`, `returnUrl` (browser thank-you page — **not** a webhook URL), `forwardWebhookUrl` + `forwardWebhookSecret` (your backend receives a **POST** copy after Swipe hits this app), `swipePaymentMethod` (Swipe only)
+| Field | Required | Description |
+|-------|----------|-------------|
+| `shop` | Yes | Store identifier (e.g. `example.myshopify.com`) |
+| `provider` | Yes | `xendit` \| `midtrans` \| `swipe` \| `sandbox` \| `custom` |
+| `amount` | Yes | Payment amount (≥ 0) |
+| `currency` | Yes | 3-letter code (e.g. `IDR`) |
+| `orderId` | Yes | Internal order reference |
+| `customerEmail` | No | Buyer email |
+| `returnUrl` | No | Browser thank-you page after payment — **not** a webhook URL |
+| `forwardWebhookUrl` | No | Your backend receives a **POST** copy after this app processes the provider callback |
+| `forwardWebhookSecret` | No | Bearer / header secret sent to `forwardWebhookUrl` (min 8 chars) |
+| `swipePaymentMethod` | No | **Swipe only.** Sent as `payment_method` on Swipe create (e.g. `CDCP`, `QRIS`). Overrides `credentials.extra.paymentMethod` from store config. |
+| `swipeDeviceUser` | No | **Swipe only.** Sent as `device_user` on Swipe create — registered store ID at Swipe. Overrides `credentials.extra.deviceUser` from store config. |
+| `device_user` | No | **Swipe only.** Alias for `swipeDeviceUser` (same field as Swipe API). If both are sent, `swipeDeviceUser` wins. |
+
+**Swipe `device_user` behavior:**
+
+- **Default (recommended):** omit `swipeDeviceUser` / `device_user` in the checkout body. The app uses `credentials.extra.deviceUser` saved during initial store configuration (`POST /api/config`).
+- **Per-request override:** pass `swipeDeviceUser` or `device_user` when a trusted backend needs a different registered store ID for a single transaction (uncommon; most integrations rely on config only).
+- On Swipe create, the value is sent in the outbound JSON as `"device_user": "<value>"` together with `client_id`, `payment_method`, `invoice_number`, `callback_url`, etc.
+
+**Example — Swipe checkout (uses `device_user` from store config):**
+
+```json
+{
+  "shop": "example.myshopify.com",
+  "provider": "swipe",
+  "amount": 30,
+  "currency": "IDR",
+  "orderId": "order6687782928520",
+  "swipePaymentMethod": "CDCP"
+}
+```
+
+**Example — Swipe checkout with explicit `device_user` override:**
+
+```json
+{
+  "shop": "example.myshopify.com",
+  "provider": "swipe",
+  "amount": 30,
+  "currency": "IDR",
+  "orderId": "order6687782928520",
+  "swipePaymentMethod": "CDCP",
+  "device_user": "merchanttest02"
+}
+```
+
+The Swipe callback webhook may echo the same `device_user` in its payload (e.g. alongside `response_code`, `invoice_number`, `status`).
 
 **Two-URL pattern (recommended):**
 
@@ -148,7 +195,7 @@ These routes are **not** protected by `verifyShopifySessionToken` in `src/app.ts
 | `POST` | `{BASE}/api/shopify/payment-sessions/:id/resolve` | Mark session resolved (stub-style response in current implementation). |
 | `POST` | `{BASE}/api/shopify/payment-sessions/:id/reject` | Mark session rejected (stub-style response). |
 
-**Body (create):** JSON with `shop`, `amount`, `currency`; optional `id` / `gid` (payment session GID), `orderId`, `customer.email`.
+**Body (create):** JSON with `shop`, `amount`, `currency`; optional `id` / `gid` (payment session GID), `orderId`, `customer.email`, `swipePaymentMethod`, `swipeDeviceUser` / `device_user` (Swipe only — same semantics as §1.4; defaults to store config when omitted).
 
 ### 3.1 Demo-only Swipe checkout helper
 
@@ -188,17 +235,20 @@ These require **`Authorization: Bearer <Shopify session token>`** (App Bridge). 
 |--------|----------|
 | `{BASE}/api/config` | `POST /`, `GET /`, `GET /:shop` |
 | `{BASE}/api/payments` | `POST /checkout/create`, `POST /swipe/test-request`, `GET /swipe/transaction-log` |
+
+Embedded `POST /api/payments/checkout/create` accepts the same checkout body fields as §1.4 (including optional `swipePaymentMethod`, `swipeDeviceUser`, and `device_user` for Swipe). It does **not** support `forwardWebhookUrl` / `forwardWebhookSecret` — use the bridge endpoint (§1.4) for server-to-server forward webhooks.
 | `{BASE}/api/compliance` | `GET /requests`, `GET /requests/:id` |
 
 ---
 
 ## Suggested integration pattern (external “method” → this app)
 
-1. **Start payment (recommended for non-embedded backends):** `POST {BASE}/api/bridge/checkout/create` with shared secret (§1.4). Same result shape as embedded checkout create (`paymentUrl`, `providerReference`).
-2. **Alternative (Shopify payment session shape):** `POST {BASE}/api/shopify/payment-sessions` — add your own auth in front if exposed publicly (§3).
-3. **Provider notifies result:** Provider POSTs to `{BASE}/webhooks/payment/<provider>/<shop>`.
-4. **Your server checks status:** `GET {BASE}/api/payment-status` with shared secret + `shop` + `orderReference` (or Shopify order id).
-5. **Deep audit of Swipe payloads:** `GET` or `POST {BASE}/InvStatus` with the InvStatus secret.
+1. **Configure store (once):** save Swipe credentials via embedded `POST /api/config`, including `credentials.extra.deviceUser`, `clientId`, `apiBaseUrl`, `createPath`, etc.
+2. **Start payment (recommended for non-embedded backends):** `POST {BASE}/api/bridge/checkout/create` with shared secret (§1.4). Same result shape as embedded checkout create (`paymentUrl`, `providerReference`). For Swipe, omit `device_user` in the body unless you need a per-request override.
+3. **Alternative (Shopify payment session shape):** `POST {BASE}/api/shopify/payment-sessions` — add your own auth in front if exposed publicly (§3).
+4. **Provider notifies result:** Provider POSTs to `{BASE}/webhooks/payment/<provider>/<shop>` (Swipe: `{BASE}/webhooks/payment/swipe?shop=...`).
+5. **Your server checks status:** `GET {BASE}/api/payment-status` with shared secret + `shop` + `orderReference` (or Shopify order id).
+6. **Deep audit of Swipe payloads:** `GET` or `POST {BASE}/InvStatus` with the InvStatus secret.
 
 ---
 
