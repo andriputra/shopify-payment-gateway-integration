@@ -2,46 +2,49 @@
 <img width="1920" height="919" alt="screencapture-admin-shopify-store-dynostore-ev8cih63-apps-id-o2o-multi-payment-gateway-app-2026-05-09-11_30_52" src="https://github.com/user-attachments/assets/3803a366-b392-4c83-aac9-ea93f0588054" />
 <img width="1920" height="1742" alt="FireShot Capture 207 - Shopify Payment Gateway Config -  dynapp store" src="https://github.com/user-attachments/assets/66cb83bd-2579-4ded-a701-bfa3942eb84d" />
 
-Starter backend + frontend sederhana untuk integrasi payment gateway di Shopify dengan flow:
+A starter backend + frontend for integrating payment gateways with Shopify using this flow:
 
-1. Merchant memasukkan credential provider (API key/secret)
-2. Merchant menyimpan URL webhook + redirect setelah pembayaran sukses
-3. Checkout dibuat melalui endpoint bridge
-4. Provider kirim webhook status pembayaran
-5. Bridge kembalikan URL redirect ke halaman sukses Shopify
+1. Merchant enters provider credentials (API key/secret)
+2. Merchant saves webhook URL + redirect URL after successful payment
+3. Checkout is created through the bridge endpoint
+4. Provider sends payment status webhooks
+5. Bridge returns a redirect URL to the Shopify success page
 
-Saat ini provider bawaan: `xendit`, `midtrans`, dan `sandbox` (tanpa akun provider). Arsitekturnya pluggable sehingga provider lain bisa ditambahkan cepat.
+Built-in providers: `xendit`, `midtrans`, `swipe`, and `sandbox` (no provider account required). The architecture is pluggable so additional providers can be added quickly.
 
-## UI Konfigurasi
+**Full flow diagrams:** see [`docs/APPLICATION-FLOWS.md`](docs/APPLICATION-FLOWS.md)
 
-Setelah server jalan, buka:
+## Configuration UI
+
+After the server is running, open:
 
 `http://localhost:3000`
 
-Halaman ini menyediakan form untuk:
-- Input shop domain
-- Pilih provider (Xendit/Midtrans/Sandbox/Custom)
-- Input API key / API secret
-- Input redirect URL setelah pembayaran sukses
-- Input webhook URL
-- Trigger OAuth install Shopify
+The page provides a form to:
 
-### Demo Presentasi (tanpa akun gateway)
+- Enter shop domain
+- Select provider (Xendit / Midtrans / Swipe / Sandbox / Custom)
+- Enter API key / API secret
+- Enter redirect URL after successful payment
+- Enter webhook URL
+- Trigger Shopify OAuth install
 
-1. Pilih provider `sandbox` di UI.
-2. Simpan konfigurasi merchant.
-3. Klik tombol **Create Test Checkout**.
-4. Tab simulator akan terbuka, klik **Pay Success** atau **Pay Failed**.
-5. Hasil status pembayaran akan tampil dan jika sukses akan redirect ke URL sukses.
+### Demo presentation (no gateway account)
 
-## Tech Stack
+1. Select provider `sandbox` in the UI.
+2. Save merchant configuration.
+3. Click **Create Test Checkout**.
+4. A simulator tab opens — click **Pay Success** or **Pay Failed**.
+5. Payment status is shown and, on success, redirects to the success URL.
+
+## Tech stack
 
 - Node.js + Express
 - TypeScript
 - Zod validation
-- Storage driver fleksibel: JSON untuk dev, MySQL untuk production
+- Flexible storage driver: JSON for dev, MySQL for production
 
-## Jalankan Project
+## Run the project
 
 ```bash
 npm install
@@ -49,13 +52,13 @@ cp .env.example .env
 npm run dev
 ```
 
-Template tambahan untuk production cPanel tersedia di:
+Additional production templates for cPanel:
 
 - `.env.cpanel.production.example`
-- `DEPLOY-CPANEL.md`
+- [`DEPLOY-CPANEL.md`](DEPLOY-CPANEL.md)
 - `database/mysql-schema.sql`
 
-## Environment Variables
+## Environment variables
 
 ```env
 PORT=3000
@@ -76,72 +79,84 @@ SHOPIFY_REDIRECT_PATH=/auth/callback
 SHOPIFY_APP_UI_PATH=/app
 ```
 
-Atau gunakan 1 DSN:
+Or use a single DSN:
 
 ```env
 MYSQL_URL=mysql://user:password@host:3306/database
 ```
 
-## Shopify Integration Baseline
+## Shopify integration baseline
 
-Project ini sekarang sudah punya fondasi integrasi Shopify:
+This project includes a Shopify integration foundation:
 
 - OAuth install: `GET /auth/shopify?shop=<shop-domain>`
-- OAuth callback: `GET /auth/callback` (alias lama `GET /auth/shopify/callback`)
-- Cek status install/token: `GET /auth/shopify/status/:shop`
-- Redirect post-install ke dashboard: `GET /app`
-- Payment session style endpoint (sandbox redirect):
+- OAuth callback: `GET /auth/callback` (legacy alias: `GET /auth/shopify/callback`)
+- Check install/token status: `GET /auth/shopify/status/:shop`
+- Post-install redirect to dashboard: `GET /app`
+- Payment session style endpoints (sandbox redirect):
   - `POST /api/shopify/payment-sessions`
   - `POST /api/shopify/payment-sessions/:id/resolve`
   - `POST /api/shopify/payment-sessions/:id/reject`
 - Shopify webhook HMAC verification:
   - `POST /webhooks/shopify/orders-paid`
+  - `POST /webhooks/shopify/orders-create`
   - `POST /webhooks/shopify/customers/data_request`
   - `POST /webhooks/shopify/customers/redact`
   - `POST /webhooks/shopify/shop/redact`
 
-Token OAuth disimpan lokal di:
+OAuth tokens are stored locally in:
 
 - `data/shopify-tokens.json`
-- Audit compliance webhook disimpan lokal di: `data/compliance-requests.json`
+- Compliance webhook audit: `data/compliance-requests.json`
 
-Jika `STORAGE_DRIVER=mysql`, data utama akan disimpan di tabel MySQL:
+When `STORAGE_DRIVER=mysql`, main data is stored in MySQL tables:
 
 - `store_configs`
 - `shopify_tokens`
 - `payment_session_contexts`
 - `compliance_requests`
+- `payment_redirects`
 
-## Mandatory Shopify App URLs
+## Mandatory Shopify app URLs
 
-Untuk review/app approval Shopify, siapkan URL berikut:
+For Shopify review / app approval, configure these URLs:
 
-- App URL / dashboard: `https://domain-anda.com/app`
-- Allowed redirection URL: `https://domain-anda.com/auth/callback`
-- Compliance webhook `customers/data_request`: `https://domain-anda.com/webhooks/shopify/customers/data_request`
-- Compliance webhook `customers/redact`: `https://domain-anda.com/webhooks/shopify/customers/redact`
-- Compliance webhook `shop/redact`: `https://domain-anda.com/webhooks/shopify/shop/redact`
+- App URL / dashboard: `https://your-domain.com/app`
+- Allowed redirection URL: `https://your-domain.com/auth/callback`
+- Compliance webhook `customers/data_request`: `https://your-domain.com/webhooks/shopify/customers/data_request`
+- Compliance webhook `customers/redact`: `https://your-domain.com/webhooks/shopify/customers/redact`
+- Compliance webhook `shop/redact`: `https://your-domain.com/webhooks/shopify/shop/redact`
 
-Semua webhook Shopify di project ini diverifikasi memakai header `X-Shopify-Hmac-Sha256`.
-Audit/testing result bisa dilihat di:
+All Shopify webhooks in this project are verified using the `X-Shopify-Hmac-Sha256` header.
+Audit / test results are available at:
 
 - `GET /api/compliance/requests`
 - `GET /api/compliance/requests/:id`
 
-Untuk integrasi **server-to-server** (tanpa embed Shopify Admin), lihat **`docs/PUBLIC-BRIDGE-API.md`** — termasuk `POST /api/bridge/checkout/create` (shared secret, sama fungsi checkout seperti endpoint embedded). Versi HTML di browser: **`/docs/bridge`** (mis. `https://domain-anda.com/docs/bridge`).
+For **server-to-server** integration (without embedded Shopify Admin), see **`docs/PUBLIC-BRIDGE-API.md`** — including `POST /api/bridge/checkout/create` (shared secret, same checkout logic as the embedded endpoint). Browser HTML version: **`/docs/bridge`** (e.g. `https://your-domain.com/docs/bridge`).
 
-## API Endpoints
+## App Store testing credentials (Partner Dashboard)
 
-### 1) Simpan Konfigurasi Toko
+When submitting for review, fill in **App testing information** with a **development store** login (not a separate app login).
+
+Full guide (copy/paste for Username / Password / Account description):
+
+**[`docs/SHOPIFY-PARTNER-TESTING.md`](docs/SHOPIFY-PARTNER-TESTING.md)**
+
+In short: create a staff account on the dev store (no 2FA / no Google SSO), install the app, provide that staff email + password, and direct reviewers to **Admin → Apps → ID O2O Multi Payment Gateway**.
+
+## API endpoints
+
+### 1) Save store configuration
 
 `POST /api/config`
 
 ```json
 {
-  "shop": "contoh-shop.myshopify.com",
+  "shop": "example-shop.myshopify.com",
   "provider": "xendit",
-  "redirectUrlAfterPaid": "https://contoh-shop.myshopify.com/thank-you",
-  "webhookUrlAfterPaid": "https://yourapp.com/webhooks/payment/xendit/contoh-shop.myshopify.com",
+  "redirectUrlAfterPaid": "https://example-shop.myshopify.com/thank-you",
+  "webhookUrlAfterPaid": "https://yourapp.com/webhooks/payment/xendit/example-shop.myshopify.com",
   "credentials": {
     "apiKey": "xnd_development_key",
     "apiSecret": "optional_secret"
@@ -149,31 +164,33 @@ Untuk integrasi **server-to-server** (tanpa embed Shopify Admin), lihat **`docs/
 }
 ```
 
-### 2) Ambil Konfigurasi Toko
+### 2) Get store configuration
 
 `GET /api/config/:shop`
 
-### 3) Buat Checkout / Payment Link
+### 3) Create checkout / payment link
 
 `POST /api/payments/checkout/create`
 
 ```json
 {
-  "shop": "contoh-shop.myshopify.com",
+  "shop": "example-shop.myshopify.com",
   "provider": "xendit",
   "amount": 125000,
   "currency": "IDR",
   "orderId": "ORDER-1001",
   "customerEmail": "buyer@example.com",
-  "returnUrl": "https://contoh-shop.myshopify.com/orders/1001"
+  "returnUrl": "https://example-shop.myshopify.com/orders/1001"
 }
 ```
 
-Jika `provider = "sandbox"`, response `paymentUrl` akan mengarah ke halaman simulasi:
+For Swipe, `device_user` and other Swipe fields come from the initial store configuration (`credentials.extra`). Optional per-request override: `swipePaymentMethod` (e.g. `CDCP`, `QRIS`).
+
+If `provider = "sandbox"`, the response `paymentUrl` points to the simulation page:
 
 `/sandbox/pay?shop=...&orderId=...`
 
-Di halaman itu ada tombol **Pay Success** dan **Pay Failed** untuk mengetes webhook + redirect URL.
+That page has **Pay Success** and **Pay Failed** buttons to test webhooks + redirect URL.
 
 Response:
 
@@ -185,55 +202,55 @@ Response:
 }
 ```
 
-### 4) Webhook Pembayaran
+### 4) Payment webhook
 
 `POST /webhooks/payment/:provider/:shop`
 
-Contoh:
+Example:
 
-`POST /webhooks/payment/xendit/contoh-shop.myshopify.com`
+`POST /webhooks/payment/xendit/example-shop.myshopify.com`
 
-Response bila status sukses:
+Response on success:
 
 ```json
 {
   "ok": true,
   "paid": true,
   "providerReference": "inv-123",
-  "redirectUrl": "https://contoh-shop.myshopify.com/thank-you"
+  "redirectUrl": "https://example-shop.myshopify.com/thank-you"
 }
 ```
 
-## Tambah Provider Baru
+## Add a new provider
 
-1. Buat file provider baru di `src/providers/` (mis. `doku.ts`)
-2. Implement interface `PaymentProvider`:
+1. Create a new provider file in `src/providers/` (e.g. `doku.ts`)
+2. Implement the `PaymentProvider` interface:
    - `createCheckout(...)`
    - `parseWebhook(...)`
-3. Daftarkan provider di `src/providers/index.ts`
+3. Register the provider in `src/providers/index.ts`
 
-Struktur ini memungkinkan Xendit, Midtrans, dan provider lain masuk tanpa ubah flow utama.
+This structure lets Xendit, Midtrans, Swipe, and other providers plug in without changing the main flow.
 
-## Flow Test Local
+## Local test flow
 
-1. Jalankan app:
+1. Run the app:
 
 ```bash
 npm install
 npm run dev
 ```
 
-2. Buka app UI di:
+2. Open the app UI at:
 
 `http://localhost:3000/app`
 
-3. Expose local server ke internet, misalnya pakai ngrok:
+3. Expose the local server to the internet, e.g. with ngrok:
 
 ```bash
 ngrok http 3000
 ```
 
-4. Di Shopify Partner Dashboard / App Setup, isi:
+4. In Shopify Partner Dashboard / App Setup, configure:
 
 - App URL: `https://xxxx.ngrok-free.app/app`
 - Allowed redirection URL: `https://xxxx.ngrok-free.app/auth/callback`
@@ -241,24 +258,24 @@ ngrok http 3000
 - Compliance webhook `customers/redact`: `https://xxxx.ngrok-free.app/webhooks/shopify/customers/redact`
 - Compliance webhook `shop/redact`: `https://xxxx.ngrok-free.app/webhooks/shopify/shop/redact`
 
-5. Klik install dari UI:
+5. Install from the UI:
 
-- buka `https://xxxx.ngrok-free.app/app`
-- isi `shop.myshopify.com`
-- klik `Connect Shopify (OAuth)`
-- flow yang diharapkan: install -> OAuth -> callback -> redirect ke `/app?installed=1&shop=...`
+- Open `https://xxxx.ngrok-free.app/app`
+- Enter `shop.myshopify.com`
+- Click **Connect Shopify (OAuth)**
+- Expected flow: install → OAuth → callback → redirect to `/app?installed=1&shop=...`
 
-6. Verifikasi token install:
+6. Verify install token:
 
-- buka `GET https://xxxx.ngrok-free.app/auth/shopify/status/<shop-domain>`
-- atau cek banner sukses di dashboard
+- Open `GET https://xxxx.ngrok-free.app/auth/shopify/status/<shop-domain>`
+- Or check the success banner in the dashboard
 
-7. Test compliance webhook manual dari local:
+7. Test compliance webhook manually from local:
 
-PowerShell untuk generate HMAC dan kirim request:
+PowerShell to generate HMAC and send the request:
 
 ```powershell
-$secret = "SHOPIFY_API_SECRET_ANDA"
+$secret = "YOUR_SHOPIFY_API_SECRET"
 $body = '{"shop_id":42,"shop_domain":"demo-shop.myshopify.com","customer":{"id":777,"email":"buyer@example.com"},"orders_requested":[1001]}'
 $hmac = [Convert]::ToBase64String(
   [System.Security.Cryptography.HMACSHA256]::new([Text.Encoding]::UTF8.GetBytes($secret)).ComputeHash([Text.Encoding]::UTF8.GetBytes($body))
@@ -275,17 +292,17 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-8. Cek audit result:
+8. Check audit results:
 
 - `GET https://xxxx.ngrok-free.app/api/compliance/requests`
-- untuk `shop/redact`, cek juga file data lokal seperti `data/store-configs.json`, `data/shopify-tokens.json`, dan `data/payment-session-contexts.json`
+- For `shop/redact`, also check local data files such as `data/store-configs.json`, `data/shopify-tokens.json`, and `data/payment-session-contexts.json`
 
-## Flow Test Production
+## Production test flow
 
-1. Deploy app ke domain public.
-2. Set environment variable production:
+1. Deploy the app to a public domain.
+2. Set production environment variables:
 
-- `HOST=https://app-domain-anda.com`
+- `HOST=https://your-app-domain.com`
 - `STORAGE_DRIVER=mysql`
 - `MYSQL_HOST=...`
 - `MYSQL_PORT=3306`
@@ -295,52 +312,54 @@ Invoke-RestMethod `
 - `SHOPIFY_REDIRECT_PATH=/auth/callback`
 - `SHOPIFY_APP_UI_PATH=/app`
 
-3. Inisialisasi schema MySQL:
+3. Initialize MySQL schema:
 
 ```bash
 npm run db:init
 ```
 
-4. Jika sebelumnya masih memakai file JSON, migrasikan datanya:
+4. If you previously used JSON files, migrate the data:
 
 ```bash
 npm run migrate:mysql
 ```
 
-5. Build dan run:
+5. Build and run:
 
 ```bash
 npm run build
 npm start
 ```
 
-6. Isi URL berikut di Shopify Partner Dashboard:
+6. Configure these URLs in Shopify Partner Dashboard:
 
-- App URL: `https://app-domain-anda.com/app`
-- Allowed redirection URL: `https://app-domain-anda.com/auth/callback`
+- App URL: `https://your-app-domain.com/app`
+- Allowed redirection URL: `https://your-app-domain.com/auth/callback`
 - Compliance webhooks:
-  - `https://app-domain-anda.com/webhooks/shopify/customers/data_request`
-  - `https://app-domain-anda.com/webhooks/shopify/customers/redact`
-  - `https://app-domain-anda.com/webhooks/shopify/shop/redact`
+  - `https://your-app-domain.com/webhooks/shopify/customers/data_request`
+  - `https://your-app-domain.com/webhooks/shopify/customers/redact`
+  - `https://your-app-domain.com/webhooks/shopify/shop/redact`
 
-7. Install app di development store / merchant store uji.
-8. Pastikan sesudah approve OAuth, browser masuk lagi ke `/app` dan token tersimpan.
-9. Uji compliance webhook:
+7. Install the app on a development store / test merchant store.
+8. After OAuth approval, confirm the browser returns to `/app` and the token is saved.
+9. Test compliance webhooks:
 
-- Trigger dari Shopify Partner Dashboard bila tersedia di environment Anda.
-- Atau kirim manual request signed HMAC ke domain production seperti contoh local di atas.
-- Verifikasi respons `200 OK` dan audit di `GET /api/compliance/requests`.
+- Trigger from Shopify Partner Dashboard if available in your environment.
+- Or send a manually signed HMAC request to production as in the local example above.
+- Verify `200 OK` response and audit at `GET /api/compliance/requests`.
 
-## Setup MySQL di cPanel
+## MySQL setup on cPanel
 
-1. Buat database MySQL baru di cPanel.
-2. Buat user MySQL lalu assign ke database dengan privilege penuh.
-3. Masukkan host, port, database, username, dan password ke env app.
-4. Jalankan `npm run db:init` dari environment app agar tabel dibuat otomatis.
-5. Jika perlu impor manual, schema SQL tersedia di `database/mysql-schema.sql`.
+1. Create a new MySQL database in cPanel.
+2. Create a MySQL user and assign full privileges to the database.
+3. Enter host, port, database, username, and password in the app env.
+4. Run `npm run db:init` from the app environment to create tables automatically.
+5. For manual import, SQL schema is available at `database/mysql-schema.sql`.
 
-## Perilaku Compliance Saat Ini
+See [`DEPLOY-CPANEL.md`](DEPLOY-CPANEL.md) for the full cPanel deployment guide.
 
-- `customers/data_request`: mencatat request dan merangkum data lokal yang terkait shop tanpa menyimpan email/phone customer di audit log.
-- `customers/redact`: mencatat request; saat ini app belum menyimpan PII customer persisten, jadi hasilnya no-op yang terdokumentasi.
-- `shop/redact`: menghapus data lokal shop yang cocok dari `store-configs`, `shopify-tokens`, dan `payment-session-contexts`, lalu mencatat hasil penghapusan ke audit log.
+## Current compliance behavior
+
+- `customers/data_request`: records the request and summarizes local shop-related data without storing customer email/phone in the audit log.
+- `customers/redact`: records the request; the app does not persist customer PII, so the result is a documented no-op.
+- `shop/redact`: removes matching local shop data from `store-configs`, `shopify-tokens`, and `payment-session-contexts`, then logs the deletion result in the audit log.

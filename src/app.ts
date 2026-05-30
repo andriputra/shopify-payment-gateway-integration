@@ -109,6 +109,11 @@ export function createApp(): express.Application {
         typeof swipePaymentMethodRaw === "string" && swipePaymentMethodRaw.trim()
           ? swipePaymentMethodRaw.trim().slice(0, 64)
           : undefined;
+      const swipeDeviceUserRaw = req.body?.swipeDeviceUser ?? req.body?.device_user;
+      const swipeDeviceUser =
+        typeof swipeDeviceUserRaw === "string" && swipeDeviceUserRaw.trim()
+          ? swipeDeviceUserRaw.trim().slice(0, 128)
+          : undefined;
 
       const shop = normalizeMerchantShopKey(shopInput);
       if (!shopInput || !shop || !orderId || !Number.isFinite(amount) || amount < 0) {
@@ -139,7 +144,8 @@ export function createApp(): express.Application {
         currency: currency.length === 3 ? currency : "IDR",
         orderId,
         customerEmail,
-        swipePaymentMethod
+        swipePaymentMethod,
+        swipeDeviceUser
       });
 
       return res.json({

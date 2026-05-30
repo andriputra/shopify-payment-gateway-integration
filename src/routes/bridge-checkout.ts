@@ -5,20 +5,27 @@ import { env } from "../config/env";
 import { PaymentService } from "../services/payment-service";
 import { SupportedProvider } from "../types";
 
-const createCheckoutSchema = z.object({
-  shop: z.string().min(3),
-  provider: z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const),
-  amount: z.coerce.number().min(0),
-  currency: z.string().length(3),
-  orderId: z.string().min(1),
-  customerEmail: z.string().email().optional(),
-  returnUrl: z.string().url().optional(),
-  swipePaymentMethod: z.string().max(64).optional(),
-  forwardWebhookUrl: z.string().url().optional(),
-  forwardWebhookSecret: z.string().min(8).optional(),
-  /** Optional auth duplicate for clients that cannot set headers. Prefer Bearer or X-Bridge-Checkout-Secret. */
-  secret: z.string().optional()
-});
+const createCheckoutSchema = z
+  .object({
+    shop: z.string().min(3),
+    provider: z.enum(["xendit", "midtrans", "swipe", "sandbox", "custom"] as const),
+    amount: z.coerce.number().min(0),
+    currency: z.string().length(3),
+    orderId: z.string().min(1),
+    customerEmail: z.string().email().optional(),
+    returnUrl: z.string().url().optional(),
+    swipePaymentMethod: z.string().max(64).optional(),
+    swipeDeviceUser: z.string().trim().min(1).max(128).optional(),
+    device_user: z.string().trim().min(1).max(128).optional(),
+    forwardWebhookUrl: z.string().url().optional(),
+    forwardWebhookSecret: z.string().min(8).optional(),
+    /** Optional auth duplicate for clients that cannot set headers. Prefer Bearer or X-Bridge-Checkout-Secret. */
+    secret: z.string().optional()
+  })
+  .transform(({ device_user, swipeDeviceUser, ...rest }) => ({
+    ...rest,
+    swipeDeviceUser: swipeDeviceUser ?? device_user
+  }));
 
 function bridgeCheckoutSecret(): string {
   return (env.bridgeCheckoutApiSecret || env.paymentStatusApiSecret || env.appSharedSecret).trim();

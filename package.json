@@ -2,15 +2,15 @@
   "name": "shopify-payment-gateway-integration",
   "version": "1.0.0",
   "private": true,
-  "author": "Agus Andri Putra",
+  "author": "Agus Andri Putra | flexbox indonesia",
   "license": "MIT",
   "homepage": ".",
   "repository": {
     "type": "git",
-    "url": "https://github.com/agusandrip/shopify-payment-gateway-integration.git"
+    "url": "https://github.com/andriputra/shopify-payment-gateway-integration.git"
   },
   "bugs": {
-    "url": "https://github.com/agusandrip/shopify-payment-gateway-integration/issues"
+    "url": "https://github.com/andriputra/shopify-payment-gateway-integration/issues"
   },
   "description": "Shopify payment gateway bridge with pluggable providers",
   "main": "dist/server.js",
