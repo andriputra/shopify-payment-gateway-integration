@@ -145,7 +145,7 @@ sequenceDiagram
 | Field                  | Description                                                                        |
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | `shop`                 | Merchant domain                                                                    |
-| `provider`             | `xendit` | `midtrans` | `swipe` | `sandbox` | `custom`                             |
+| `provider`             | `xendit`                                                                           |
 | `credentials.apiKey`   | Provider API key / merchant ID                                                     |
 | `credentials.extra.`*  | Swipe: `clientId`, `deviceUser`, `apiBaseUrl`, `createPath`, `paymentMethod`, etc. |
 | `redirectUrlAfterPaid` | Browser URL after successful payment                                               |

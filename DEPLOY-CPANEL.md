@@ -1,39 +1,40 @@
-# Deploy cPanel
+# Deploy on cPanel
 
-Panduan ini diasumsikan untuk cPanel dengan `Application Manager`, `Node.js`, dan `MySQL/MariaDB` aktif.
+This guide assumes cPanel with **Application Manager**, **Node.js**, and **MySQL/MariaDB** enabled.
 
-## 1. Persiapan cPanel
+## 1. cPanel preparation
 
-1. Buat subdomain khusus, misalnya `shopify-gateway.domainanda.com`.
-2. Di cPanel `Manage My Databases`, buat database dan user MySQL, lalu assign semua privilege.
-3. Pastikan fitur ini tersedia:
+1. Create a dedicated subdomain, e.g. `shopify-gateway.yourdomain.com`.
+2. In cPanel **Manage My Databases**, create a MySQL database and user, then assign all privileges.
+3. Ensure these features are available:
    - `Application Manager`
-   - `Git Version Control` atau akses upload file/SSH
+   - `Git Version Control` or file upload / SSH access
    - `ea-apache24-mod_env`
-   - salah satu `ea-nodejs16/18/20/22`
+   - One of `ea-nodejs16/18/20/22`
 
-Referensi resmi:
+Official references:
+
 - cPanel Application Manager: https://docs.cpanel.net/cpanel/software/application-manager/132/
 - cPanel Node.js app install: https://docs.cpanel.net/knowledge-base/web-services/how-to-install-a-node.js-application/
 - cPanel Manage My Databases: https://docs.cpanel.net/cpanel/databases/manage-my-databases/
 
 ## 2. Upload code
 
-Pilih salah satu:
+Choose one:
 
-- Clone repo via cPanel `Git Version Control`
-- Upload ZIP project lalu extract ke folder app, misalnya `~/shopify-payment-gateway-integration`
+- Clone the repo via cPanel **Git Version Control**
+- Upload a ZIP of the project and extract to the app folder, e.g. `~/shopify-payment-gateway-integration`
 
-Direktori app sebaiknya berisi file root ini:
+The app directory should contain these root files:
 
 - `package.json`
 - `app.js`
 - `src/`
 - `public/`
 
-## 3. Install dependency dan build
+## 3. Install dependencies and build
 
-Masuk via SSH atau Terminal cPanel lalu jalankan:
+Connect via SSH or cPanel Terminal, then run:
 
 ```bash
 cd ~/shopify-payment-gateway-integration
@@ -41,18 +42,18 @@ npm install
 npm run build
 ```
 
-## 4. Siapkan env production
+## 4. Prepare production env
 
-Salin template:
+Copy the template:
 
 ```bash
 cp .env.cpanel.production.example .env
 ```
 
-Isi minimal:
+Minimum required values:
 
 ```env
-HOST=https://shopify-gateway.domainanda.com
+HOST=https://shopify-gateway.yourdomain.com
 NODE_ENV=production
 STORAGE_DRIVER=mysql
 MYSQL_HOST=localhost
@@ -67,38 +68,38 @@ SHOPIFY_REDIRECT_PATH=/auth/callback
 SHOPIFY_APP_UI_PATH=/app
 ```
 
-Catatan:
+Notes:
 
-- Jika cPanel Anda mendukung environment variables di `Application Manager`, Anda bisa isi di UI.
-- Jika tidak, file `.env` ini tetap dibaca oleh app karena project memakai `dotenv`.
+- If your cPanel supports environment variables in **Application Manager**, you can set them in the UI.
+- Otherwise, this `.env` file is still read by the app because the project uses `dotenv`.
 
-## 5. Init schema database
+## 5. Initialize database schema
 
-Jalankan:
+Run:
 
 ```bash
 npm run db:init
 ```
 
-Jika sebelumnya ada data JSON lama, jalankan:
+If you previously had JSON data, run:
 
 ```bash
 npm run migrate:mysql
 ```
 
-## 6. Register app di Application Manager
+## 6. Register the app in Application Manager
 
-Di cPanel `Application Manager`, isi:
+In cPanel **Application Manager**, configure:
 
-- `Application Name`: `shopify-payment-gateway`
-- `Deployment Domain`: subdomain khusus Anda, misalnya `shopify-gateway.domainanda.com`
-- `Base Application URL`: `/`
-- `Application Path`: `shopify-payment-gateway-integration`
-- `Deployment Environment`: `Production`
+- **Application Name:** `shopify-payment-gateway`
+- **Deployment Domain:** your dedicated subdomain, e.g. `shopify-gateway.yourdomain.com`
+- **Base Application URL:** `/`
+- **Application Path:** `shopify-payment-gateway-integration`
+- **Deployment Environment:** `Production`
 
-Lalu tambahkan environment variables di UI jika fitur ini aktif. cPanel mendokumentasikan bahwa field ini dipakai saat register/edit app dan membutuhkan `ea-apache24-mod_env`.
+Then add environment variables in the UI if that feature is enabled. cPanel documents that these fields are used when registering/editing an app and require `ea-apache24-mod_env`.
 
-Saran variable yang diisi di UI:
+Suggested variables to set in the UI:
 
 - `HOST`
 - `NODE_ENV`
@@ -116,73 +117,73 @@ Saran variable yang diisi di UI:
 - `SHOPIFY_SCOPES`
 - `SHOPIFY_PAYMENTS_API_VERSION`
 
-## 7. Enable dependency / deploy ulang
+## 7. Enable dependencies / redeploy
 
-Sesudah register:
+After registration:
 
-1. Klik `Enable Dependencies`
-2. Jika ada tombol `Deploy`, jalankan `Deploy`
-3. Jika app tidak refresh, buat file restart:
+1. Click **Enable Dependencies**
+2. If a **Deploy** button is available, run **Deploy**
+3. If the app does not refresh, create a restart file:
 
 ```bash
 mkdir -p tmp
 touch tmp/restart.txt
 ```
 
-cPanel dan docs Passenger menjelaskan bahwa `restart.txt` dipakai untuk memicu restart app setelah perubahan.
+cPanel and Passenger docs explain that `restart.txt` triggers an app restart after changes.
 
-## 8. URL Shopify Partner Dashboard
+## 8. Shopify Partner Dashboard URLs
 
-Isi URL ini di Shopify:
+Configure these URLs in Shopify:
 
-- App URL: `https://shopify-gateway.domainanda.com/app`
-- Allowed redirection URL: `https://shopify-gateway.domainanda.com/auth/callback`
-- Compliance webhook `customers/data_request`: `https://shopify-gateway.domainanda.com/webhooks/shopify/customers/data_request`
-- Compliance webhook `customers/redact`: `https://shopify-gateway.domainanda.com/webhooks/shopify/customers/redact`
-- Compliance webhook `shop/redact`: `https://shopify-gateway.domainanda.com/webhooks/shopify/shop/redact`
+- App URL: `https://shopify-gateway.yourdomain.com/app`
+- Allowed redirection URL: `https://shopify-gateway.yourdomain.com/auth/callback`
+- Compliance webhook `customers/data_request`: `https://shopify-gateway.yourdomain.com/webhooks/shopify/customers/data_request`
+- Compliance webhook `customers/redact`: `https://shopify-gateway.yourdomain.com/webhooks/shopify/customers/redact`
+- Compliance webhook `shop/redact`: `https://shopify-gateway.yourdomain.com/webhooks/shopify/shop/redact`
 
-## 9. Test setelah deploy
+## 9. Post-deploy testing
 
-1. Buka:
+1. Open:
 
 ```text
-https://shopify-gateway.domainanda.com/app
+https://shopify-gateway.yourdomain.com/app
 ```
 
-2. Klik install Shopify dari UI.
-3. Pastikan setelah OAuth Anda kembali ke:
+2. Click **Install Shopify** from the UI.
+3. After OAuth, confirm you return to:
 
 ```text
 /app?installed=1&shop=...
 ```
 
-4. Verifikasi install:
+4. Verify install:
 
 ```text
-GET https://shopify-gateway.domainanda.com/auth/shopify/status/<shop-domain>
+GET https://shopify-gateway.yourdomain.com/auth/shopify/status/<shop-domain>
 ```
 
-5. Verifikasi compliance audit:
+5. Verify compliance audit:
 
 ```text
-GET https://shopify-gateway.domainanda.com/api/compliance/requests
+GET https://shopify-gateway.yourdomain.com/api/compliance/requests
 ```
 
 ## 10. Troubleshooting
 
-- Log aplikasi Node.js di cPanel menurut dokumentasi Application Manager ada di folder `logs/` dalam direktori aplikasi.
-- Jika app update tapi belum aktif, jalankan:
+- Node.js application logs in cPanel Application Manager are in the `logs/` folder inside the application directory (per cPanel documentation).
+- If the app was updated but changes are not active, run:
 
 ```bash
 touch tmp/restart.txt
 ```
 
-- Jika MySQL tidak bisa diakses dari app:
-  - cek nama database/user cPanel yang sudah terprefix
-  - cek password
-  - cek `MYSQL_HOST` biasanya `localhost`
+- If MySQL is not reachable from the app:
+  - Check cPanel-prefixed database/user names
+  - Verify the password
+  - `MYSQL_HOST` is usually `localhost`
 
-- Jika Application Manager tidak menampilkan env var:
-  - host mungkin belum mengaktifkan `ea-apache24-mod_env`
+- If Application Manager does not show env vars:
+  - The host may not have `ea-apache24-mod_env` enabled
 
-- Jika app terpasang di path selain `/`, route Shopify Anda harus disesuaikan. Untuk approval Shopify, paling aman pakai subdomain khusus dengan base URL `/`.
+- If the app is mounted at a path other than `/`, Shopify routes must be adjusted accordingly. For Shopify approval, a dedicated subdomain with base URL `/` is safest.
