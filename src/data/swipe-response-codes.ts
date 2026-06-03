@@ -64,12 +64,8 @@ export const SWIPE_RESPONSE_CODES: Record<string, string> = {
   "-1021": "Data kartu tidak lengkap. Silakan coba dengan kartu lain.",
   "-1022": "Data kartu tidak valid. Silakan coba dengan kartu lain.",
   "-1023": "Terjadi kesalahan saat memproses transaksi. Silakan coba lagi.",
-  /**
-   * TEMPORARY: Observed on live callbacks with status Pending / message "Error Process"
-   * while EDC already shows paid. Treated as approved in webhook handling until Swipe documents the code.
-   */
-  "-10023":
-    "[TEMP] Error Process — vendor maps to paid on EDC; confirm definition with Swipe support.",
+  /** TEMP: Swipe sends "Error Process" but EDC is paid — treat as approved until vendor documents -10023. */
+  "-10023": "Paid (EDC approved; Swipe code -10023)",
   "-1024": "",
   "-1025": "PIN Required",
   "-1026": "Input Signature dibatalkan. Silakan mulai ulang transaksi.",

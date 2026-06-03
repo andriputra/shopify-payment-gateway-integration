@@ -7,7 +7,7 @@ import {
 } from "../services/swipe-transaction-log";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
 import { persistSwipePayload } from "../services/swipe-payload-persist";
-import { isSwipeApprovedResponseCode, lookupSwipeResponseMessage } from "../data/swipe-response-codes";
+import { isSwipeApprovedResponseCode, lookupSwipeResponseMessage, normalizeSwipeResponseCode } from "../data/swipe-response-codes";
 import {
   PaymentProvider,
   PaymentWebhookOutcome,
@@ -692,7 +692,7 @@ export const swipeProvider: PaymentProvider = {
   parseWebhook(_store: StoreConfig, payload: ProviderWebhookPayload) {
     const statusRaw = swipePrimaryStatus(payload);
     const edcResponseCode = extractSwipeEdcResponseCode(payload);
-    const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
+    let edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
     let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
     const statusUpper = statusRaw.trim().toUpperCase();
 
@@ -708,6 +708,14 @@ export const swipeProvider: PaymentProvider = {
     if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
       paid = true;
       outcome = "paid";
+    }
+
+    /** Swipe raw message "Error Process" for -10023 is misleading once mapped to paid — use code book text. */
+    if (paid && normalizeSwipeResponseCode(edcResponseCode) === "-10023") {
+      const bookMessage = lookupSwipeResponseMessage("-10023");
+      if (bookMessage) {
+        edcResponseMessage = bookMessage;
+      }
     }
     return {
       paid,

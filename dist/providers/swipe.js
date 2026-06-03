@@ -599,7 +599,7 @@ exports.swipeProvider = {
     parseWebhook(_store, payload) {
         const statusRaw = swipePrimaryStatus(payload);
         const edcResponseCode = extractSwipeEdcResponseCode(payload);
-        const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
+        let edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
         let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
         const statusUpper = statusRaw.trim().toUpperCase();
         /** Swipe EDC: approved codes include 0020 and temporary -10023 (see swipe-response-codes.ts). */
@@ -614,6 +614,13 @@ exports.swipeProvider = {
         if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
             paid = true;
             outcome = "paid";
+        }
+        /** Swipe raw message "Error Process" for -10023 is misleading once mapped to paid — use code book text. */
+        if (paid && (0, swipe_response_codes_1.normalizeSwipeResponseCode)(edcResponseCode) === "-10023") {
+            const bookMessage = (0, swipe_response_codes_1.lookupSwipeResponseMessage)("-10023");
+            if (bookMessage) {
+                edcResponseMessage = bookMessage;
+            }
         }
         return {
             paid,
