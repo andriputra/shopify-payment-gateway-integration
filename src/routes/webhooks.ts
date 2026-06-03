@@ -11,6 +11,7 @@ import {
   PaymentSessionContextStore
 } from "../storage/contracts";
 import { forwardPaymentWebhook } from "../services/payment-forward-webhook";
+import { isSwipeApprovedResponseCode } from "../data/swipe-response-codes";
 import { webhookOrderReference } from "../utils/webhook-order-ref";
 import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
@@ -73,7 +74,7 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           nextStatus = "failed";
         } else if (
           provider === "swipe" &&
-          (swipeExtras.swipeResponseCode === "0020" ||
+          (isSwipeApprovedResponseCode(swipeExtras.swipeResponseCode) ||
             swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
             /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))
         ) {

@@ -5,6 +5,7 @@ const express_1 = require("express");
 const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const payment_forward_webhook_1 = require("../services/payment-forward-webhook");
+const swipe_response_codes_1 = require("../data/swipe-response-codes");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 const shop_domain_1 = require("../utils/shop-domain");
 function webhookRoutes(service, deps) {
@@ -47,7 +48,7 @@ function webhookRoutes(service, deps) {
                     nextStatus = "failed";
                 }
                 else if (provider === "swipe" &&
-                    (swipeExtras.swipeResponseCode === "0020" ||
+                    ((0, swipe_response_codes_1.isSwipeApprovedResponseCode)(swipeExtras.swipeResponseCode) ||
                         swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
                         /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))) {
                     nextStatus = "paid";

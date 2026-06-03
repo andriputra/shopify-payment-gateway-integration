@@ -2,6 +2,38 @@
  * Swipe Pay EDC / gateway response code reference (vendor mapping).
  * Used for callback logging, MySQL seeding, and payment status API responses.
  */
+
+/**
+ * Codes that mean sale approved / paid on EDC callback (including temporary vendor quirks).
+ * Keep in sync with `parseWebhook` and `webhooks.ts` payment_redirect updates.
+ */
+export const SWIPE_APPROVED_RESPONSE_CODES = new Set([
+  "00",
+  "000",
+  "0020",
+  /** TEMPORARY: Swipe may send status Pending + message "Error Process" while EDC is already paid. Confirm with Swipe and remove when documented. */
+  "-10023"
+]);
+
+export function normalizeSwipeResponseCode(code: string | number | undefined | null): string {
+  if (code === undefined || code === null) {
+    return "";
+  }
+  return String(code).trim();
+}
+
+export function isSwipeApprovedResponseCode(code: string | number | undefined | null): boolean {
+  const key = normalizeSwipeResponseCode(code);
+  if (!key) {
+    return false;
+  }
+  if (SWIPE_APPROVED_RESPONSE_CODES.has(key)) {
+    return true;
+  }
+  const upper = key.toUpperCase();
+  return /^0{2,3}$/.test(upper);
+}
+
 export const SWIPE_RESPONSE_CODES: Record<string, string> = {
   "0": "Tidak ada alamat yang terkait dengan nama host",
   "1": "Kesalahan Koneksi",
@@ -32,6 +64,12 @@ export const SWIPE_RESPONSE_CODES: Record<string, string> = {
   "-1021": "Data kartu tidak lengkap. Silakan coba dengan kartu lain.",
   "-1022": "Data kartu tidak valid. Silakan coba dengan kartu lain.",
   "-1023": "Terjadi kesalahan saat memproses transaksi. Silakan coba lagi.",
+  /**
+   * TEMPORARY: Observed on live callbacks with status Pending / message "Error Process"
+   * while EDC already shows paid. Treated as approved in webhook handling until Swipe documents the code.
+   */
+  "-10023":
+    "[TEMP] Error Process — vendor maps to paid on EDC; confirm definition with Swipe support.",
   "-1024": "",
   "-1025": "PIN Required",
   "-1026": "Input Signature dibatalkan. Silakan mulai ulang transaksi.",

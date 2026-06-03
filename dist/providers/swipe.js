@@ -601,11 +601,9 @@ exports.swipeProvider = {
         const edcResponseCode = extractSwipeEdcResponseCode(payload);
         const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
         let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
-        const edcCode = (edcResponseCode ?? "").trim();
-        const edcUpper = edcCode.toUpperCase();
         const statusUpper = statusRaw.trim().toUpperCase();
-        /** Swipe EDC: 00 / 000 / 0020 = sale approved (common in QRIS/terminal callbacks). */
-        if (!paid && (edcUpper === "00" || edcUpper === "000" || edcUpper === "0020" || /^0{2,3}$/.test(edcUpper))) {
+        /** Swipe EDC: approved codes include 0020 and temporary -10023 (see swipe-response-codes.ts). */
+        if (!paid && (0, swipe_response_codes_1.isSwipeApprovedResponseCode)(edcResponseCode)) {
             paid = true;
             outcome = "paid";
         }
