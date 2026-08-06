@@ -78,6 +78,12 @@ function paymentStatusRoutes(paymentRedirectRepo) {
                 record = found.record;
                 matchedOrderReference = found.matchedReference;
             }
+            if (!record) {
+                record = await paymentRedirectRepo.getBySwipeRequestId(shopKey, orderRef);
+                if (record) {
+                    matchedOrderReference = record.orderReference;
+                }
+            }
         }
         if (!record && orderIdQuery) {
             record = await paymentRedirectRepo.getByShopifyOrderId(shopKey, (0, shop_domain_1.normalizeShopifyOrderGid)(orderIdQuery));
@@ -104,6 +110,8 @@ function paymentStatusRoutes(paymentRedirectRepo) {
             swipeResponseMessage: record.swipeResponseMessage ?? null,
             swipeResponseCodeBookMessage: codeBook ?? null,
             lastSwipeStatusRaw: record.lastSwipeStatusRaw ?? null,
+            swipeRequestId: record.swipeRequestId ?? null,
+            wsSessionId: record.wsSessionId ?? null,
             returnUrlAfterPaid: record.returnUrlAfterPaid ?? null,
             forwardWebhookUrl: record.forwardWebhookUrl ?? null,
             createdAt: record.createdAt,

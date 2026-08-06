@@ -49,4 +49,8 @@ export type CreateCheckoutResult = {
   returnUrlAfterPaid?: string;
   /** Your backend webhook — notified after provider callback is processed by this app. */
   forwardWebhookUrl?: string;
+  /** Swipe-only: `request_id` sent on create — used to match QRIS callbacks when `invoice_number` changes. */
+  requestId?: string;
+  /** Swipe-only: `invoice_number` sent on create (stored as payment redirect / InvStatus key). */
+  invoiceNumber?: string;
 };

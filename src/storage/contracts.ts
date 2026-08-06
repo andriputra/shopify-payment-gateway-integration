@@ -67,6 +67,10 @@ export type PaymentRedirectRecord = {
   swipeResponseMessage?: string;
   /** Raw payment_status / status string from the last Swipe callback. */
   lastSwipeStatusRaw?: string;
+  /** Swipe create `request_id` — match QRIS callbacks when terminal replaces `invoice_number`. */
+  swipeRequestId?: string;
+  /** SwingWireless `ws_session_id` from callback `additional_param` (push correlation). */
+  wsSessionId?: string;
   /** Per-checkout browser redirect (from bridge `returnUrl`); falls back to store config when absent. */
   returnUrlAfterPaid?: string;
   /** Merchant backend URL — app POSTs normalized event after provider webhook is processed. */
@@ -81,6 +85,8 @@ export type PaymentRedirectMergePatch = Partial<
     | "swipeResponseCode"
     | "swipeResponseMessage"
     | "lastSwipeStatusRaw"
+    | "swipeRequestId"
+    | "wsSessionId"
     | "paymentUrl"
     | "providerReference"
     | "shopifyOrderId"
@@ -94,6 +100,8 @@ export interface PaymentRedirectStore {
   upsert(record: PaymentRedirectRecord): Promise<PaymentRedirectRecord>;
   get(shop: string, orderReference: string): Promise<PaymentRedirectRecord | undefined>;
   getByShopifyOrderId(shop: string, shopifyOrderId: string): Promise<PaymentRedirectRecord | undefined>;
+  /** Look up by Swipe create `request_id` (QRIS callbacks often change `invoice_number`). */
+  getBySwipeRequestId(shop: string, swipeRequestId: string): Promise<PaymentRedirectRecord | undefined>;
   listByShop(shop: string, limit?: number): Promise<PaymentRedirectRecord[]>;
   markStatus(shop: string, orderReference: string, status: PaymentRedirectRecord["status"]): Promise<void>;
   mergeUpdate(shop: string, orderReference: string, patch: PaymentRedirectMergePatch): Promise<void>;

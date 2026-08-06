@@ -7,6 +7,7 @@ exports.swipeProvider = void 0;
 exports.effectiveSwipePaymentMethod = effectiveSwipePaymentMethod;
 exports.effectiveSwipeDeviceUser = effectiveSwipeDeviceUser;
 exports.swipePaymentMethodFromOrderNoteAttributes = swipePaymentMethodFromOrderNoteAttributes;
+exports.parseSwipeAdditionalParam = parseSwipeAdditionalParam;
 exports.swipeInvoiceNumberForOrder = swipeInvoiceNumberForOrder;
 exports.swipeTestPaymentRequest = swipeTestPaymentRequest;
 const node_http_1 = __importDefault(require("node:http"));
@@ -175,20 +176,40 @@ function swipePrimaryStatus(payload) {
         payload.paymentStatus ??
         "").trim();
 }
-function extractSwipeEdcResponseCode(payload) {
-    const candidates = [
-        payload.response_code,
-        payload.responseCode,
-        payload.error_code,
-        payload.errorCode,
-        payload.rc,
-        payload.result_code,
-        payload.resultCode,
-        payload.edc_response_code,
-        payload.edcResponseCode,
-        payload.swipe_response_code,
-        payload.swipeResponseCode
-    ];
+/**
+ * QRIS callbacks often nest settlement fields inside `additional_param` as a JSON string:
+ * `{"response_code":"0011","ws_session_id":"...","message":"PAYMENT ALREADY PAID.",...}`
+ */
+function parseSwipeAdditionalParam(payload) {
+    const raw = payload.additional_param ?? payload.additionalParam;
+    if (raw == null) {
+        return {};
+    }
+    if (typeof raw === "object" && !Array.isArray(raw)) {
+        return raw;
+    }
+    if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (!trimmed) {
+            return {};
+        }
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                return parsed;
+            }
+        }
+        catch {
+            /* leave empty — not JSON */
+        }
+    }
+    return {};
+}
+function swipeCallbackFieldLayers(payload) {
+    const nested = parseSwipeAdditionalParam(payload);
+    return Object.keys(nested).length > 0 ? [payload, nested] : [payload];
+}
+function firstNonEmptyString(...candidates) {
     for (const c of candidates) {
         if (c === undefined || c === null)
             continue;
@@ -199,14 +220,33 @@ function extractSwipeEdcResponseCode(payload) {
     }
     return undefined;
 }
+function extractSwipeEdcResponseCode(payload) {
+    for (const layer of swipeCallbackFieldLayers(payload)) {
+        const found = firstNonEmptyString(layer.response_code, layer.responseCode, layer.error_code, layer.errorCode, layer.rc, layer.result_code, layer.resultCode, layer.edc_response_code, layer.edcResponseCode, layer.swipe_response_code, layer.swipeResponseCode);
+        if (found) {
+            return found;
+        }
+    }
+    return undefined;
+}
+function extractSwipeWsSessionId(payload) {
+    for (const layer of swipeCallbackFieldLayers(payload)) {
+        const found = firstNonEmptyString(layer.ws_session_id, layer.wsSessionId);
+        if (found) {
+            return found;
+        }
+    }
+    return undefined;
+}
+function extractSwipeRequestId(payload) {
+    return firstNonEmptyString(payload.request_id, payload.requestId);
+}
 function swipeCallbackMessageFromPayloadOrDictionary(payload, code) {
-    const fromPayload = payload.response_message ??
-        payload.responseMessage ??
-        payload.error_message ??
-        payload.errorMessage ??
-        payload.message;
-    if (typeof fromPayload === "string" && fromPayload.trim()) {
-        return fromPayload.trim();
+    for (const layer of swipeCallbackFieldLayers(payload)) {
+        const fromPayload = firstNonEmptyString(layer.response_message, layer.responseMessage, layer.error_message, layer.errorMessage, layer.message);
+        if (fromPayload) {
+            return fromPayload;
+        }
     }
     if (code) {
         const fromDict = (0, swipe_response_codes_1.lookupSwipeResponseMessage)(code);
@@ -228,7 +268,10 @@ function classifySwipeGatewayOutcome(normalizedStatus) {
         "APPROVED",
         "SETTLEMENT",
         "CAPTURED",
-        "SUCCEEDED"
+        "SUCCEEDED",
+        /** QRIS / SwingWireless push callback */
+        "PROCESSED",
+        "OK"
     ]);
     const TIMEOUT = new Set(["TIMEOUT", "EXPIRED", "EXPIRE", "SESSION_TIMEOUT"]);
     const CANCELLED = new Set(["CANCELLED", "CANCELED", "VOID", "ABORTED"]);
@@ -544,7 +587,9 @@ exports.swipeProvider = {
                 });
                 return {
                     paymentUrl: fallbackUrl,
-                    providerReference: `swipe-fallback-${input.orderId}`
+                    providerReference: `swipe-fallback-${input.orderId}`,
+                    requestId: String(requestBody.request_id),
+                    invoiceNumber: String(requestBody.invoice_number)
                 };
             }
             throw new Error(`Swipe API error: ${response.status} — ${errText} | debug=${JSON.stringify(debugInfo)}`);
@@ -593,7 +638,9 @@ exports.swipeProvider = {
         return {
             paymentUrl,
             providerReference,
-            returnUrlAfterPaid: returnUrlAfterPaid ?? undefined
+            returnUrlAfterPaid: returnUrlAfterPaid ?? undefined,
+            requestId: String(requestBody.request_id),
+            invoiceNumber: String(requestBody.invoice_number)
         };
     },
     parseWebhook(_store, payload) {
@@ -602,7 +649,9 @@ exports.swipeProvider = {
         let edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
         let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
         const statusUpper = statusRaw.trim().toUpperCase();
-        /** Swipe EDC: approved codes include 0020 and temporary -10023 (see swipe-response-codes.ts). */
+        const requestId = extractSwipeRequestId(payload);
+        const wsSessionId = extractSwipeWsSessionId(payload);
+        /** Swipe EDC / QRIS: approved codes include 0020, 0011, temporary -10023 (see swipe-response-codes.ts). */
         if (!paid && (0, swipe_response_codes_1.isSwipeApprovedResponseCode)(edcResponseCode)) {
             paid = true;
             outcome = "paid";
@@ -611,24 +660,33 @@ exports.swipeProvider = {
             paid = true;
             outcome = "paid";
         }
-        if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
+        if (!paid &&
+            edcResponseMessage &&
+            /APPROVED|ALREADY\s+PAID|PAYMENT\s+ALREADY\s+PAID/i.test(edcResponseMessage)) {
             paid = true;
             outcome = "paid";
         }
-        /** Swipe raw message "Error Process" for -10023 is misleading once mapped to paid — use code book text. */
-        if (paid && (0, swipe_response_codes_1.normalizeSwipeResponseCode)(edcResponseCode) === "-10023") {
-            const bookMessage = (0, swipe_response_codes_1.lookupSwipeResponseMessage)("-10023");
-            if (bookMessage) {
-                edcResponseMessage = bookMessage;
+        /** Normalize misleading vendor messages once mapped to paid. */
+        if (paid) {
+            const codeKey = (0, swipe_response_codes_1.normalizeSwipeResponseCode)(edcResponseCode);
+            if (codeKey === "-10023" || codeKey === "0011") {
+                const bookMessage = (0, swipe_response_codes_1.lookupSwipeResponseMessage)(codeKey);
+                if (bookMessage) {
+                    edcResponseMessage = bookMessage;
+                }
             }
         }
+        const nested = parseSwipeAdditionalParam(payload);
+        const providerReference = String(firstNonEmptyString(payload.transaction_id, payload.id, payload.payment_id, payload.reference, nested.rrn, nested.approval_code, wsSessionId, requestId) ?? "");
         return {
             paid,
             outcome,
             statusRaw: statusRaw || undefined,
             edcResponseCode,
             edcResponseMessage,
-            providerReference: String(payload.transaction_id ?? payload.id ?? payload.payment_id ?? payload.reference ?? "")
+            requestId,
+            wsSessionId,
+            providerReference
         };
     }
 };

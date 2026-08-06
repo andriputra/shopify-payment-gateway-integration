@@ -25,3 +25,9 @@ export function webhookOrderReference(
   }
   return str(payload.order_id) || str(payload.external_id) || str(payload.orderId) || undefined;
 }
+
+/** Swipe create `request_id` — primary correlation when QRIS callback replaces `invoice_number`. */
+export function webhookSwipeRequestId(payload: Record<string, unknown>): string | undefined {
+  const str = (v: unknown) => (v === undefined || v === null ? "" : String(v)).trim();
+  return str(payload.request_id) || str(payload.requestId) || undefined;
+}

@@ -11,6 +11,8 @@ export const SWIPE_APPROVED_RESPONSE_CODES = new Set([
   "00",
   "000",
   "0020",
+  /** QRIS callback: additional_param.response_code with message "PAYMENT ALREADY PAID." / status Processed. */
+  "0011",
   /** TEMPORARY: Swipe may send status Pending + message "Error Process" while EDC is already paid. Confirm with Swipe and remove when documented. */
   "-10023"
 ]);
@@ -41,6 +43,7 @@ export const SWIPE_RESPONSE_CODES: Record<string, string> = {
   "3": "Koneksi waktu habis",
   "4": "Gagal terhubung",
   "5": "Terjadi Kesalahan, Silakan Coba Lagi",
+  "0011": "Paid (QRIS / PAYMENT ALREADY PAID)",
   "-1001": "Aid not found",
   "-1002": "Capk not found",
   "-1003": "Online Denied",

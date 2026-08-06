@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.webhookOrderReference = webhookOrderReference;
+exports.webhookSwipeRequestId = webhookSwipeRequestId;
 function webhookOrderReference(provider, payload) {
     const str = (v) => (v === undefined || v === null ? "" : String(v)).trim();
     if (provider === "midtrans") {
@@ -21,4 +22,9 @@ function webhookOrderReference(provider, payload) {
         return str(payload.orderId) || str(payload.order_id) || undefined;
     }
     return str(payload.order_id) || str(payload.external_id) || str(payload.orderId) || undefined;
+}
+/** Swipe create `request_id` — primary correlation when QRIS callback replaces `invoice_number`. */
+function webhookSwipeRequestId(payload) {
+    const str = (v) => (v === undefined || v === null ? "" : String(v)).trim();
+    return str(payload.request_id) || str(payload.requestId) || undefined;
 }

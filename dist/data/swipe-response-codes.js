@@ -17,6 +17,8 @@ exports.SWIPE_APPROVED_RESPONSE_CODES = new Set([
     "00",
     "000",
     "0020",
+    /** QRIS callback: additional_param.response_code with message "PAYMENT ALREADY PAID." / status Processed. */
+    "0011",
     /** TEMPORARY: Swipe may send status Pending + message "Error Process" while EDC is already paid. Confirm with Swipe and remove when documented. */
     "-10023"
 ]);
@@ -44,6 +46,7 @@ exports.SWIPE_RESPONSE_CODES = {
     "3": "Koneksi waktu habis",
     "4": "Gagal terhubung",
     "5": "Terjadi Kesalahan, Silakan Coba Lagi",
+    "0011": "Paid (QRIS / PAYMENT ALREADY PAID)",
     "-1001": "Aid not found",
     "-1002": "Capk not found",
     "-1003": "Online Denied",
@@ -67,11 +70,8 @@ exports.SWIPE_RESPONSE_CODES = {
     "-1021": "Data kartu tidak lengkap. Silakan coba dengan kartu lain.",
     "-1022": "Data kartu tidak valid. Silakan coba dengan kartu lain.",
     "-1023": "Terjadi kesalahan saat memproses transaksi. Silakan coba lagi.",
-    /**
-     * TEMPORARY: Observed on live callbacks with status Pending / message "Error Process"
-     * while EDC already shows paid. Treated as approved in webhook handling until Swipe documents the code.
-     */
-    "-10023": "[TEMP] Error Process — vendor maps to paid on EDC; confirm definition with Swipe support.",
+    /** TEMP: Swipe sends "Error Process" but EDC is paid — treat as approved until vendor documents -10023. */
+    "-10023": "Paid (EDC approved; Swipe code -10023)",
     "-1024": "",
     "-1025": "PIN Required",
     "-1026": "Input Signature dibatalkan. Silakan mulai ulang transaksi.",

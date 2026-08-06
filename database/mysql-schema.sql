@@ -53,9 +53,12 @@ CREATE TABLE IF NOT EXISTS payment_redirects (
   swipe_response_code VARCHAR(32) NULL,
   swipe_response_message TEXT NULL,
   last_swipe_status_raw VARCHAR(255) NULL,
+  swipe_request_id VARCHAR(128) NULL,
+  ws_session_id VARCHAR(128) NULL,
   PRIMARY KEY (shop, order_reference),
   INDEX idx_payment_redirect_shop (shop),
-  INDEX idx_payment_redirect_status (status)
+  INDEX idx_payment_redirect_status (status),
+  INDEX idx_payment_redirect_swipe_request_id (shop, swipe_request_id)
 );
 
 CREATE TABLE IF NOT EXISTS swipe_response_codes (
