@@ -35,6 +35,15 @@ export class PaymentRedirectRepository implements PaymentRedirectStore {
     return all.find((r) => r.shopifyOrderId && normalizeShopifyOrderGid(r.shopifyOrderId) === want);
   }
 
+  async getBySwipeRequestId(shop: string, swipeRequestId: string): Promise<PaymentRedirectRecord | undefined> {
+    const want = swipeRequestId.trim();
+    if (!want) {
+      return undefined;
+    }
+    const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
+    return all.find((r) => r.swipeRequestId?.trim() === want);
+  }
+
   async listByShop(shop: string, limit = 50): Promise<PaymentRedirectRecord[]> {
     const all = Object.values(this.readAll())
       .filter((r) => r.shop === shop)

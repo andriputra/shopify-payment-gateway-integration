@@ -14,6 +14,8 @@ export type PaymentForwardPayload = {
   providerReference?: string;
   swipeResponseCode?: string | null;
   swipeResponseMessage?: string | null;
+  swipeRequestId?: string | null;
+  wsSessionId?: string | null;
   returnUrlAfterPaid?: string | null;
   providerPayload: Record<string, unknown>;
   receivedAt: string;

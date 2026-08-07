@@ -157,7 +157,8 @@ function shopifyWebhookRoutes(authService, complianceService, deps) {
                 currency,
                 status: "pending",
                 createdAt: now,
-                updatedAt: now
+                updatedAt: now,
+                swipeRequestId: result.requestId?.trim() || undefined
             });
             return res.json({ ok: true, shop, orderRef, swipeOrderReference, paymentUrl: result.paymentUrl });
         }

@@ -46,7 +46,8 @@ class PaymentService {
                 updatedAt: now,
                 returnUrlAfterPaid,
                 forwardWebhookUrl: checkoutInput.forwardWebhookUrl?.trim() || undefined,
-                forwardWebhookSecret: checkoutInput.forwardWebhookSecret?.trim() || undefined
+                forwardWebhookSecret: checkoutInput.forwardWebhookSecret?.trim() || undefined,
+                swipeRequestId: result.requestId?.trim() || undefined
             });
         }
         return {

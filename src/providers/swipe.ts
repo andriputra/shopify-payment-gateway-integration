@@ -7,7 +7,7 @@ import {
 } from "../services/swipe-transaction-log";
 import { CreateCheckoutInput, CreateCheckoutResult, StoreConfig } from "../types";
 import { persistSwipePayload } from "../services/swipe-payload-persist";
-import { lookupSwipeResponseMessage } from "../data/swipe-response-codes";
+import { isSwipeApprovedResponseCode, lookupSwipeResponseMessage, normalizeSwipeResponseCode } from "../data/swipe-response-codes";
 import {
   PaymentProvider,
   PaymentWebhookOutcome,
@@ -204,20 +204,41 @@ function swipePrimaryStatus(payload: ProviderWebhookPayload): string {
   ).trim();
 }
 
-function extractSwipeEdcResponseCode(payload: ProviderWebhookPayload): string | undefined {
-  const candidates = [
-    payload.response_code,
-    payload.responseCode,
-    payload.error_code,
-    payload.errorCode,
-    payload.rc,
-    payload.result_code,
-    payload.resultCode,
-    payload.edc_response_code,
-    payload.edcResponseCode,
-    payload.swipe_response_code,
-    payload.swipeResponseCode
-  ];
+/**
+ * QRIS callbacks often nest settlement fields inside `additional_param` as a JSON string:
+ * `{"response_code":"0011","ws_session_id":"...","message":"PAYMENT ALREADY PAID.",...}`
+ */
+export function parseSwipeAdditionalParam(payload: Record<string, unknown>): Record<string, unknown> {
+  const raw = payload.additional_param ?? payload.additionalParam;
+  if (raw == null) {
+    return {};
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return {};
+    }
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* leave empty — not JSON */
+    }
+  }
+  return {};
+}
+
+function swipeCallbackFieldLayers(payload: ProviderWebhookPayload): Record<string, unknown>[] {
+  const nested = parseSwipeAdditionalParam(payload);
+  return Object.keys(nested).length > 0 ? [payload, nested] : [payload];
+}
+
+function firstNonEmptyString(...candidates: unknown[]): string | undefined {
   for (const c of candidates) {
     if (c === undefined || c === null) continue;
     const s = String(c).trim();
@@ -228,18 +249,57 @@ function extractSwipeEdcResponseCode(payload: ProviderWebhookPayload): string | 
   return undefined;
 }
 
+function extractSwipeEdcResponseCode(payload: ProviderWebhookPayload): string | undefined {
+  for (const layer of swipeCallbackFieldLayers(payload)) {
+    const found = firstNonEmptyString(
+      layer.response_code,
+      layer.responseCode,
+      layer.error_code,
+      layer.errorCode,
+      layer.rc,
+      layer.result_code,
+      layer.resultCode,
+      layer.edc_response_code,
+      layer.edcResponseCode,
+      layer.swipe_response_code,
+      layer.swipeResponseCode
+    );
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+function extractSwipeWsSessionId(payload: ProviderWebhookPayload): string | undefined {
+  for (const layer of swipeCallbackFieldLayers(payload)) {
+    const found = firstNonEmptyString(layer.ws_session_id, layer.wsSessionId);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
+function extractSwipeRequestId(payload: ProviderWebhookPayload): string | undefined {
+  return firstNonEmptyString(payload.request_id, payload.requestId);
+}
+
 function swipeCallbackMessageFromPayloadOrDictionary(
   payload: ProviderWebhookPayload,
   code: string | undefined
 ): string | undefined {
-  const fromPayload =
-    payload.response_message ??
-    payload.responseMessage ??
-    payload.error_message ??
-    payload.errorMessage ??
-    payload.message;
-  if (typeof fromPayload === "string" && fromPayload.trim()) {
-    return fromPayload.trim();
+  for (const layer of swipeCallbackFieldLayers(payload)) {
+    const fromPayload = firstNonEmptyString(
+      layer.response_message,
+      layer.responseMessage,
+      layer.error_message,
+      layer.errorMessage,
+      layer.message
+    );
+    if (fromPayload) {
+      return fromPayload;
+    }
   }
   if (code) {
     const fromDict = lookupSwipeResponseMessage(code);
@@ -266,7 +326,10 @@ function classifySwipeGatewayOutcome(normalizedStatus: string): {
     "APPROVED",
     "SETTLEMENT",
     "CAPTURED",
-    "SUCCEEDED"
+    "SUCCEEDED",
+    /** QRIS / SwingWireless push callback */
+    "PROCESSED",
+    "OK"
   ]);
   const TIMEOUT = new Set(["TIMEOUT", "EXPIRED", "EXPIRE", "SESSION_TIMEOUT"]);
   const CANCELLED = new Set(["CANCELLED", "CANCELED", "VOID", "ABORTED"]);
@@ -629,7 +692,9 @@ export const swipeProvider: PaymentProvider = {
         });
         return {
           paymentUrl: fallbackUrl,
-          providerReference: `swipe-fallback-${input.orderId}`
+          providerReference: `swipe-fallback-${input.orderId}`,
+          requestId: String(requestBody.request_id),
+          invoiceNumber: String(requestBody.invoice_number)
         };
       }
 
@@ -686,20 +751,22 @@ export const swipeProvider: PaymentProvider = {
     return {
       paymentUrl,
       providerReference,
-      returnUrlAfterPaid: returnUrlAfterPaid ?? undefined
+      returnUrlAfterPaid: returnUrlAfterPaid ?? undefined,
+      requestId: String(requestBody.request_id),
+      invoiceNumber: String(requestBody.invoice_number)
     };
   },
   parseWebhook(_store: StoreConfig, payload: ProviderWebhookPayload) {
     const statusRaw = swipePrimaryStatus(payload);
     const edcResponseCode = extractSwipeEdcResponseCode(payload);
-    const edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
+    let edcResponseMessage = swipeCallbackMessageFromPayloadOrDictionary(payload, edcResponseCode);
     let { paid, outcome } = classifySwipeGatewayOutcome(statusRaw);
-    const edcCode = (edcResponseCode ?? "").trim();
-    const edcUpper = edcCode.toUpperCase();
     const statusUpper = statusRaw.trim().toUpperCase();
+    const requestId = extractSwipeRequestId(payload);
+    const wsSessionId = extractSwipeWsSessionId(payload);
 
-    /** Swipe EDC: 00 / 000 / 0020 = sale approved (common in QRIS/terminal callbacks). */
-    if (!paid && (edcUpper === "00" || edcUpper === "000" || edcUpper === "0020" || /^0{2,3}$/.test(edcUpper))) {
+    /** Swipe EDC / QRIS: approved codes include 0020, 0011, temporary -10023 (see swipe-response-codes.ts). */
+    if (!paid && isSwipeApprovedResponseCode(edcResponseCode)) {
       paid = true;
       outcome = "paid";
     }
@@ -707,19 +774,49 @@ export const swipeProvider: PaymentProvider = {
       paid = true;
       outcome = "paid";
     }
-    if (!paid && edcResponseMessage && /APPROVED/i.test(edcResponseMessage)) {
+    if (
+      !paid &&
+      edcResponseMessage &&
+      /APPROVED|ALREADY\s+PAID|PAYMENT\s+ALREADY\s+PAID/i.test(edcResponseMessage)
+    ) {
       paid = true;
       outcome = "paid";
     }
+
+    /** Normalize misleading vendor messages once mapped to paid. */
+    if (paid) {
+      const codeKey = normalizeSwipeResponseCode(edcResponseCode);
+      if (codeKey === "-10023" || codeKey === "0011") {
+        const bookMessage = lookupSwipeResponseMessage(codeKey);
+        if (bookMessage) {
+          edcResponseMessage = bookMessage;
+        }
+      }
+    }
+
+    const nested = parseSwipeAdditionalParam(payload);
+    const providerReference = String(
+      firstNonEmptyString(
+        payload.transaction_id,
+        payload.id,
+        payload.payment_id,
+        payload.reference,
+        nested.rrn,
+        nested.approval_code,
+        wsSessionId,
+        requestId
+      ) ?? ""
+    );
+
     return {
       paid,
       outcome,
       statusRaw: statusRaw || undefined,
       edcResponseCode,
       edcResponseMessage,
-      providerReference: String(
-        payload.transaction_id ?? payload.id ?? payload.payment_id ?? payload.reference ?? ""
-      )
+      requestId,
+      wsSessionId,
+      providerReference
     };
   }
 };

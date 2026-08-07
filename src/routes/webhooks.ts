@@ -11,7 +11,8 @@ import {
   PaymentSessionContextStore
 } from "../storage/contracts";
 import { forwardPaymentWebhook } from "../services/payment-forward-webhook";
-import { webhookOrderReference } from "../utils/webhook-order-ref";
+import { isSwipeApprovedResponseCode } from "../data/swipe-response-codes";
+import { webhookOrderReference, webhookSwipeRequestId } from "../utils/webhook-order-ref";
 import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
 export type WebhookRoutesDeps = {
@@ -20,6 +21,36 @@ export type WebhookRoutesDeps = {
   paymentResolve?: ShopifyPaymentResolveService;
   orderService?: ShopifyOrderService;
 };
+
+/**
+ * Resolve the stored payment-redirect key for a Swipe callback.
+ * QRIS often replaces `invoice_number` with a terminal slip number — fall back to `request_id`.
+ */
+async function resolveSwipeOrderReference(
+  paymentRedirectRepo: PaymentRedirectStore | undefined,
+  shopKey: string,
+  body: Record<string, unknown>,
+  parsedRequestId?: string
+): Promise<{ orderRef: string | undefined; matchedVia: "invoice" | "request_id" | "none" }> {
+  const invoiceRef = webhookOrderReference("swipe", body);
+  if (invoiceRef && paymentRedirectRepo) {
+    const byInvoice = await paymentRedirectRepo.get(shopKey, invoiceRef);
+    if (byInvoice) {
+      return { orderRef: byInvoice.orderReference, matchedVia: "invoice" };
+    }
+  }
+
+  const requestId = (parsedRequestId || webhookSwipeRequestId(body) || "").trim();
+  if (requestId && paymentRedirectRepo) {
+    const byRequest = await paymentRedirectRepo.getBySwipeRequestId(shopKey, requestId);
+    if (byRequest) {
+      return { orderRef: byRequest.orderReference, matchedVia: "request_id" };
+    }
+  }
+
+  /** No stored redirect matched — keep callback invoice for logging only. */
+  return { orderRef: invoiceRef, matchedVia: "none" };
+}
 
 export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps): Router {
   const router = Router();
@@ -32,9 +63,11 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     res: Response
   ) => {
     const shopKey = normalizeMerchantShopKey(decodedShop);
+
     if (provider === "swipe") {
       const earlyRef =
         webhookOrderReference(provider, body) ||
+        webhookSwipeRequestId(body) ||
         String(body.invoice_number ?? body.merchant_reference ?? body.order_id ?? "__unknown__").trim();
       await persistSwipePayload({
         shop: shopKey,
@@ -46,7 +79,36 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     }
 
     const result = await service.handleWebhook(shopKey, provider, body);
-    const orderRef = webhookOrderReference(provider, body);
+
+    let orderRef =
+      provider === "swipe"
+        ? undefined
+        : webhookOrderReference(provider, body);
+    let matchedVia: "invoice" | "request_id" | "none" | "other" =
+      provider === "swipe" ? "none" : "other";
+
+    if (provider === "swipe") {
+      const resolved = await resolveSwipeOrderReference(
+        paymentRedirectRepo,
+        shopKey,
+        body,
+        result.requestId
+      );
+      orderRef = resolved.orderRef;
+      matchedVia = resolved.matchedVia;
+
+      /** When matched via request_id, also mirror under create invoice for InvStatus lookups. */
+      const callbackInvoice = webhookOrderReference(provider, body);
+      if (matchedVia === "request_id" && orderRef && orderRef !== callbackInvoice) {
+        await persistSwipePayload({
+          shop: shopKey,
+          orderReference: orderRef,
+          source: "swipe_webhook",
+          httpStatus: null,
+          bodyText: JSON.stringify(body)
+        });
+      }
+    }
 
     let paidRedirectRecord: PaymentRedirectRecord | undefined;
 
@@ -59,7 +121,9 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
             ? {
                 swipeResponseCode: result.edcResponseCode,
                 swipeResponseMessage: result.edcResponseMessage,
-                lastSwipeStatusRaw: result.statusRaw
+                lastSwipeStatusRaw: result.statusRaw,
+                swipeRequestId: result.requestId ?? record.swipeRequestId,
+                wsSessionId: result.wsSessionId ?? record.wsSessionId
               }
             : {};
         let nextStatus = record.status;
@@ -73,9 +137,11 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           nextStatus = "failed";
         } else if (
           provider === "swipe" &&
-          (swipeExtras.swipeResponseCode === "0020" ||
-            swipeExtras.lastSwipeStatusRaw?.toUpperCase() === "OK" ||
-            /APPROVED/i.test(String(swipeExtras.swipeResponseMessage ?? "")))
+          (isSwipeApprovedResponseCode(swipeExtras.swipeResponseCode) ||
+            ["OK", "PROCESSED"].includes(String(swipeExtras.lastSwipeStatusRaw ?? "").toUpperCase()) ||
+            /APPROVED|ALREADY\s+PAID|PAYMENT\s+ALREADY\s+PAID/i.test(
+              String(swipeExtras.swipeResponseMessage ?? "")
+            ))
         ) {
           nextStatus = "paid";
         }
@@ -87,6 +153,10 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
     let ctxAtCallback: PaymentSessionContext | undefined;
     if (orderRef && sessionContextRepo) {
       ctxAtCallback = await sessionContextRepo.get(orderRef);
+      /** Also try request_id key (saved at payment-session create). */
+      if (!ctxAtCallback && result.requestId) {
+        ctxAtCallback = await sessionContextRepo.get(result.requestId);
+      }
     }
     const sessionContextMatched = Boolean(ctxAtCallback && ctxAtCallback.shop === shopKey);
 
@@ -105,6 +175,9 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
         shopifyPaymentSession.message = resolved.message;
         if (resolved.ok) {
           await sessionContextRepo.delete(orderRef);
+          if (result.requestId) {
+            await sessionContextRepo.delete(result.requestId);
+          }
         }
       }
     }
@@ -144,9 +217,12 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
         sessionContextMatched,
         shopifyPaymentResolve: shopifyPaymentSession,
         payloadPreview: sanitizeSwipePayloadForLog(body),
-        note: orderRef
-          ? "HTTP callback received from Swipe (EDC settlement path); compare outcome vs Shopify resolve."
-          : "Callback missing invoice_number / merchant_reference — cannot match stored payment session context."
+        note:
+          matchedVia === "request_id"
+            ? "Matched via request_id (QRIS invoice_number may differ from create)."
+            : orderRef
+              ? "HTTP callback received from Swipe (EDC settlement path); compare outcome vs Shopify resolve."
+              : "Callback missing invoice_number / request_id match — cannot match stored payment session context."
       });
     }
 
@@ -176,6 +252,8 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
           providerReference: paidRedirectRecord?.providerReference ?? result.providerReference,
           swipeResponseCode: paidRedirectRecord?.swipeResponseCode ?? result.edcResponseCode ?? null,
           swipeResponseMessage: paidRedirectRecord?.swipeResponseMessage ?? result.edcResponseMessage ?? null,
+          swipeRequestId: paidRedirectRecord?.swipeRequestId ?? result.requestId ?? null,
+          wsSessionId: paidRedirectRecord?.wsSessionId ?? result.wsSessionId ?? null,
           returnUrlAfterPaid: paidRedirectRecord?.returnUrlAfterPaid ?? null,
           providerPayload: body,
           receivedAt: new Date().toISOString()
@@ -189,7 +267,15 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
       }
     }
 
-    res.json({ ok: true, ...result, redirectUrl, forwardWebhook, shopifyPaymentSession });
+    res.json({
+      ok: true,
+      ...result,
+      redirectUrl,
+      forwardWebhook,
+      shopifyPaymentSession,
+      matchedOrderReference: orderRef ?? null,
+      matchedVia
+    });
   };
 
   router.post("/payment/:provider/:shop", async (req, res, next) => {

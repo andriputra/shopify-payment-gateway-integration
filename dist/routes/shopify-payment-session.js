@@ -68,6 +68,13 @@ function shopifyPaymentSessionRoutes(deps) {
                 swipePaymentMethod: raw.swipePaymentMethod,
                 swipeDeviceUser: raw.swipeDeviceUser
             });
+            if (paymentSessionGid && result.requestId) {
+                await sessionContextRepo.save(result.requestId, {
+                    shop,
+                    paymentSessionId: paymentSessionGid,
+                    createdAt: new Date().toISOString()
+                });
+            }
             const sessionId = raw.id ?? `ps_${Date.now()}`;
             return res.status(201).json({
                 payment_session: {

@@ -217,8 +217,8 @@ class MysqlPaymentRedirectRepository {
         shop, order_reference, provider, payment_url, provider_reference, shopify_order_id,
         amount, currency, status, created_at, updated_at,
         swipe_response_code, swipe_response_message, last_swipe_status_raw, return_url_after_paid,
-        forward_webhook_url, forward_webhook_secret
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        forward_webhook_url, forward_webhook_secret, swipe_request_id, ws_session_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         provider = VALUES(provider),
         payment_url = VALUES(payment_url),
@@ -233,7 +233,9 @@ class MysqlPaymentRedirectRepository {
         last_swipe_status_raw = VALUES(last_swipe_status_raw),
         return_url_after_paid = VALUES(return_url_after_paid),
         forward_webhook_url = VALUES(forward_webhook_url),
-        forward_webhook_secret = VALUES(forward_webhook_secret)`, [
+        forward_webhook_secret = VALUES(forward_webhook_secret),
+        swipe_request_id = VALUES(swipe_request_id),
+        ws_session_id = VALUES(ws_session_id)`, [
             record.shop,
             record.orderReference,
             record.provider,
@@ -250,7 +252,9 @@ class MysqlPaymentRedirectRepository {
             record.lastSwipeStatusRaw ?? null,
             record.returnUrlAfterPaid ?? null,
             record.forwardWebhookUrl ?? null,
-            record.forwardWebhookSecret ?? null
+            record.forwardWebhookSecret ?? null,
+            record.swipeRequestId ?? null,
+            record.wsSessionId ?? null
         ]);
         return record;
     }
@@ -261,6 +265,14 @@ class MysqlPaymentRedirectRepository {
     async getByShopifyOrderId(shop, shopifyOrderId) {
         const want = (0, shop_domain_1.normalizeShopifyOrderGid)(shopifyOrderId);
         const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND shopify_order_id = ? LIMIT 1", [shop, want]);
+        return rows[0] ? this.mapRow(rows[0]) : undefined;
+    }
+    async getBySwipeRequestId(shop, swipeRequestId) {
+        const want = swipeRequestId.trim();
+        if (!want) {
+            return undefined;
+        }
+        const [rows] = await this.pool.query("SELECT * FROM payment_redirects WHERE shop = ? AND swipe_request_id = ? LIMIT 1", [shop, want]);
         return rows[0] ? this.mapRow(rows[0]) : undefined;
     }
     async listByShop(shop, limit = 50) {
@@ -303,6 +315,8 @@ class MysqlPaymentRedirectRepository {
             swipeResponseCode: row.swipe_response_code != null ? String(row.swipe_response_code) : undefined,
             swipeResponseMessage: row.swipe_response_message != null ? String(row.swipe_response_message) : undefined,
             lastSwipeStatusRaw: row.last_swipe_status_raw != null ? String(row.last_swipe_status_raw) : undefined,
+            swipeRequestId: row.swipe_request_id != null ? String(row.swipe_request_id) : undefined,
+            wsSessionId: row.ws_session_id != null ? String(row.ws_session_id) : undefined,
             returnUrlAfterPaid: row.return_url_after_paid != null ? String(row.return_url_after_paid) : undefined,
             forwardWebhookUrl: row.forward_webhook_url != null ? String(row.forward_webhook_url) : undefined,
             forwardWebhookSecret: row.forward_webhook_secret != null ? String(row.forward_webhook_secret) : undefined
@@ -461,6 +475,17 @@ function createMysqlStorage() {
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN return_url_after_paid TEXT NULL");
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN forward_webhook_url TEXT NULL");
             await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN forward_webhook_secret TEXT NULL");
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN swipe_request_id VARCHAR(128) NULL");
+            await ignoreDuplicateColumn(pool, "ALTER TABLE payment_redirects ADD COLUMN ws_session_id VARCHAR(128) NULL");
+            try {
+                await pool.execute("CREATE INDEX idx_payment_redirect_swipe_request_id ON payment_redirects (shop, swipe_request_id)");
+            }
+            catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (!/Duplicate key name|already exists/i.test(msg)) {
+                    throw err;
+                }
+            }
             await pool.execute(`
         CREATE TABLE IF NOT EXISTS swipe_response_codes (
           code VARCHAR(16) PRIMARY KEY,

@@ -29,6 +29,14 @@ class PaymentRedirectRepository {
         const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
         return all.find((r) => r.shopifyOrderId && (0, shop_domain_1.normalizeShopifyOrderGid)(r.shopifyOrderId) === want);
     }
+    async getBySwipeRequestId(shop, swipeRequestId) {
+        const want = swipeRequestId.trim();
+        if (!want) {
+            return undefined;
+        }
+        const all = Object.values(this.readAll()).filter((r) => r.shop === shop);
+        return all.find((r) => r.swipeRequestId?.trim() === want);
+    }
     async listByShop(shop, limit = 50) {
         const all = Object.values(this.readAll())
             .filter((r) => r.shop === shop)

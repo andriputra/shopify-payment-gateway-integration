@@ -21,6 +21,13 @@ export type ProviderWebhookResult = {
   edcResponseCode?: string;
   /** Resolved description for `edcResponseCode` (reference dictionary / payload). */
   edcResponseMessage?: string;
+  /** Swipe create `request_id` echoed on callback (primary QRIS correlation when invoice_number changes). */
+  requestId?: string;
+  /**
+   * SwingWireless session id from callback `additional_param.ws_session_id`
+   * (push correlation; general field, currently observed on QRIS).
+   */
+  wsSessionId?: string;
 };
 
 export interface PaymentProvider {
