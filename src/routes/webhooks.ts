@@ -12,6 +12,7 @@ import {
 } from "../storage/contracts";
 import { forwardPaymentWebhook } from "../services/payment-forward-webhook";
 import { isSwipeApprovedResponseCode } from "../data/swipe-response-codes";
+import { isSwipeCancelledResponseCode, isSwipeUserCancelMessage } from "../providers/swipe";
 import { webhookOrderReference, webhookSwipeRequestId } from "../utils/webhook-order-ref";
 import { normalizeMerchantShopKey } from "../utils/shop-domain";
 
@@ -144,6 +145,12 @@ export function webhookRoutes(service: PaymentService, deps?: WebhookRoutesDeps)
             ))
         ) {
           nextStatus = "paid";
+        } else if (
+          provider === "swipe" &&
+          (isSwipeUserCancelMessage(swipeExtras.swipeResponseMessage) ||
+            isSwipeCancelledResponseCode(swipeExtras.swipeResponseCode))
+        ) {
+          nextStatus = "failed";
         }
         await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
         paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };

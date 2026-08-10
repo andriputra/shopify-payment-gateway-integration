@@ -355,6 +355,33 @@ function classifySwipeGatewayOutcome(normalizedStatus: string): {
   return { paid: false, outcome: "unknown" };
 }
 
+/** Swipe / QRIS user abort — often `status: Pending` + message like "User Cancel Payment". */
+export function isSwipeUserCancelMessage(message: string | undefined | null): boolean {
+  if (!message || typeof message !== "string") {
+    return false;
+  }
+  const m = message.trim();
+  if (!m) {
+    return false;
+  }
+  return (
+    /USER\s+CANCEL(?:LED)?(?:\s+PAYMENT)?/i.test(m) ||
+    /CANCEL(?:LED)?\s+PAYMENT/i.test(m) ||
+    /PAYMENT\s+CANCEL(?:LED)?/i.test(m) ||
+    /CUSTOMER\s+CANCEL/i.test(m) ||
+    /TRANSAKSI\s+DIBATALKAN/i.test(m)
+  );
+}
+
+/** Vendor codes that mean cancelled / aborted (not paid). */
+export function isSwipeCancelledResponseCode(code: string | number | undefined | null): boolean {
+  const key = normalizeSwipeResponseCode(code);
+  if (!key) {
+    return false;
+  }
+  return key === "-1008";
+}
+
 function effectiveReturnUrlAfterPaid(store: StoreConfig, input: CreateCheckoutInput): string | undefined {
   const fromRequest = input.returnUrl?.trim();
   if (fromRequest) {
@@ -781,6 +808,15 @@ export const swipeProvider: PaymentProvider = {
     ) {
       paid = true;
       outcome = "paid";
+    }
+
+    /**
+     * QRIS / EDC often sends status Pending with message "User Cancel Payment" (or code -1008).
+     * Treat as cancelled so payment_redirects + forward webhook become failed (not stuck pending).
+     */
+    if (!paid && (isSwipeUserCancelMessage(edcResponseMessage) || isSwipeCancelledResponseCode(edcResponseCode))) {
+      paid = false;
+      outcome = "cancelled";
     }
 
     /** Normalize misleading vendor messages once mapped to paid. */

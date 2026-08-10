@@ -6,6 +6,7 @@ const swipe_payload_persist_1 = require("../services/swipe-payload-persist");
 const swipe_transaction_log_1 = require("../services/swipe-transaction-log");
 const payment_forward_webhook_1 = require("../services/payment-forward-webhook");
 const swipe_response_codes_1 = require("../data/swipe-response-codes");
+const swipe_1 = require("../providers/swipe");
 const webhook_order_ref_1 = require("../utils/webhook-order-ref");
 const shop_domain_1 = require("../utils/shop-domain");
 /**
@@ -96,6 +97,11 @@ function webhookRoutes(service, deps) {
                         ["OK", "PROCESSED"].includes(String(swipeExtras.lastSwipeStatusRaw ?? "").toUpperCase()) ||
                         /APPROVED|ALREADY\s+PAID|PAYMENT\s+ALREADY\s+PAID/i.test(String(swipeExtras.swipeResponseMessage ?? "")))) {
                     nextStatus = "paid";
+                }
+                else if (provider === "swipe" &&
+                    ((0, swipe_1.isSwipeUserCancelMessage)(swipeExtras.swipeResponseMessage) ||
+                        (0, swipe_1.isSwipeCancelledResponseCode)(swipeExtras.swipeResponseCode))) {
+                    nextStatus = "failed";
                 }
                 await paymentRedirectRepo.mergeUpdate(shopKey, orderRef, { status: nextStatus, ...swipeExtras });
                 paidRedirectRecord = { ...record, status: nextStatus, ...swipeExtras };

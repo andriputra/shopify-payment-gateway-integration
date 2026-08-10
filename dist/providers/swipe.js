@@ -8,6 +8,8 @@ exports.effectiveSwipePaymentMethod = effectiveSwipePaymentMethod;
 exports.effectiveSwipeDeviceUser = effectiveSwipeDeviceUser;
 exports.swipePaymentMethodFromOrderNoteAttributes = swipePaymentMethodFromOrderNoteAttributes;
 exports.parseSwipeAdditionalParam = parseSwipeAdditionalParam;
+exports.isSwipeUserCancelMessage = isSwipeUserCancelMessage;
+exports.isSwipeCancelledResponseCode = isSwipeCancelledResponseCode;
 exports.swipeInvoiceNumberForOrder = swipeInvoiceNumberForOrder;
 exports.swipeTestPaymentRequest = swipeTestPaymentRequest;
 const node_http_1 = __importDefault(require("node:http"));
@@ -293,6 +295,29 @@ function classifySwipeGatewayOutcome(normalizedStatus) {
         return { paid: false, outcome: "pending" };
     }
     return { paid: false, outcome: "unknown" };
+}
+/** Swipe / QRIS user abort — often `status: Pending` + message like "User Cancel Payment". */
+function isSwipeUserCancelMessage(message) {
+    if (!message || typeof message !== "string") {
+        return false;
+    }
+    const m = message.trim();
+    if (!m) {
+        return false;
+    }
+    return (/USER\s+CANCEL(?:LED)?(?:\s+PAYMENT)?/i.test(m) ||
+        /CANCEL(?:LED)?\s+PAYMENT/i.test(m) ||
+        /PAYMENT\s+CANCEL(?:LED)?/i.test(m) ||
+        /CUSTOMER\s+CANCEL/i.test(m) ||
+        /TRANSAKSI\s+DIBATALKAN/i.test(m));
+}
+/** Vendor codes that mean cancelled / aborted (not paid). */
+function isSwipeCancelledResponseCode(code) {
+    const key = (0, swipe_response_codes_1.normalizeSwipeResponseCode)(code);
+    if (!key) {
+        return false;
+    }
+    return key === "-1008";
 }
 function effectiveReturnUrlAfterPaid(store, input) {
     const fromRequest = input.returnUrl?.trim();
@@ -665,6 +690,14 @@ exports.swipeProvider = {
             /APPROVED|ALREADY\s+PAID|PAYMENT\s+ALREADY\s+PAID/i.test(edcResponseMessage)) {
             paid = true;
             outcome = "paid";
+        }
+        /**
+         * QRIS / EDC often sends status Pending with message "User Cancel Payment" (or code -1008).
+         * Treat as cancelled so payment_redirects + forward webhook become failed (not stuck pending).
+         */
+        if (!paid && (isSwipeUserCancelMessage(edcResponseMessage) || isSwipeCancelledResponseCode(edcResponseCode))) {
+            paid = false;
+            outcome = "cancelled";
         }
         /** Normalize misleading vendor messages once mapped to paid. */
         if (paid) {
